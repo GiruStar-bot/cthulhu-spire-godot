@@ -5,9 +5,13 @@ extends Node
 ## switch文 相当）。CollectionData（カード・ルーン・装備・デッキの実体、useCollectionStore
 ## 相当）とは別の永続化層。混同しないこと。
 ##
+## プロフィール（永続フィールド群）の計算式・保存/読込は scripts/profile.gd (class_name Profile)
+## に委譲し、ここで再実装しない。二重管理は値のズレの温床になる（引き継ぎ資料の地雷リスト参照）。
+##
 ## 参照: reference/cthulhu-spire-main/src/game/store.ts
 ##       reference/cthulhu-spire-main/src/game/profile.ts
 ##       reference/cthulhu-spire-main/src/game/floors.ts
+##       reference/cthulhu-spire-main/src/game/equipment.ts
 ##       reference/cthulhu-spire-main/src/components/game/GameApp.tsx
 ##
 ## 実ソースの Scene 型のうち "prologue" / "map" / "prepare" / "between" は
@@ -27,9 +31,9 @@ const SCENE_PATHS := {
 	"shatter": "res://scenes/end/Shatter.tscn",
 }
 
-# --- PlayerProfile 相当（拠点に永続、次ランへ引き継ぐ） ---
+# --- PlayerProfile 相当（拠点に永続、次ランへ引き継ぐ）。実体は Profile.gd 参照 ---
 var player_name: String = ""
-var stats: Dictionary = {"hp": 0, "san": 0, "intelligent": 0, "strength": 0, "energy": 0}
+var stats: Dictionary = Profile.empty_stats()
 var best_floor: int = 0
 var wins: int = 0
 var runs: int = 0
@@ -39,7 +43,7 @@ var madness: int = 0
 var profile_sanity = null  ## 次ラン開始時に引き継ぐ正気値。null＝未設定（満タンから開始）
 var seen_rlyeh: bool = false
 var grimoire_read: Array = []
-var equipped: Dictionary = {}  ## slot(String) -> EquipmentInstance(Dictionary)
+var equipped: Dictionary = {}  ## slot(String) -> EquipmentInstance(Dictionary, equipment.gd参照)
 var shells: int = 0
 var equipment_presets: Dictionary = {}
 var starter_chosen: bool = false
@@ -69,32 +73,73 @@ var toast: String = ""
 
 func _ready() -> void:
 	rng = Mulberry32.new(randi())
+	_load_profile()
 
 
-## profile.ts の derivedVitals().maxHp = 50 + stats.hp * 2
+## profile.ts の loadProfile() をGameStateのフィールドへ展開する（store.tsの`profile: loadProfile()`相当）
+func _load_profile() -> void:
+	var p := Profile.load_profile()
+	player_name = p.player_name
+	stats = p.stats
+	best_floor = p.best_floor
+	wins = p.wins
+	runs = p.runs
+	earned_points = p.earned_points
+	unspent_points = p.unspent_points
+	madness = p.madness
+	profile_sanity = p.sanity
+	seen_rlyeh = p.seen_rlyeh
+	grimoire_read = p.grimoire_read
+	equipped = p.equipped
+	shells = p.shells
+	equipment_presets = p.equipment_presets
+	starter_chosen = p.starter_chosen
+
+
+## store.ts の persist(profile) 相当。呼び出し箇所は実ソースの各アクションのpersist()呼び出しに対応。
+func _persist_profile() -> void:
+	Profile.save_profile({
+		"player_name": player_name,
+		"stats": stats,
+		"best_floor": best_floor,
+		"wins": wins,
+		"runs": runs,
+		"earned_points": earned_points,
+		"unspent_points": unspent_points,
+		"madness": madness,
+		"sanity": profile_sanity,
+		"seen_rlyeh": seen_rlyeh,
+		"grimoire_read": grimoire_read,
+		"equipped": equipped,
+		"shells": shells,
+		"equipment_presets": equipment_presets,
+		"starter_chosen": starter_chosen,
+	})
+
+
+## profile.ts の derivedVitals().maxHp
 func derived_max_hp() -> int:
-	return 50 + stats.hp * 2
+	return Profile.derived_vitals(stats, madness).max_hp
 
 
-## profile.ts の derivedVitals().maxSanity = max(0, 50 + stats.san * 2 - madnessPenalty)
+## profile.ts の derivedVitals().maxSanity
 func derived_max_sanity() -> int:
-	return max(0, 50 + stats.san * 2 - madness_penalty())
+	return Profile.derived_vitals(stats, madness).max_sanity
 
 
-## profile.ts の derivedVitals().energy = 3 + floor(stats.energy / 10)
+## profile.ts の derivedVitals().energy
 func derived_energy() -> int:
-	return 3 + int(stats.energy / 10.0)
+	return Profile.derived_vitals(stats, madness).energy
 
 
-## profile.ts の madnessPenalty(): madnessTiers * SANITY_PENALTY_PER_TIER(40)
+## profile.ts の madnessPenalty()
 func madness_penalty() -> int:
-	var tiers := int(max(0, madness) / 30.0)  ## MADNESS_STEP = 30
-	return tiers * 40
+	return Profile.madness_penalty(madness)
 
 
-## profile.ts の totalPoints(): 10層ごとに1ポイント
+## profile.ts の totalPoints()
 func total_points() -> int:
-	return max(0, int(best_floor / 10.0))
+	return Profile.total_points(best_floor)
 
 
 # ============================================================
@@ -106,8 +151,9 @@ func goto_scene(tree: SceneTree, next_scene: String) -> void:
 	tree.change_scene_to_file(SCENE_PATHS[next_scene])
 
 
-## store.ts の begin()：プレイ開始（タイトル→拠点）。ランテーブルを生成する。
+## store.ts の begin()：プレイ開始（タイトル→拠点）。プロフィールを再読込しランテーブルを生成する。
 func begin(tree: SceneTree) -> void:
+	_load_profile()
 	seed = randi()
 	rng = Mulberry32.new(seed)
 	run_floors = Floors.generate_run_table(rng, Floors.DEMO_MAX_FLOOR)
@@ -147,8 +193,14 @@ func start_run(tree: SceneTree) -> void:
 func enter_floor(tree: SceneTree, next_floor: int) -> void:
 	var table_len: int = run_floors.size() if run_floors.size() > 0 else Floors.DEMO_MAX_FLOOR
 	if next_floor > table_len:
+		## store.ts enterFloor()のvictory分岐：bestFloor/earnedPoints/unspentPoints/wins/sanityを更新して永続化
 		best_floor = max(best_floor, floor)
+		var budget := Profile.total_points(best_floor)
+		earned_points = budget
+		unspent_points = max(0, budget - Profile.stat_sum(stats))
 		wins += 1
+		profile_sanity = sanity
+		_persist_profile()
 		combat = null
 		reward = null
 		event = null
@@ -181,10 +233,18 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 ## store.ts の finishAdvance(carry) 相当。
 ## 10層毎のボス撃破（周回未終了時）は拠点(hub)に自動帰還＝中継点。
 ## 最終層到達で victory。それ以外は次の階層へ enter_floor する。
+## 注意：DEMO_MAX_FLOOR分岐は実ソースでもearnedPoints/unspentPointsを更新しない
+## （中継点分岐・enterFloorのvictory分岐とはフィールド更新内容が異なる）。実装ミスの可能性が
+## あるが、値のズレが実害を生まない箇所のため、忠実性を優先しそのまま移植する。
 func finish_advance(tree: SceneTree) -> void:
 	var spec: Dictionary = run_floors[floor - 1] if floor - 1 < run_floors.size() else {}
 	if spec.get("type", "") == "boss" and floor % 10 == 0 and floor < Floors.DEMO_MAX_FLOOR:
 		best_floor = max(best_floor, floor)
+		var budget := Profile.total_points(best_floor)
+		earned_points = budget
+		unspent_points = max(0, budget - Profile.stat_sum(stats))
+		profile_sanity = sanity
+		_persist_profile()
 		toast = "%sを越えた" % Floors.layer_label(floor)
 		combat = null
 		reward = null
@@ -194,6 +254,8 @@ func finish_advance(tree: SceneTree) -> void:
 	if floor >= Floors.DEMO_MAX_FLOOR:
 		best_floor = max(best_floor, floor)
 		wins += 1
+		profile_sanity = sanity
+		_persist_profile()
 		combat = null
 		reward = null
 		event = null
@@ -240,9 +302,15 @@ func resume_descent(tree: SceneTree) -> void:
 
 ## store.ts の extractToHub()（Hub中継点の「拠点へ帰還」／ヘッダーの「帰還」）
 func extract_to_hub(tree: SceneTree) -> void:
+	var left_floor := floor
 	best_floor = max(best_floor, floor)
+	var budget := Profile.total_points(best_floor)
+	earned_points = budget
+	unspent_points = max(0, budget - Profile.stat_sum(stats))
+	profile_sanity = sanity
+	_persist_profile()
 	reset_run()
-	toast = "%sから帰還した" % Floors.layer_label(floor)
+	toast = "%sから帰還した" % Floors.layer_label(left_floor)
 	goto_scene(tree, "hub")
 
 
@@ -251,14 +319,17 @@ func extract_to_hub(tree: SceneTree) -> void:
 ## "hub" にする食い違いがあるが、これは実装ミスと判断し、Godot版ではボタン表記を
 ## 「帰還」に修正した（End.gd参照）。give_up()自体の動作（hubへ戻る）は変更していない。
 func give_up(tree: SceneTree) -> void:
+	profile_sanity = sanity
+	_persist_profile()
 	reset_run()
 	goto_scene(tree, "hub")
 
 
 ## store.ts の acceptShatter()（ShatterView「タイトル」）。
-## 実際は wipeProfile() でプロフィール全体を初期化するが、
-## 装備・カード等の永続データ消去はフェーズB以降のため、ここではラン状態のみリセットする。
+## wipeProfile()自体は lose_combat() 側（実ソースのpresentCombat lose分岐相当）で
+## 既に実行済みのため、ここでは実ソース同様 loadProfile() の再読込のみ行う。
 func accept_shatter(tree: SceneTree) -> void:
+	_load_profile()
 	reset_run()
 	player_name = ""
 	goto_scene(tree, "title")
@@ -271,13 +342,24 @@ func win_combat(tree: SceneTree) -> void:
 	goto_scene(tree, "reward")
 
 
-## 戦闘敗北（フェーズAではカード無しのダミー）。
-## markDefeat() 相当：最深階層のみ更新し floor はリセットしない（giveUp()まで保持）。
-## 正気0（かつ狂信者フルセット未装備）なら shatter、それ以外は defeat。
-func lose_combat(tree: SceneTree) -> void:
+## store.ts の markDefeat() 相当：最深階層・獲得ポイント・正気を更新して永続化する。
+func _mark_defeat() -> void:
 	best_floor = max(best_floor, floor)
-	if sanity <= 0 or max_sanity <= 0:
-		reset_run()
+	var budget := Profile.total_points(best_floor)
+	earned_points = budget
+	unspent_points = max(0, budget - Profile.stat_sum(stats))
+	profile_sanity = sanity
+	_persist_profile()
+
+
+## 戦闘敗北（フェーズAではカード無しのダミー）。
+## markDefeat()相当でプロフィールを更新後、正気0（かつ狂信者フルセット未装備）なら
+## shatter（wipeProfile）、それ以外は defeat へ。
+func lose_combat(tree: SceneTree) -> void:
+	_mark_defeat()
+	if (sanity <= 0 or max_sanity <= 0) and not Equipment.has_full_set(equipped, "fanatic"):
+		Profile.wipe_profile()
+		_load_profile()
 		player_name = ""
 		goto_scene(tree, "shatter")
 	else:

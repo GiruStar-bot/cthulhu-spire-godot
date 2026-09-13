@@ -38,7 +38,13 @@ res://
 │                            # resumeDescent/extractToHub/giveUp/acceptShatter等）もここに集約
 ├── scripts/
 │   ├── mulberry32.gd       # rng.ts の mulberry32() 移植（class_name Mulberry32）
-│   └── floors.gd           # floors.ts の typeFor()/generateRunTable() 移植（class_name Floors）
+│   ├── floors.gd           # floors.ts の typeFor()/generateRunTable() 移植（class_name Floors）
+│   ├── profile.gd          # profile.ts の純粋関数群＋セーブ/ロード移植（class_name Profile）。
+│   │                        # GameState.gd の永続プロフィール系フィールドの計算式はここに一本化
+│   ├── equipment.gd        # equipment.ts 全35種の装備定義＋ロール処理移植（class_name Equipment）
+│   └── runes.gd            # runes.ts 全9種のルーン定義移植（class_name Runes）。
+│                            # 引き継ぎ資料v2(3-4-8)は「現存6種」と書いてあるが実ソースは9種。
+│                            # ドキュメントより実コードを正とし9種全て移植済み
 ├── scenes/
 │   ├── main_menu/          # TitleScreen.tsx 相当
 │   ├── hub/                # HubScreen.tsx 相当（単一画面、タブで descend/deck/equipment/
@@ -84,6 +90,29 @@ shatter --accept_shatter--> title
 3. `GameState`に最低限のダミー値（現在階層・HP/SAN等）を持たせ、画面間で値が引き継がれることを確認する
 
 これが動いたら、次はB（戦闘ループの最小実装：カード1枚をプレイしてダメージが飛ぶ）に進む想定。
+
+## 体制（複数エージェント並行作業）
+
+以降、3エージェントが別ブランチで並行して作業する：
+
+- **Grok**: `cards.ts`/`combat.ts`相当（カードデータ・戦闘ロジック）の移植
+- **Codex**: ビジュアル/UI層の実装
+- **Claude（このエージェント）**: `equipment.ts`/`runes.ts`/`profile.ts`のGDScript移植、
+  `GameState.gd`/`CollectionData.gd`のデータ構造整合性の維持、他ブランチとのマージ調整
+
+**実装済み（Claude担当分）**:
+- `scripts/profile.gd` / `scripts/equipment.gd`（装備35種）/ `scripts/runes.gd`（ルーン9種）
+- `autoload/GameState.gd`の永続プロフィール系フィールドは`Profile`の関数に委譲（二重管理を排除）
+- プロフィールのセーブ/ロード（`user://cthulhu_spire_profile_v1.json`）を実装。`begin()`/`extract_to_hub()`/
+  `give_up()`/`lose_combat()`（`markDefeat()`相当）/`accept_shatter()`等、実ソースで`persist(profile)`が
+  呼ばれる箇所に対応する`_persist_profile()`呼び出しを配線済み
+- 正気0での「全ロスト」判定に`hasFullSet(equipped, "fanatic")`ガードが実ソースにあるのに
+  フェーズA初期実装で漏れていたのを発見し、`lose_combat()`に追加（データ整合性チェックで発見した実バグ修正）
+
+**他ブランチをマージする際の注意**: `git fetch`で最新化してから作業すること。`GameState.gd`/
+`CollectionData.gd`のフィールドを他エージェントが拡張する可能性があるため、コンフリクト解消時は
+両者のフィールド定義を洗い出し、永続化データ（`Profile.empty_profile()`/`_persist_profile()`/
+`_load_profile()`）が新フィールドを見落としていないか必ず確認する。
 
 ## 移植時に踏みやすい地雷（React版で実際に発生したもの。GDScript版でも要注意）
 
