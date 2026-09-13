@@ -230,8 +230,11 @@ static func compute_equipment_stats(equipped: Dictionary, peek_rune_fn: Callable
 		for rune_id in (inst.get("socketed_runes", []) as Array):
 			if rune_id == null:
 				continue
-			var rune: Dictionary = peek_rune_fn.call(rune_id)
-			if rune.is_empty():
+			## peek_rune_fn（CollectionData.peek_rune()）はルーンが見つからない場合
+			## Dictionaryではなくnullを返すため、Dictionary型で受けずVariantで受ける
+			## （nullをDictionary型変数へ代入すると実行時エラーになるため）。
+			var rune = peek_rune_fn.call(rune_id)
+			if rune == null or rune.is_empty():
 				continue
 			match rune.get("effect", ""):
 				"BLK+":

@@ -28,6 +28,41 @@ var active_deck: String = DEFAULT_DECK_NAME
 var rune_registry: Dictionary = {}  ## ルーンid -> ルーンDictionary（装備に装着中でも参照可能に）
 var pack_tickets: Dictionary = {}  ## アーキタイプ -> 所持枚数
 
+## useCollectionStore.ts の STARTER_CARDS（起動時に一度だけ所持カードへ投入する）
+const STARTER_CARDS := [
+	{"id": "strike", "count": 4},
+	{"id": "ward", "count": 4},
+	{"id": "study", "count": 2},
+	{"id": "whisper", "count": 2},
+	{"id": "insight", "count": 2},
+	{"id": "lash", "count": 2},
+	{"id": "dressing", "count": 2},
+	{"id": "sweep", "count": 2},
+]
+
+
+## useCollectionStore.ts の seedInventory()。CollectionDataには永続化がまだ無いため
+## （フェーズB以降で対応）、起動の度に毎回これで初期化する。
+func _ready() -> void:
+	var cards: Array = []
+	for entry in STARTER_CARDS:
+		for i in int(entry.count):
+			cards.append({
+				"instance_id": "ci_%s_%s" % [str(Time.get_ticks_usec()), str(randi())],
+				"base_card_id": entry.id,
+				"origin": "starter",
+			})
+	inventory.cards = cards
+
+	var runes: Array = []
+	for effect in Runes.RUNE_CATALOG.keys():
+		for i in range(2):
+			var value: int = Runes.RUNE_CATALOG[effect]
+			var rune := {"id": "rn_%s_%s" % [str(Time.get_ticks_usec()), str(randi())], "effect": effect, "value": value}
+			runes.append(rune)
+			rune_registry[rune.id] = rune
+	inventory.runes = runes
+
 
 ## GameState.equipped[slot] に入れる装備インスタンスをこのインベントリから取得するヘルパー。
 ## equipItem()等が実装されるフェーズB以降で使用する（現状は他の2エージェントとの
@@ -42,6 +77,113 @@ static func peek_equipment(inventory_equipment: Array, equipment_uid: String) ->
 ## useCollectionStore.ts の peekRune() 相当。combat.gd から装備込みステータス計算時に参照される。
 func peek_rune(id: String):
 	return rune_registry.get(id, null)
+
+
+# ============================================================
+# デッキ管理（useCollectionStore.ts の createDeck/deleteDeck/renameDeck/
+# setActiveDeck/addToDeck/removeFromDeck 相当）
+# ============================================================
+
+## useCollectionStore.ts の deckSize()
+static func deck_size(deck: Dictionary) -> int:
+	var total := 0
+	for v in deck.values():
+		total += int(v)
+	return total
+
+
+## useCollectionStore.ts の copiesOfBase()
+static func copies_of_base(deck: Dictionary, base_card_id: String) -> int:
+	return int(deck.get(base_card_id, 0))
+
+
+## useCollectionStore.ts の createDeck()
+func create_deck(deck_name: String) -> bool:
+	var trimmed := deck_name.strip_edges()
+	if trimmed.is_empty() or decks.has(trimmed):
+		return false
+	decks[trimmed] = {}
+	active_deck = trimmed
+	return true
+
+
+## useCollectionStore.ts の deleteDeck()。デッキが1つしか無い場合は削除しない。
+func delete_deck(deck_name: String) -> void:
+	if decks.size() <= 1 or not decks.has(deck_name):
+		return
+	decks.erase(deck_name)
+	if active_deck == deck_name:
+		active_deck = decks.keys()[0]
+
+
+## useCollectionStore.ts の renameDeck()
+func rename_deck(old_name: String, new_name: String) -> bool:
+	var trimmed := new_name.strip_edges()
+	if trimmed.is_empty() or decks.has(trimmed) or not decks.has(old_name):
+		return false
+	decks[trimmed] = decks[old_name]
+	decks.erase(old_name)
+	if active_deck == old_name:
+		active_deck = trimmed
+	return true
+
+
+## useCollectionStore.ts の setActiveDeck()
+func set_active_deck(deck_name: String) -> void:
+	if decks.has(deck_name):
+		active_deck = deck_name
+
+
+## useCollectionStore.ts の addToDeck()。DECK_LIMIT/COPY_LIMIT/所持枚数のいずれかを
+## 超える場合は失敗してfalseを返す。
+func add_to_deck(card_id: String) -> bool:
+	var deck: Dictionary = decks.get(active_deck, {})
+	var total := deck_size(deck)
+	var current := int(deck.get(card_id, 0))
+	var owned := 0
+	for c in inventory.cards:
+		if c.get("base_card_id", "") == card_id:
+			owned += 1
+	if total >= DECK_LIMIT or current >= COPY_LIMIT or current >= owned:
+		return false
+	deck[card_id] = current + 1
+	decks[active_deck] = deck
+	return true
+
+
+## useCollectionStore.ts の removeFromDeck()
+func remove_from_deck(card_id: String) -> void:
+	var deck: Dictionary = decks.get(active_deck, {})
+	var current := int(deck.get(card_id, 0))
+	if current <= 0:
+		return
+	if current - 1 <= 0:
+		deck.erase(card_id)
+	else:
+		deck[card_id] = current - 1
+	decks[active_deck] = deck
+
+
+## cardEvaluator.ts の loadoutError()。問題なければ空文字を返す。
+func loadout_error() -> String:
+	var deck: Dictionary = decks.get(active_deck, {})
+	var n := deck_size(deck)
+	if n <= 0:
+		return "デッキが空です。デッキ編成でカードを組んでください。"
+	if n < MIN_RUN_DECK:
+		return "デッキが%d枚未満です（現在 %d）。" % [MIN_RUN_DECK, n]
+	return ""
+
+
+## 所持カードをbase_card_idごとに集計する（デッキ編成タブの一覧表示用ヘルパー。
+## useCollectionStore.tsには無いが、inventory.cardsの集計はUI側で毎回書くと
+## 冗長なためここに置く）。
+func owned_card_counts() -> Dictionary:
+	var counts: Dictionary = {}
+	for c in inventory.cards:
+		var id: String = c.get("base_card_id", "")
+		counts[id] = int(counts.get(id, 0)) + 1
+	return counts
 
 
 ## useCollectionStore.ts の addLootEquipment()。uidが既に存在する場合は何もしない。
