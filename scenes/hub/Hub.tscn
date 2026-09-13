@@ -175,3 +175,40 @@ grow_vertical = 2
 visible = false
 horizontal_alignment = 1
 text = "未実装（フェーズB以降）"
+
+[node name="CommercePanel" type="VBoxContainer" parent="Root/Body/Content"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -220.0
+offset_right = 280.0
+offset_bottom = 220.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+theme_override_constants/separation = 10
+
+[node name="CommerceTitle" type="Label" parent="Root/Body/Content/CommercePanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "売却"
+horizontal_alignment = 1
+
+[node name="CommerceStatus" type="Label" parent="Root/Body/Content/CommercePanel"]
+layout_mode = 2
+autowrap_mode = 3
+text = "所持: 0貝殻"
+horizontal_alignment = 1
+
+[node name="CommerceList" type="VBoxContainer" parent="Root/Body/Content/CommercePanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="CommerceRefreshButton" type="Button" parent="Root/Body/Content/CommercePanel"]
+layout_mode = 2
+text = "一覧を更新"
