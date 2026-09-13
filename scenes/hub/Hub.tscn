@@ -1,0 +1,135 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/hub/Hub.gd" id="1"]
+
+[node name="Hub" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.09, 0.1, 0.06, 1)
+
+[node name="Root" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Header" type="HBoxContainer" parent="Root"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="PlayerNameLabel" type="Label" parent="Root/Header"]
+layout_mode = 2
+size_flags_horizontal = 0
+text = "無名"
+
+[node name="InfoLabel" type="Label" parent="Root/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 1
+text = "最深 — · デッキ 0/20"
+
+[node name="TopRightButton" type="Button" parent="Root/Header"]
+layout_mode = 2
+size_flags_horizontal = 0
+text = "タイトル"
+
+[node name="Body" type="HBoxContainer" parent="Root"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Nav" type="VBoxContainer" parent="Root/Body"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="DescendButton" type="Button" parent="Root/Body/Nav"]
+layout_mode = 2
+text = "探索開始"
+
+[node name="DeckButton" type="Button" parent="Root/Body/Nav"]
+layout_mode = 2
+text = "デッキ編成"
+
+[node name="EquipmentButton" type="Button" parent="Root/Body/Nav"]
+layout_mode = 2
+text = "装備"
+
+[node name="SellButton" type="Button" parent="Root/Body/Nav"]
+layout_mode = 2
+text = "売却"
+
+[node name="ShopButton" type="Button" parent="Root/Body/Nav"]
+layout_mode = 2
+text = "ショップ"
+
+[node name="PacksButton" type="Button" parent="Root/Body/Nav"]
+layout_mode = 2
+text = "カードパック"
+
+[node name="Content" type="Control" parent="Root/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="DescendPanel" type="VBoxContainer" parent="Root/Body/Content"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -80.0
+offset_right = 160.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="DescendStatusLabel" type="Label" parent="Root/Body/Content/DescendPanel"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "探索準備\n最深到達: 未潜航 · 貝殻 0"
+
+[node name="PrimaryActionButton" type="Button" parent="Root/Body/Content/DescendPanel"]
+layout_mode = 2
+text = "潜航開始"
+
+[node name="ExtractButton" type="Button" parent="Root/Body/Content/DescendPanel"]
+layout_mode = 2
+visible = false
+text = "拠点へ帰還"
+
+[node name="PlaceholderPanel" type="Label" parent="Root/Body/Content"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -140.0
+offset_top = -20.0
+offset_right = 140.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+horizontal_alignment = 1
+text = "未実装（フェーズB以降）"
