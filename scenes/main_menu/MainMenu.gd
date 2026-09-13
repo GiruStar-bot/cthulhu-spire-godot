@@ -5,10 +5,10 @@ extends Control
 ## ロゴ: .title-float（drift: 0%/100% translateY(0), 50% translateY(-7px), 6.2s ease-in-out infinite）
 ## ボタン: プレイ=begin()。設定/クレジットはビジュアル配置のみ（パネル自体はフェーズB以降）。
 
-@onready var logo_container: VBoxContainer = $LogoContainer
-@onready var play_button: Button = $ButtonRow/PlayButton
-@onready var settings_button: Button = $ButtonRow/SettingsButton
-@onready var credits_button: Button = $ButtonRow/CreditsButton
+@onready var logo_container: VBoxContainer = $Stage/LogoContainer
+@onready var play_button: Button = $Stage/ButtonRow/PlayButton
+@onready var settings_button: Button = $Stage/ButtonRow/SettingsButton
+@onready var credits_button: Button = $Stage/ButtonRow/CreditsButton
 
 var _logo_base_y: float
 
