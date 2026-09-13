@@ -1,8 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scenes/combat/Combat.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/pixel/bg/reef.jpg" id="2"]
-[ext_resource type="Texture2D" path="res://art/pixel/warden.png" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/ui/PixelButton.tscn" id="4"]
 
 [node name="Combat" type="Control"]
@@ -34,146 +33,112 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.0431, 0.051, 0.0627, 0.62)
 
-[node name="BattleStrip" type="Panel" parent="."]
+[node name="HudPanel" type="Panel" parent="."]
 layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_bottom = 54.0
-grow_horizontal = 2
-
-[node name="TitleLabel" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
+anchors_preset = 0
+offset_left = 12.0
 offset_top = 12.0
-offset_bottom = 42.0
-grow_horizontal = 2
-theme_override_colors/font_color = Color(0.7176, 0.6039, 0.3843, 1)
-theme_override_font_sizes/font_size = 15
-text = "潜航戦闘"
-horizontal_alignment = 1
+offset_right = 340.0
+offset_bottom = 148.0
 
-[node name="EnemyFigure" type="TextureRect" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -160.0
-offset_right = 150.0
-offset_bottom = 120.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("3")
-expand_mode = 1
-stretch_mode = 5
-modulate = Color(0.85, 0.85, 0.78, 0.58)
-
-[node name="EnemyPlaque" type="Panel" parent="."]
-layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -102.0
-offset_top = 74.0
-offset_right = 102.0
-offset_bottom = 111.0
-grow_horizontal = 2
-modulate = Color(1, 1, 1, 0.93)
-
-[node name="EnemyLabel" type="Label" parent="EnemyPlaque"]
+[node name="HudLabel" type="Label" parent="HudPanel"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(0.6039, 0.5765, 0.5255, 1)
-theme_override_font_sizes/font_size = 11
-text = "深淵の守護者"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="StatusFrame" type="Panel" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -190.0
-offset_top = 132.0
-offset_right = 190.0
-offset_bottom = 280.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="StatusLabel" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -170.0
-offset_top = 154.0
-offset_right = 170.0
-offset_bottom = 186.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_left = 10.0
+offset_top = 8.0
+offset_right = -10.0
+offset_bottom = -8.0
 theme_override_colors/font_color = Color(0.902, 0.8627, 0.7843, 1)
-text = "戦闘（ダミー）"
-horizontal_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = "HP --/--"
+autowrap_mode = 3
 
-[node name="RuleLabel" type="Label" parent="."]
+[node name="LogPanel" type="Panel" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -170.0
-offset_top = 190.0
-offset_right = 170.0
-offset_bottom = 214.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_colors/font_color = Color(0.6039, 0.5765, 0.5255, 1)
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -340.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = 168.0
+grow_horizontal = 0
+
+[node name="LogLabel" type="Label" parent="LogPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 8.0
+offset_right = -10.0
+offset_bottom = -8.0
+theme_override_colors/font_color = Color(0.7176, 0.6039, 0.3843, 1)
 theme_override_font_sizes/font_size = 11
-text = "カード戦闘は次フェーズで実装される"
+text = "戦闘ログ"
+autowrap_mode = 3
+
+[node name="EnemyRow" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -360.0
+offset_top = -200.0
+offset_right = 360.0
+offset_bottom = 40.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="MessageLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -248.0
+offset_bottom = -216.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.902, 0.8627, 0.7843, 1)
+theme_override_font_sizes/font_size = 13
+text = ""
 horizontal_alignment = 1
 
-[node name="WinButton" parent="." instance=ExtResource("4")]
+[node name="HandRow" type="HBoxContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -152.0
-offset_top = 230.0
-offset_right = -8.0
-offset_bottom = 274.0
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -200.0
+offset_right = -140.0
+offset_bottom = -16.0
 grow_horizontal = 2
-grow_vertical = 2
-text = "勝利"
+grow_vertical = 0
+theme_override_constants/separation = 8
+alignment = 1
 
-[node name="LoseButton" parent="." instance=ExtResource("4")]
+[node name="EndTurnButton" parent="." instance=ExtResource("4")]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = 8.0
-offset_top = 230.0
-offset_right = 152.0
-offset_bottom = 274.0
-grow_horizontal = 2
-grow_vertical = 2
-text = "敗北"
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -132.0
+offset_top = -72.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "ターン終了"
 
-[connection signal="pressed" from="WinButton" to="." method="_on_win_button_pressed"]
-[connection signal="pressed" from="LoseButton" to="." method="_on_lose_button_pressed"]
+[connection signal="pressed" from="EndTurnButton" to="." method="_on_end_turn_pressed"]
