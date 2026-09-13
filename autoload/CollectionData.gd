@@ -3,7 +3,7 @@ extends Node
 ## カード・ルーン・装備・デッキの実体（実ソース src/store/useCollectionStore.ts 相当）。
 ## GameState（ラン中の状態＋プロフィール、game/store.ts 相当）とは別の永続化層。混同しないこと。
 ##
-## 参照: reference/cthulhu-spire-main/src/store/useCollectionStore.ts
+## 参照: reference/src/store/useCollectionStore.ts
 
 const DECK_LIMIT := 20  ## 1デッキの最大枚数
 const COPY_LIMIT := 4  ## 同カードの最大所持枚数（デッキ内）
@@ -23,3 +23,8 @@ var decks: Dictionary = {DEFAULT_DECK_NAME: {}}  ## デッキ名 -> {カードid
 var active_deck: String = DEFAULT_DECK_NAME
 var rune_registry: Dictionary = {}  ## ルーンid -> ルーンDictionary（装備に装着中でも参照可能に）
 var pack_tickets: Dictionary = {}  ## アーキタイプ -> 所持枚数
+
+
+## useCollectionStore.ts peekRune()
+func peek_rune(id: String):
+	return rune_registry.get(id, null)
