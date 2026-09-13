@@ -183,11 +183,11 @@ func _refresh_hud() -> void:
 
 
 func _refresh_log() -> void:
-	var log: Array = state.get("log", [])
-	var start: int = maxi(0, log.size() - 6)
+	var log_lines: Array = state.get("log", [])
+	var start: int = maxi(0, log_lines.size() - 6)
 	var lines: PackedStringArray = PackedStringArray()
-	for i in range(start, log.size()):
-		lines.append(str(log[i]))
+	for i in range(start, log_lines.size()):
+		lines.append(str(log_lines[i]))
 	log_label.text = "\n".join(lines)
 
 
@@ -197,9 +197,9 @@ func _refresh_enemies() -> void:
 	for e in state.get("enemies", []):
 		var dead: bool = int(e.hp) <= 0
 		var def := Enemies.get_enemy(str(e.defId))
-		var wrap := VBoxContainer.new()
-		wrap.custom_minimum_size = Vector2(180, 220)
-		wrap.alignment = BoxContainer.ALIGNMENT_END
+		var enemy_wrap := VBoxContainer.new()
+		enemy_wrap.custom_minimum_size = Vector2(180, 220)
+		enemy_wrap.alignment = BoxContainer.ALIGNMENT_END
 		var art := TextureRect.new()
 		art.custom_minimum_size = Vector2(160, 140)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -209,15 +209,15 @@ func _refresh_enemies() -> void:
 			art.texture = load(art_path)
 		if dead:
 			art.modulate = Color(0.35, 0.35, 0.35, 0.45)
-		wrap.add_child(art)
+		enemy_wrap.add_child(art)
 		var intent: Dictionary = e.get("shownIntent", e.get("intent", {}))
 		var btn := PIXEL_BUTTON.instantiate()
 		btn.text = _enemy_label(def, e, intent, dead)
 		btn.disabled = dead or targeting_uid == "" or resolving
 		var uid: String = str(e.uid)
 		btn.pressed.connect(_on_enemy_pressed.bind(uid))
-		wrap.add_child(btn)
-		enemy_row.add_child(wrap)
+		enemy_wrap.add_child(btn)
+		enemy_row.add_child(enemy_wrap)
 
 
 func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool) -> String:

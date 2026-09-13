@@ -178,13 +178,13 @@ static func load_profile() -> Dictionary:
 	profile.unspent_points = max(0, budget - stat_sum(fitted))
 	profile.madness = max(0, int(parsed.get("madness", 0)))
 	profile.sanity = sanity
-	profile.seen_rlyeh = bool(parsed.get("seen_rlyeh", false))
+	profile.seen_rlyeh = not not parsed.get("seen_rlyeh", false)
 	profile.grimoire_read = grimoire_read
 	profile.equipped = parsed.get("equipped", {})
 	var shells_raw = parsed.get("shells", 0)
 	profile.shells = max(0, int(shells_raw)) if (typeof(shells_raw) == TYPE_FLOAT or typeof(shells_raw) == TYPE_INT) else 0
 	profile.equipment_presets = parsed.get("equipment_presets", {})
-	profile.starter_chosen = bool(parsed.get("starter_chosen", true)) if typeof(parsed.get("starter_chosen")) == TYPE_BOOL else true
+	profile.starter_chosen = (not not parsed.get("starter_chosen", true)) if typeof(parsed.get("starter_chosen")) == TYPE_BOOL else true
 	return profile
 
 
