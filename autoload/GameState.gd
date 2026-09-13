@@ -179,7 +179,7 @@ func start_run(tree: SceneTree) -> void:
 	run_strength = 0
 	extra_energy_next = 0
 	act = 1
-	deck = []  ## 実際は loadoutDeck()（フェーズB以降）
+	deck = loadout_deck()
 	if run_floors.is_empty():
 		seed = randi()
 		rng = Mulberry32.new(seed)
@@ -217,8 +217,12 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 
 	var kind: String = spec.get("type", "combat")
 	if kind == "combat" or kind == "elite" or kind == "boss":
-		## 実際はここで startCombat() を呼びCombatStateを構築する（フェーズB以降）
-		combat = {"floor": floor, "kind": kind, "enemy_ids": spec.get("enemy_ids", [])}
+		## store.ts enterFloor(): spec.enemyIds が空なら encounterIds() で決定する。
+		## CombatState 本体は Combat.gd が CombatLogic.start_combat() で構築する。
+		var enemy_ids: Array = spec.get("enemy_ids", [])
+		if enemy_ids.is_empty():
+			enemy_ids = CombatLogic.encounter_ids(kind, floor, Callable(self, "_rand"))
+		combat = {"floor": floor, "kind": kind, "enemy_ids": enemy_ids}
 		goto_scene(tree, "combat")
 	elif kind == "rest":
 		rest_mode = "hub"
@@ -364,6 +368,50 @@ func lose_combat(tree: SceneTree) -> void:
 		goto_scene(tree, "shatter")
 	else:
 		goto_scene(tree, "defeat")
+
+
+func _rand() -> float:
+	return rng.next_float()
+
+
+## cardEvaluator.ts loadoutDeck() 相当。未編成なら調査員スターターを使う。
+func loadout_deck() -> Array:
+	var out: Array = []
+	var counts: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	if counts.is_empty():
+		var starter: Array = ["strike", "strike", "strike", "strike", "strike", "ward", "ward", "ward", "ward", "study"]
+		if character == "cultist":
+			starter = ["lash", "lash", "lash", "lash", "lash", "sigil", "sigil", "sigil", "sigil", "whisper"]
+		for id in starter:
+			out.append(Cards.make_card(str(id)))
+		return out
+	for card_id in counts.keys():
+		if not Cards.CARDS.has(card_id):
+			continue
+		for i in int(counts[card_id]):
+			out.append(Cards.make_card(str(card_id)))
+	return out
+
+
+## store.ts hookFrom() 相当。CombatLogic が HP/SAN を直接書き換える。
+func player_hook() -> Dictionary:
+	return {
+		"hp": hp,
+		"maxHp": max_hp,
+		"sanity": sanity,
+		"maxSanity": max_sanity,
+		"extraStrength": run_strength,
+		"extraEnergyNext": extra_energy_next,
+		"baseEnergy": derived_energy(),
+		"equipped": equipped,
+	}
+
+
+func apply_player_hook(hook: Dictionary) -> void:
+	hp = int(hook.hp)
+	max_hp = int(hook.maxHp)
+	sanity = int(hook.sanity)
+	max_sanity = int(hook.get("maxSanity", max_sanity))
 
 
 ## extractToHub() / giveUp() / accept_shatter() 共通のラン状態リセット
