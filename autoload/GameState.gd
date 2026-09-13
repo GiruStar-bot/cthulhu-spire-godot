@@ -117,6 +117,21 @@ func _persist_profile() -> void:
 	})
 
 
+func add_shells(amount: int) -> void:
+	if amount <= 0:
+		return
+	shells += amount
+	_persist_profile()
+
+
+func spend_shells(amount: int) -> bool:
+	if amount <= 0 or shells < amount:
+		return false
+	shells -= amount
+	_persist_profile()
+	return true
+
+
 ## profile.ts の derivedVitals().maxHp
 func derived_max_hp() -> int:
 	return Profile.derived_vitals(stats, madness).max_hp
