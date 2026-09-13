@@ -1,2 +1,0 @@
-# cthulhu-spire-godot
-あ
