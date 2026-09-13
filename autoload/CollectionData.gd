@@ -42,3 +42,81 @@ static func peek_equipment(inventory_equipment: Array, equipment_uid: String) ->
 ## useCollectionStore.ts の peekRune() 相当。combat.gd から装備込みステータス計算時に参照される。
 func peek_rune(id: String):
 	return rune_registry.get(id, null)
+
+
+## useCollectionStore.ts の addLootEquipment()。uidが既に存在する場合は何もしない。
+func add_loot_equipment(equipment_inst: Dictionary) -> void:
+	var equip_uid: String = equipment_inst.get("uid", "")
+	for inst in inventory.equipment:
+		if inst.get("uid", "") == equip_uid:
+			return
+	inventory.equipment.append(equipment_inst)
+
+
+## useCollectionStore.ts の addLootRune()。インベントリとレジストリの両方に追加する
+## （装着中のルーンもrune_registry経由で参照できるようにするため）。
+func add_loot_rune(rune: Dictionary) -> void:
+	inventory.runes.append(rune)
+	rune_registry[rune.get("id", "")] = rune
+
+
+## useCollectionStore.ts の socketRuneToEquipment()。
+## 成功したらtrueを返し、ルーンはinventory.runesから外れてsocket内に移る
+## （rune_registryには残るため、peek_rune()による戦闘中の参照は引き続き可能）。
+func socket_rune_to_equipment(equipment_uid: String, rune_id: String, socket_index: int) -> bool:
+	var gear_idx := -1
+	for i in range(inventory.equipment.size()):
+		if inventory.equipment[i].get("uid", "") == equipment_uid:
+			gear_idx = i
+			break
+	if gear_idx == -1:
+		return false
+	var rune_idx := -1
+	for i in range(inventory.runes.size()):
+		if inventory.runes[i].get("id", "") == rune_id:
+			rune_idx = i
+			break
+	if rune_idx == -1:
+		return false
+
+	var gear: Dictionary = inventory.equipment[gear_idx]
+	var sockets: Array = gear.get("socketed_runes", [])
+	if socket_index < 0 or socket_index >= sockets.size():
+		return false
+	if sockets[socket_index] != null:
+		return false
+
+	var rune: Dictionary = inventory.runes[rune_idx]
+	sockets[socket_index] = rune_id
+	gear.socketed_runes = sockets
+	inventory.runes.remove_at(rune_idx)
+	rune_registry[rune_id] = rune
+	return true
+
+
+## useCollectionStore.ts の unsocketRuneFromEquipment()。
+## rune_registryに元のルーン情報が残っていればそれを、無ければBLK+/2のダミーを復元する
+## （実ソースの `?? { id, effect: "BLK+", value: 2 }` フォールバック相当）。
+func unsocket_rune_from_equipment(equipment_uid: String, socket_index: int) -> bool:
+	var gear_idx := -1
+	for i in range(inventory.equipment.size()):
+		if inventory.equipment[i].get("uid", "") == equipment_uid:
+			gear_idx = i
+			break
+	if gear_idx == -1:
+		return false
+
+	var gear: Dictionary = inventory.equipment[gear_idx]
+	var sockets: Array = gear.get("socketed_runes", [])
+	if socket_index < 0 or socket_index >= sockets.size():
+		return false
+	var rune_id = sockets[socket_index]
+	if rune_id == null:
+		return false
+
+	sockets[socket_index] = null
+	gear.socketed_runes = sockets
+	var restored: Dictionary = rune_registry.get(rune_id, {"id": rune_id, "effect": "BLK+", "value": 2})
+	inventory.runes.append(restored)
+	rune_registry[rune_id] = restored
+	return true

@@ -53,6 +53,11 @@ static func total_points(best_floor: int) -> int:
 	return max(0, int(best_floor / 10.0))
 
 
+## profile.ts の statBudget()：totalPoints()のエイリアス
+static func stat_budget(best_floor: int) -> int:
+	return total_points(best_floor)
+
+
 ## profile.ts の riteGain()
 static func rite_gain(floor: int) -> int:
 	return max(0, int(floor / 10.0))
