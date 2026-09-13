@@ -1,0 +1,102 @@
+class_name EnemyAi
+extends RefCounted
+
+## src/game/enemyAi.ts の、combat.ts が import する関数のみ忠実移植。
+
+const AI_CATEGORY_WEIGHTS := {
+	"attack": 0.45,
+	"defense": 0.35,
+	"effect": 0.2,
+}
+
+const TIER_RARITIES := {
+	"mob": ["starter", "common"],
+	"elite": ["starter", "common", "uncommon"],
+}
+
+
+## enemyAi.ts rollEnemyCard()
+static func roll_enemy_card(def_id: String, rand: Callable) -> Dictionary:
+	var def := Enemies.get_enemy(def_id)
+	var rarities = null if def.has("deck") else TIER_RARITIES[str(def.get("tier", "mob"))]
+	var use_archetype := (not def.has("deck")) and bool(def.get("archetype")) and rand.call() < 0.8
+
+	var build_pool := func(tag: String) -> Array:
+		if use_archetype:
+			var filtered: Array = Cards.ai_card_pool(tag, rarities, def.get("archetype"))
+			if filtered.size() > 0:
+				return filtered
+		return Cards.ai_card_pool(tag, rarities)
+
+	var pools: Dictionary
+	if def.has("deck"):
+		pools = {
+			"attack": Cards.ai_card_pool_from(def.deck, "attack"),
+			"defense": Cards.ai_card_pool_from(def.deck, "defense"),
+			"effect": Cards.ai_card_pool_from(def.deck, "effect"),
+		}
+	else:
+		pools = {
+			"attack": build_pool.call("attack"),
+			"defense": build_pool.call("defense"),
+			"effect": build_pool.call("effect"),
+		}
+
+	var active_weights := {}
+	for tag in AI_CATEGORY_WEIGHTS.keys():
+		if (pools[tag] as Array).size() > 0:
+			active_weights[tag] = AI_CATEGORY_WEIGHTS[tag]
+
+	if active_weights.is_empty():
+		var fallback_r = rarities if rarities != null else TIER_RARITIES["mob"]
+		return Mulberry32.pick_rand(Cards.ai_card_pool("attack", fallback_r), rand)
+	var category: String = str(Mulberry32.weighted_pick(active_weights, rand))
+	return Mulberry32.pick_rand(pools[category], rand)
+
+
+## enemyAi.ts cardToIntent()
+static func card_to_intent(card: Dictionary) -> Dictionary:
+	var intent := {"kind": "unknown"}
+	for eff in card.get("effects", []):
+		var t: String = str(eff.get("t", ""))
+		if t == "damage" or t == "damageAll" or t == "damageX":
+			intent.kind = "attack"
+			intent.damage = int(intent.get("damage", 0)) + int(eff.get("n", 0))
+		if t == "block" or t == "blockPerEnemy":
+			if intent.kind != "attack":
+				intent.kind = "defend"
+			intent.block = int(intent.get("block", 0)) + int(eff.get("n", 0))
+		if t == "strength":
+			intent.strength = int(intent.get("strength", 0)) + int(eff.get("n", 0))
+			if intent.kind == "unknown":
+				intent.kind = "buff"
+		if t == "weak":
+			intent.weak = int(intent.get("weak", 0)) + int(eff.get("n", 0))
+			if intent.kind == "unknown":
+				intent.kind = "debuff"
+		if t == "vulnerable":
+			intent.vulnerable = int(intent.get("vulnerable", 0)) + int(eff.get("n", 0))
+			if intent.kind == "unknown":
+				intent.kind = "debuff"
+		if t == "poison":
+			intent.poison = int(intent.get("poison", 0)) + int(eff.get("n", 0))
+			if intent.kind == "unknown":
+				intent.kind = "debuff"
+		if t == "addDread":
+			intent.dread = int(intent.get("dread", 0)) + int(eff.get("n", 0))
+			if intent.kind == "unknown":
+				intent.kind = "debuff"
+		if t == "sanity" and float(eff.get("n", 0)) < 0:
+			intent.sanityDrain = int(intent.get("sanityDrain", 0)) + int(abs(float(eff.get("n", 0))))
+			if intent.kind == "unknown":
+				intent.kind = "debuff"
+		if t == "heal":
+			intent.heal = int(intent.get("heal", 0)) + int(eff.get("n", 0))
+			if intent.kind == "unknown":
+				intent.kind = "buff"
+		if t == "seal":
+			intent.seal = eff.get("value")
+			intent.kind = "debuff"
+	if intent.kind == "unknown":
+		intent.kind = "buff"
+	return intent

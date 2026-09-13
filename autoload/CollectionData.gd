@@ -37,3 +37,8 @@ static func peek_equipment(inventory_equipment: Array, equipment_uid: String) ->
 		if inst.get("uid", "") == equipment_uid:
 			return inst
 	return {}
+
+
+## useCollectionStore.ts の peekRune() 相当。combat.gd から装備込みステータス計算時に参照される。
+func peek_rune(id: String):
+	return rune_registry.get(id, null)

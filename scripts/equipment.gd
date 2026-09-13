@@ -187,13 +187,15 @@ static func has_full_set(equipped: Dictionary, archetype: String) -> bool:
 
 ## equipment.ts の computeEquipmentStats()。peek_rune_fn: Callable(String)->Dictionary（見つからなければ{}）
 static func compute_equipment_stats(equipped: Dictionary, peek_rune_fn: Callable) -> Dictionary:
+	## 戻り値のキーはcamelCase（TSのEquipmentStatsインターフェース＋combat.gdの参照契約に合わせる。
+	## equipment.gd内部のEQUIPMENT/EquipmentInstanceのフィールド名はsnake_caseのまま独立）。
 	var stats := {
-		"defense": 0.0, "san_resist": 0.0, "poison_resist": 0.0,
-		"poison_immune": false, "block_retain": false, "san_full_restore_on_start": false,
-		"expanded_hand": false, "hp_percent_heal_on_start": false, "sacrifice_energy_on_start": false,
-		"intangible_on_hit": false, "strength": 0.0, "draw_bonus": 0.0, "heal_per_turn": 0.0,
-		"heal_bonus_pct": 0, "san_heal_on_start": 0.0, "vuln_on_start": 0.0, "energy_per_turn": 0.0,
-		"thorn_damage": 0.0,
+		"defense": 0.0, "sanResist": 0.0, "poisonResist": 0.0,
+		"poisonImmune": false, "blockRetain": false, "sanFullRestoreOnStart": false,
+		"expandedHand": false, "hpPercentHealOnStart": false, "sacrificeEnergyOnStart": false,
+		"intangibleOnHit": false, "strength": 0.0, "drawBonus": 0.0, "healPerTurn": 0.0,
+		"healBonusPct": 0, "sanHealOnStart": 0.0, "vulnOnStart": 0.0, "energyPerTurn": 0.0,
+		"thornDamage": 0.0,
 	}
 
 	for slot in equipped.keys():
@@ -208,12 +210,12 @@ static func compute_equipment_stats(equipped: Dictionary, peek_rune_fn: Callable
 			power = 1.0
 
 		stats.defense += def.get("base_defense", 0) * power
-		stats.san_resist += def.get("base_san_resist", 0) * power
-		stats.poison_resist += def.get("base_poison_resist", 0) * power
+		stats.sanResist += def.get("base_san_resist", 0) * power
+		stats.poisonResist += def.get("base_poison_resist", 0) * power
 		stats.strength += def.get("base_strength", 0) * power
-		stats.draw_bonus += def.get("base_draw", 0) * power
-		stats.heal_per_turn += def.get("base_heal", 0) * power
-		stats.thorn_damage += def.get("base_thorn", 0) * power
+		stats.drawBonus += def.get("base_draw", 0) * power
+		stats.healPerTurn += def.get("base_heal", 0) * power
+		stats.thornDamage += def.get("base_thorn", 0) * power
 
 		var bonus: Dictionary = inst.get("bonus_stats", {})
 		if bonus.has("strength"):
@@ -221,9 +223,9 @@ static func compute_equipment_stats(equipped: Dictionary, peek_rune_fn: Callable
 		if bonus.has("defense"):
 			stats.defense += bonus.defense
 		if bonus.has("poisonResist"):
-			stats.poison_resist += bonus.poisonResist
+			stats.poisonResist += bonus.poisonResist
 		if bonus.has("sanResist"):
-			stats.san_resist += bonus.sanResist
+			stats.sanResist += bonus.sanResist
 
 		for rune_id in (inst.get("socketed_runes", []) as Array):
 			if rune_id == null:
@@ -236,56 +238,56 @@ static func compute_equipment_stats(equipped: Dictionary, peek_rune_fn: Callable
 					stats.defense += rune.value
 					stats.strength += 1
 				"SAN+":
-					stats.san_resist += rune.value
-					stats.san_heal_on_start += 2
+					stats.sanResist += rune.value
+					stats.sanHealOnStart += 2
 				"POISON":
-					stats.poison_resist += rune.value
-					stats.heal_per_turn += 1
+					stats.poisonResist += rune.value
+					stats.healPerTurn += 1
 				"STR+":
 					stats.strength += rune.value
 					stats.defense += 1
 				"DRAW":
-					stats.draw_bonus += rune.value
-					stats.vuln_on_start += 1
+					stats.drawBonus += rune.value
+					stats.vulnOnStart += 1
 				"HEAL":
-					stats.heal_per_turn += rune.value
-					stats.poison_resist += 1
+					stats.healPerTurn += rune.value
+					stats.poisonResist += 1
 				"VULN+":
-					stats.vuln_on_start += rune.value
+					stats.vulnOnStart += rune.value
 					stats.strength += 1
 				"ENERGY+":
-					stats.energy_per_turn += rune.value
-					stats.draw_bonus += 1
+					stats.energyPerTurn += rune.value
+					stats.drawBonus += 1
 				"THORN":
-					stats.thorn_damage += rune.value
+					stats.thornDamage += rune.value
 					stats.defense += 1
 
 	stats.defense = round(stats.defense)
-	stats.san_resist = round(stats.san_resist)
-	stats.poison_resist = round(stats.poison_resist)
+	stats.sanResist = round(stats.sanResist)
+	stats.poisonResist = round(stats.poisonResist)
 	stats.strength = round(stats.strength)
-	stats.draw_bonus = round(stats.draw_bonus)
-	stats.heal_per_turn = round(stats.heal_per_turn)
-	stats.san_heal_on_start = round(stats.san_heal_on_start)
-	stats.vuln_on_start = round(stats.vuln_on_start)
-	stats.energy_per_turn = round(stats.energy_per_turn)
-	stats.thorn_damage = round(stats.thorn_damage)
+	stats.drawBonus = round(stats.drawBonus)
+	stats.healPerTurn = round(stats.healPerTurn)
+	stats.sanHealOnStart = round(stats.sanHealOnStart)
+	stats.vulnOnStart = round(stats.vulnOnStart)
+	stats.energyPerTurn = round(stats.energyPerTurn)
+	stats.thornDamage = round(stats.thornDamage)
 
 	if has_full_set(equipped, "poison"):
-		stats.poison_immune = true
-		stats.heal_bonus_pct = 50
+		stats.poisonImmune = true
+		stats.healBonusPct = 50
 	if has_full_set(equipped, "knight"):
-		stats.block_retain = true
+		stats.blockRetain = true
 	if has_full_set(equipped, "outer"):
-		stats.san_full_restore_on_start = true
+		stats.sanFullRestoreOnStart = true
 	if has_full_set(equipped, "elder"):
-		stats.expanded_hand = true
+		stats.expandedHand = true
 	if has_full_set(equipped, "deep"):
-		stats.hp_percent_heal_on_start = true
+		stats.hpPercentHealOnStart = true
 	if has_full_set(equipped, "offering"):
-		stats.sacrifice_energy_on_start = true
+		stats.sacrificeEnergyOnStart = true
 	if has_full_set(equipped, "shadow"):
-		stats.intangible_on_hit = true
+		stats.intangibleOnHit = true
 
 	return stats
 

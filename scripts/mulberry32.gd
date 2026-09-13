@@ -34,6 +34,53 @@ static func _imul32(a: int, b: int) -> int:
 	return (low + (mid << 16)) & 0xFFFFFFFF
 
 
-## rng.ts の pick() 相当
+## rng.ts の pick(arr, rng) 相当（Mulberry32 インスタンス版）
 static func pick(arr: Array, rng: Mulberry32):
 	return arr[int(rng.next_float() * arr.size())]
+
+
+## rng.ts の pick(arr, rand: () => number)
+static func pick_rand(arr: Array, rand: Callable):
+	return arr[int(rand.call() * arr.size())]
+
+
+## rng.ts の shuffle()
+static func shuffle(arr: Array, rand: Callable) -> Array:
+	var a: Array = arr.duplicate()
+	for i in range(a.size() - 1, 0, -1):
+		var j := int(rand.call() * (i + 1))
+		var tmp = a[i]
+		a[i] = a[j]
+		a[j] = tmp
+	return a
+
+
+## rng.ts の uid()
+static func uid(prefix: String) -> String:
+	var n := randi()
+	var s := ""
+	var alphabet := "0123456789abcdefghijklmnopqrstuvwxyz"
+	if n == 0:
+		s = "0"
+	else:
+		while n > 0 and s.length() < 7:
+			s = alphabet[n % 36] + s
+			n = int(n / 36)
+	return "%s_%s" % [prefix, s]
+
+
+## rng.ts の weightedPick()
+static func weighted_pick(weights: Dictionary, rand: Callable):
+	var entries: Array = weights.keys()
+	var total := 0.0
+	for k in entries:
+		total += float(weights[k])
+	if total <= 0.0:
+		return entries[int(rand.call() * entries.size())]
+	var roll: float = rand.call() * total
+	for k in entries:
+		var w := float(weights[k])
+		if roll < w:
+			return k
+		roll -= w
+	return entries[entries.size() - 1]
