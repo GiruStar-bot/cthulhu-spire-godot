@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=6 format=3]
+[gd_resource type="Theme" load_steps=11 format=3]
 
 [ext_resource type="FontFile" path="res://fonts/DotGothic16-Regular.ttf" id="1"]
 
@@ -13,6 +13,13 @@ content_margin_left = 16.0
 content_margin_top = 8.0
 content_margin_right = 16.0
 content_margin_bottom = 8.0
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+shadow_color = Color(0, 0, 0, 0.72)
+shadow_size = 3
+shadow_offset = Vector2(3, 3)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hover"]
 bg_color = Color(0.1294, 0.1137, 0.0902, 1)
@@ -25,6 +32,13 @@ content_margin_left = 16.0
 content_margin_top = 8.0
 content_margin_right = 16.0
 content_margin_bottom = 8.0
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+shadow_color = Color(0, 0, 0, 0.72)
+shadow_size = 3
+shadow_offset = Vector2(3, 3)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pressed"]
 bg_color = Color(0.0812, 0.0741, 0.0635, 1)
@@ -37,6 +51,10 @@ content_margin_left = 16.0
 content_margin_top = 8.0
 content_margin_right = 16.0
 content_margin_bottom = 8.0
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_disabled"]
 bg_color = Color(0.0902, 0.0824, 0.0706, 0.4)
@@ -49,10 +67,71 @@ content_margin_left = 16.0
 content_margin_top = 8.0
 content_margin_right = 16.0
 content_margin_bottom = 8.0
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.0824, 0.0824, 0.0745, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2863, 0.2706, 0.2392, 1)
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+shadow_color = Color(0, 0, 0, 0.74)
+shadow_size = 4
+shadow_offset = Vector2(4, 4)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel_alt"]
+bg_color = Color(0.0588, 0.0627, 0.0667, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.3608, 0.3294, 0.2784, 0.92)
+content_margin_left = 12.0
+content_margin_top = 10.0
+content_margin_right = 12.0
+content_margin_bottom = 10.0
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+shadow_color = Color(0, 0, 0, 0.78)
+shadow_size = 3
+shadow_offset = Vector2(3, 3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_progress_bg"]
+bg_color = Color(0.0275, 0.0314, 0.0353, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2863, 0.2706, 0.2392, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_progress_fill"]
+bg_color = Color(0.7176, 0.6039, 0.3843, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
 
 [resource]
 default_font = ExtResource("1")
-default_font_size = 16
+default_font_size = 15
 Button/styles/normal = SubResource("StyleBoxFlat_normal")
 Button/styles/hover = SubResource("StyleBoxFlat_hover")
 Button/styles/pressed = SubResource("StyleBoxFlat_pressed")
@@ -64,7 +143,16 @@ Button/colors/font_pressed_color = Color(1, 1, 1, 1)
 Button/colors/font_focus_color = Color(1, 1, 1, 1)
 Button/colors/font_disabled_color = Color(0.6, 0.6, 0.6, 0.4)
 Label/colors/font_color = Color(0.902, 0.8627, 0.7843, 1)
+Label/colors/font_shadow_color = Color(0.0196, 0.0196, 0.0235, 0.9)
+Label/constants/shadow_offset_x = 1
+Label/constants/shadow_offset_y = 1
+Panel/styles/panel = SubResource("StyleBoxFlat_panel")
+ProgressBar/styles/background = SubResource("StyleBoxFlat_progress_bg")
+ProgressBar/styles/fill = SubResource("StyleBoxFlat_progress_fill")
+ProgressBar/colors/font_color = Color(0.0392, 0.0431, 0.0471, 1)
 Palette/colors/ink = Color(0.0431, 0.051, 0.0627, 1)
 Palette/colors/ink_2 = Color(0.0824, 0.0941, 0.1176, 1)
 Palette/colors/parchment = Color(0.902, 0.8627, 0.7843, 1)
 Palette/colors/muted = Color(0.6039, 0.5765, 0.5255, 1)
+Palette/colors/accent = Color(0.7176, 0.6039, 0.3843, 1)
+Palette/colors/blood = Color(0.7059, 0.3294, 0.2902, 1)
