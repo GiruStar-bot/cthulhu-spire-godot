@@ -83,10 +83,15 @@ func _buy(good: Dictionary) -> void:
 	_refresh()
 
 func _forge(uid: String) -> void:
-	if not GameState.spend_shells(5): return
 	for card in GameState.deck:
 		if str(card.uid) == uid:
-			card.upgraded = true; card.forge = float(card.get("forge", 1.0)) * 1.5; break
+			if float(card.get("forge", 0.0)) > 0.0:
+				return
+			if not GameState.spend_shells(5):
+				return
+			card.upgraded = true
+			card.forge = float(card.get("forge", 1.0)) * 1.5
+			break
 	_refresh()
 
 func _add_action(text_value: String, action: Callable) -> void:
