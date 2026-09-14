@@ -69,6 +69,24 @@ static func uid(prefix: String) -> String:
 	return "%s_%s" % [prefix, s]
 
 
+## rng.ts の weightedPickBy(items, weight, rand)
+static func weighted_pick_by(items: Array, weight_fn: Callable, rand: Callable):
+	var weights: Array = []
+	var total := 0.0
+	for item in items:
+		var w := float(weight_fn.call(item))
+		weights.append(w)
+		total += w
+	if total <= 0.0:
+		return items[int(rand.call() * items.size())]
+	var roll: float = rand.call() * total
+	for i in range(items.size()):
+		if roll < float(weights[i]):
+			return items[i]
+		roll -= float(weights[i])
+	return items[items.size() - 1]
+
+
 ## rng.ts の weightedPick()
 static func weighted_pick(weights: Dictionary, rand: Callable):
 	var entries: Array = weights.keys()

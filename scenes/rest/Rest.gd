@@ -37,6 +37,16 @@ func _refresh() -> void:
 		_refresh_room(mode)
 
 
+## store.ts の forgeAtSmith() が参照する `!!s.village?.smith.taboo` 相当。
+## smith.ts の makeSmith()/rollShopRank() 本体は未移植（enter_floor()参照）だが、
+## taboo判定だけは GameState.village.smith.taboo に先行して用意してある。
+func _is_taboo_smith() -> bool:
+	if not (GameState.village is Dictionary):
+		return false
+	var smith: Dictionary = GameState.village.get("smith", {})
+	return bool(smith.get("taboo", false))
+
+
 func _refresh_room(mode: String) -> void:
 	for child in room_actions.get_children(): child.free()
 	room_info.text = "所持: %d貝殻" % GameState.shells
@@ -46,18 +56,20 @@ func _refresh_room(mode: String) -> void:
 		_add_action("宿泊 20貝殻（体力50%・正気+20）", _stay.bind(20))
 		_add_action("宿泊 30貝殻（体力全快・正気+30）", _stay.bind(30))
 	elif mode == "smith":
-		room_title.text = "鍛冶屋"
+		var taboo := _is_taboo_smith()
+		room_title.text = "鍛冶屋（禁忌）" if taboo else "鍛冶屋"
 		if shop_stock.is_empty():
 			for card in Cards.CARDS.values():
 				if card.get("shop", false) and shop_stock.size() < 4: shop_stock.append({"id": card.id, "price": max(3, int(card.get("cost", 1)) * 5), "sold": false})
 		for good in shop_stock:
 			if not good.sold: _add_action("購入: %s（%d貝殻）" % [Cards.get_card(good.id).get("name", good.id), good.price], _buy.bind(good))
-		_add_action("焼く（強化）", func(): GameState.visit_village("upgrade"); _refresh())
+		_add_action(("焼く（強化）　貝殻0・倍率2倍" if taboo else "焼く（強化）　貝殻5・倍率1.5倍"), func(): GameState.visit_village("upgrade"); _refresh())
 		_add_action("デッキ編集へ", func(): GameState.visit_village("deck"); _refresh())
 		_add_action("売却へ", func(): GameState.visit_village("sell"); _refresh())
 	elif mode == "upgrade":
-		room_title.text = "焼く（強化）"
-		room_info.text = "貝殻5で一度だけ強化する。"
+		var taboo := _is_taboo_smith()
+		room_title.text = "焼く（強化・禁忌）" if taboo else "焼く（強化）"
+		room_info.text = "貝殻0で一度だけ強化する（倍率2倍）。" if taboo else "貝殻5で一度だけ強化する（倍率1.5倍）。"
 		for card in GameState.deck:
 			if not card.get("upgraded", false): _add_action("強化: " + Cards.get_card(card.defId).get("name", card.defId), _forge.bind(str(card.uid)))
 	elif mode == "deck":
@@ -82,15 +94,20 @@ func _buy(good: Dictionary) -> void:
 		CollectionData.add_loot_card(str(good.id)); good.sold = true
 	_refresh()
 
+## store.ts の forgeAtSmith()。taboo鍛冶屋なら無料・倍率2倍、通常は貝殻5・倍率1.5倍
+## （smith.ts の forgeCard(card, taboo) 相当）。1枚につき一度だけ強化可能（card.forge>0で判定）。
 func _forge(uid: String) -> void:
+	var taboo := _is_taboo_smith()
+	var cost := 0 if taboo else 5
+	var mul := 2.0 if taboo else 1.5
 	for card in GameState.deck:
 		if str(card.uid) == uid:
 			if float(card.get("forge", 0.0)) > 0.0:
 				return
-			if not GameState.spend_shells(5):
+			if cost > 0 and not GameState.spend_shells(cost):
 				return
 			card.upgraded = true
-			card.forge = float(card.get("forge", 1.0)) * 1.5
+			card.forge = float(card.get("forge", 1.0)) * mul
 			break
 	_refresh()
 

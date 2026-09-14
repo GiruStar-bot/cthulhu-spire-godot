@@ -4120,3 +4120,59 @@ static func reward_pool(owner: String) -> Array:
 		if c.get("owner") == "shared" or c.get("owner") == owner:
 			out.append(c)
 	return out
+
+
+## store.ts の archetypeCardPool()。rewardPool()と異なりshopフラグ付きカードも含む
+## （旧支配者等、鍛冶屋専用装備しか存在しないアーキタイプでもパックが保証できるようにするため）。
+static func archetype_card_pool(owner: String, archetype: String) -> Array:
+	var out: Array = []
+	for c in CARDS.values():
+		if c.get("archetype") != archetype:
+			continue
+		if c.get("rarity") == "starter" or c.get("rarity") == "status":
+			continue
+		if c.get("grimoire") or c.get("enemyOnly"):
+			continue
+		if c.get("owner") == "shared" or c.get("owner") == owner:
+			out.append(c)
+	return out
+
+
+## store.ts の weightedCard() が両関数で共有するレアリティ→プール絞り込みロジック
+static func _rarity_sliced_pool(pool: Array, rand: Callable) -> Array:
+	var roll: float = rand.call()
+	var rarity := "common" if roll < 0.62 else ("uncommon" if roll < 0.9 else "rare")
+	var sliced: Array = pool.filter(func(c): return c.get("rarity") == rarity)
+	return sliced if not sliced.is_empty() else pool
+
+
+## store.ts の weightedCard(owner, rand)。所持枚数が少ないカードほど選ばれやすい
+## （1 / (1 + 所持数)）重み付けで rewardPool(owner) から1枚選ぶ。
+static func weighted_card(owner: String, rand: Callable) -> Dictionary:
+	var pool := reward_pool(owner)
+	var candidates := _rarity_sliced_pool(pool, rand)
+	var owned: Array = CollectionData.inventory.cards
+	var def: Dictionary = Mulberry32.weighted_pick_by(candidates, func(c):
+		var n := 0
+		for o in owned:
+			if str(o.get("base_card_id", "")) == str(c.get("id", "")):
+				n += 1
+		return 1.0 / (1.0 + float(n))
+	, rand)
+	return make_card(str(def.get("id", "")), false)
+
+
+## store.ts の weightedArchetypeCard(owner, archetype, rand)
+static func weighted_archetype_card(owner: String, archetype: String, rand: Callable) -> Dictionary:
+	var pool := archetype_card_pool(owner, archetype)
+	var base_pool: Array = pool if not pool.is_empty() else reward_pool(owner)
+	var candidates := _rarity_sliced_pool(base_pool, rand)
+	var owned: Array = CollectionData.inventory.cards
+	var def: Dictionary = Mulberry32.weighted_pick_by(candidates, func(c):
+		var n := 0
+		for o in owned:
+			if str(o.get("base_card_id", "")) == str(c.get("id", "")):
+				n += 1
+		return 1.0 / (1.0 + float(n))
+	, rand)
+	return make_card(str(def.get("id", "")), false)

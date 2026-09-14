@@ -268,15 +268,19 @@ func _update_descend_panel() -> void:
 			GameState.shells,
 		]
 		primary_action_button.text = "次の層へ沈む"
+		primary_action_button.disabled = false
 		extract_button.visible = true
 		stat_panel.visible = false
 	else:
-		## PrepareView.tsx 相当
+		## PrepareView.tsx 相当。canStart は実ソースでは
+		## `playerName.trim().length > 0 && !loadoutError()` だが、名前入力UIは未実装のため
+		## デッキ枚数チェック（loadoutError()）のみを反映する。
 		descend_status_label.text = "探索準備\n最深到達: %s · 貝殻 %d" % [
 			Floors.layer_label(GameState.best_floor) if GameState.best_floor > 0 else "未潜航",
 			GameState.shells,
 		]
 		primary_action_button.text = "潜航開始"
+		primary_action_button.disabled = CollectionData.loadout_error() != ""
 		extract_button.visible = false
 		stat_panel.visible = true
 		_refresh_stat_panel()
@@ -412,13 +416,19 @@ func _buy_card(good: Dictionary) -> void:
 		CollectionData.add_loot_card(str(good.id)); good.sold = true
 	_refresh_commerce()
 
+## store.ts の openArchetypePack()。前半2枚は weightedArchetypeCard()（当該アーキタイプ保証＋
+## レアリティ62/28/10%＋未所持優遇）、後半2枚は weightedCard()（同じ重み付けの自由枠）で選ぶ。
+## owner は実ソース同様 `character ?? starterPath(stats)`（ラン中でなければ暫定キャラで判定）。
 func _open_pack(archetype: String) -> void:
 	if not CollectionData.consume_pack_ticket(archetype): return
-	var forced: Array = Cards.CARDS.values().filter(func(d): return d.get("archetype","") == archetype and d.get("rarity","") not in ["starter","status"])
-	var free: Array = Cards.reward_pool("investigator")
-	for i in range(4):
-		var pool: Array = forced if i < 2 and not forced.is_empty() else free
-		CollectionData.add_loot_card(str(pool[int(GameState.rng.next_float()*pool.size())].id))
+	var owner: String = GameState.character if GameState.character != "" else GameState.starter_path(GameState.stats)
+	var rand := Callable(GameState, "_rand")
+	for i in range(2):
+		var forced := Cards.weighted_archetype_card(owner, archetype, rand)
+		CollectionData.add_loot_card(str(forced.get("defId", "")))
+	for i in range(2):
+		var free := Cards.weighted_card(owner, rand)
+		CollectionData.add_loot_card(str(free.get("defId", "")))
 	_refresh_commerce()
 
 func _equipped(gear: Dictionary) -> bool:
