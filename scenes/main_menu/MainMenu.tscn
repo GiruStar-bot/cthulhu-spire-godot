@@ -96,10 +96,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -180.0
-offset_top = -120.0
-offset_right = 180.0
-offset_bottom = 120.0
+offset_left = -220.0
+offset_top = -220.0
+offset_right = 220.0
+offset_bottom = 220.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -116,31 +116,115 @@ theme_override_constants/separation = 12
 
 [node name="Title" type="Label" parent="SettingsPanel/Margin/Content"]
 layout_mode = 2
+text = "設定"
+
+[node name="Heading" type="Label" parent="SettingsPanel/Margin/Content"]
+layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "音量設定"
-horizontal_alignment = 1
+text = "音と画面"
 
-[node name="MusicLabel" type="Label" parent="SettingsPanel/Margin/Content"]
+[node name="VolumeHeading" type="Label" parent="SettingsPanel/Margin/Content"]
 layout_mode = 2
-text = "BGM"
+text = "音量"
 
-[node name="MusicSlider" type="HSlider" parent="SettingsPanel/Margin/Content"]
+[node name="SfxRow" type="VBoxContainer" parent="SettingsPanel/Margin/Content"]
 layout_mode = 2
-min_value = 0.0
-max_value = 1.0
-step = 0.05
+theme_override_constants/separation = 4
 
-[node name="SfxLabel" type="Label" parent="SettingsPanel/Margin/Content"]
+[node name="Header" type="HBoxContainer" parent="SettingsPanel/Margin/Content/SfxRow"]
 layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingsPanel/Margin/Content/SfxRow/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
 text = "効果音"
 
-[node name="SfxSlider" type="HSlider" parent="SettingsPanel/Margin/Content"]
+[node name="SfxValue" type="Label" parent="SettingsPanel/Margin/Content/SfxRow/Header"]
+layout_mode = 2
+text = "100"
+
+[node name="SfxSlider" type="HSlider" parent="SettingsPanel/Margin/Content/SfxRow"]
 layout_mode = 2
 min_value = 0.0
 max_value = 1.0
 step = 0.05
 
+[node name="MusicRow" type="VBoxContainer" parent="SettingsPanel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Header" type="HBoxContainer" parent="SettingsPanel/Margin/Content/MusicRow"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SettingsPanel/Margin/Content/MusicRow/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "BGM"
+
+[node name="MusicValue" type="Label" parent="SettingsPanel/Margin/Content/MusicRow/Header"]
+layout_mode = 2
+text = "100"
+
+[node name="MusicSlider" type="HSlider" parent="SettingsPanel/Margin/Content/MusicRow"]
+layout_mode = 2
+min_value = 0.0
+max_value = 1.0
+step = 0.05
+
+[node name="GraphicHeading" type="Label" parent="SettingsPanel/Margin/Content"]
+layout_mode = 2
+text = "グラフィック"
+
+[node name="FullscreenCheck" type="CheckButton" parent="SettingsPanel/Margin/Content"]
+layout_mode = 2
+text = "フルスクリーンを許可"
+
 [node name="CloseButton" parent="SettingsPanel/Margin/Content" instance=ExtResource("3")]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 38)
+text = "閉じる"
+
+[node name="CreditsPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -120.0
+offset_right = 180.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="CreditsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 18
+
+[node name="Content" type="VBoxContainer" parent="CreditsPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Caption" type="Label" parent="CreditsPanel/Margin/Content"]
+layout_mode = 2
+text = "表記"
+
+[node name="Title" type="Label" parent="CreditsPanel/Margin/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "クレジット"
+
+[node name="MaouDamashii" type="Label" parent="CreditsPanel/Margin/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "魔王魂"
+
+[node name="CloseButton" parent="CreditsPanel/Margin/Content" instance=ExtResource("3")]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 38)
 text = "閉じる"

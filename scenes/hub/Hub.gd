@@ -19,6 +19,11 @@ extends Control
 @onready var stat_panel: VBoxContainer = $Root/Body/Content/DescendPanel/StatPanel
 @onready var stat_header_label: Label = $Root/Body/Content/DescendPanel/StatPanel/StatHeaderLabel
 @onready var stat_rows_container: VBoxContainer = $Root/Body/Content/DescendPanel/StatPanel/StatRowsContainer
+@onready var prepare_equipment_summary_panel: PanelContainer = $Root/Body/Content/PrepareEquipmentSummaryPanel
+@onready var prepare_equipment_stats_label: Label = $Root/Body/Content/PrepareEquipmentSummaryPanel/Margin/Content/StatsLabel
+@onready var prepare_deck_select_panel: PanelContainer = $Root/Body/Content/PrepareDeckSelectPanel
+@onready var prepare_deck_list: VBoxContainer = $Root/Body/Content/PrepareDeckSelectPanel/Margin/Content/DeckList
+@onready var prepare_selected_deck_label: Label = $Root/Body/Content/PrepareDeckSelectPanel/Margin/Content/SelectedDeckLabel
 
 @onready var placeholder_panel: Label = $Root/Body/Content/PlaceholderPanel
 @onready var commerce_panel: VBoxContainer = $Root/Body/Content/CommercePanel
@@ -353,6 +358,8 @@ func _update_descend_panel() -> void:
 		primary_action_button.disabled = false
 		extract_button.visible = true
 		stat_panel.visible = false
+		prepare_equipment_summary_panel.visible = false
+		prepare_deck_select_panel.visible = false
 	else:
 		## PrepareView.tsx 相当。canStart は実ソースでは
 		## `playerName.trim().length > 0 && !loadoutError()` だが、名前入力UIは未実装のため
@@ -366,6 +373,45 @@ func _update_descend_panel() -> void:
 		extract_button.visible = false
 		stat_panel.visible = true
 		_refresh_stat_panel()
+		prepare_equipment_summary_panel.visible = true
+		prepare_deck_select_panel.visible = true
+		_refresh_prepare_equipment_summary()
+		_rebuild_prepare_deck_list()
+
+
+func _rebuild_prepare_deck_list() -> void:
+	for child in prepare_deck_list.get_children():
+		child.queue_free()
+	for name in CollectionData.decks.keys():
+		var deck_name := str(name)
+		var count := CollectionData.deck_size(CollectionData.decks.get(deck_name, {}))
+		var button := Button.new()
+		button.text = "%s    %d/%d" % [deck_name, count, CollectionData.DECK_LIMIT]
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.disabled = deck_name == CollectionData.active_deck
+		button.pressed.connect(_on_prepare_deck_selected.bind(deck_name))
+		prepare_deck_list.add_child(button)
+	var active_count := _deck_count()
+	prepare_selected_deck_label.text = "選択中: %s（%d/%d〜%d）" % [CollectionData.active_deck, active_count, CollectionData.MIN_RUN_DECK, CollectionData.DECK_LIMIT]
+
+
+func _on_prepare_deck_selected(deck_name: String) -> void:
+	CollectionData.set_active_deck(deck_name)
+	_rebuild_prepare_deck_list()
+	_update_header()
+	primary_action_button.disabled = CollectionData.loadout_error() != ""
+
+
+func _refresh_prepare_equipment_summary() -> void:
+	var equipment_stats := Equipment.compute_equipment_stats(GameState.equipped, Callable(CollectionData, "peek_rune"))
+	var vitals := Profile.derived_vitals(GameState.stats, GameState.madness)
+	prepare_equipment_stats_label.text = "体力 %d\n筋力 %d\n防御 %d\n毒耐性 %d\n正気耐性 %d" % [
+		int(vitals.get("max_hp", 0)),
+		int(equipment_stats.get("strength", 0)),
+		roundi(float(equipment_stats.get("defense", 0.0))),
+		roundi(float(equipment_stats.get("poisonResist", 0.0))),
+		roundi(float(equipment_stats.get("sanResist", 0.0))),
+	]
 
 
 # ============================================================
@@ -474,10 +520,15 @@ func _refresh_commerce() -> void:
 				NORMAL_PACK_ART, "", "uncommon")
 	elif _commerce_tab == "packs":
 		commerce_title.text = "カードパック（チケットを1枚消費）"
+		var pack_grid := GridContainer.new()
+		pack_grid.columns = 3
+		pack_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pack_grid.add_theme_constant_override("h_separation", 10)
+		pack_grid.add_theme_constant_override("v_separation", 10)
 		for a in ["fanatic","knight","poison","outer","elder","deep","offering","shadow","greatold"]:
 			var n := int(CollectionData.pack_tickets.get(a,0))
-			_commerce_button("%sパックを開封（所持%d）" % [a,n], _open_pack.bind(a), n <= 0,
-				"res://art/pixel/tickets/ticket_%s.png" % a, a, "rare")
+			pack_grid.add_child(_make_pack_button(a, n))
+		commerce_list.add_child(pack_grid)
 
 
 ## ShopPanel.tsx の buyCardPack ボタン相当
@@ -550,6 +601,36 @@ func _commerce_card_result(definition: Dictionary, fallback_id: String) -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(label)
 	commerce_list.add_child(row)
+
+
+## PackShopScreen.tsx と同様に、チケットではなく pack_${archetype}.png のパック本体をグリッド表示する。
+func _make_pack_button(archetype: String, ticket_count: int) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(150, 190)
+	button.disabled = ticket_count <= 0
+	button.pressed.connect(_open_pack.bind(archetype))
+	var content := VBoxContainer.new()
+	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	var pack_art := TextureRect.new()
+	pack_art.custom_minimum_size = Vector2(0, 112)
+	pack_art.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	pack_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pack_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pack_art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	pack_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var art_path := "res://art/pixel/packs/pack_%s.png" % archetype
+	if ResourceLoader.exists(art_path):
+		pack_art.texture = load(art_path)
+	content.add_child(pack_art)
+	var label := Label.new()
+	label.text = "%sパック\n所持 %d" % [str(Cards.ARCHETYPE_LABELS.get(archetype, archetype)), ticket_count]
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(label)
+	button.add_child(content)
+	return button
 
 
 ## カード/装備/チケット用の実画像サムネイル。
