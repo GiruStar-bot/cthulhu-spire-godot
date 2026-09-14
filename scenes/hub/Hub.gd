@@ -241,7 +241,7 @@ func _refresh_commerce() -> void:
 				reserved[id] -= 1
 				continue
 			var def := Cards.get_card(id)
-			var value := {"starter":2,"common":5,"uncommon":10,"rare":20}.get(def.get("rarity", ""), 0)
+			var value: int = {"starter":2,"common":5,"uncommon":10,"rare":20}.get(def.get("rarity", ""), 0)
 			if value > 0: _commerce_button("カードを売却: %s (+%d貝殻)" % [def.get("name", id), value], _sell_card.bind(str(card.get("instance_id", "")), value))
 		for gear in CollectionData.inventory.equipment:
 			if not _equipped(gear): _commerce_button("装備を売却: %s (+%d貝殻)" % [Equipment.equipment_label(gear), int(gear.get("tier",1))*5], _sell_gear.bind(str(gear.get("uid", ""))))
