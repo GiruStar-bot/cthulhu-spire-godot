@@ -1,6 +1,6 @@
 extends Node
 ## audio.ts の「いつ、何を鳴らすか」を Godot の AudioStreamPlayer に置換する。
-## BGM はシーン変更を監視して自動切替し、効果音は AudioManager.play_sfx() で呼び出す。
+## BGM は GameState.goto_scene() から明示的に切り替え、効果音は AudioManager.play_sfx() で呼び出す。
 
 const SETTINGS_PATH := "user://cthulhu_spire_audio.cfg"
 const BGM_BUS := "BGM"
@@ -40,10 +40,9 @@ func _ready() -> void:
 	_apply_volumes()
 	_create_players()
 	get_tree().node_added.connect(_on_node_added)
-	get_tree().current_scene_changed.connect(_on_scene_changed)
 	for node in get_tree().get_nodes_in_group("audio_ui_button"):
 		_bind_button(node)
-	call_deferred("_sync_bgm_for_current_scene")
+	call_deferred("play_bgm_for_scene", str(GameState.scene))
 
 
 func _ensure_bus(bus_name: String) -> void:
@@ -74,27 +73,20 @@ func _on_bgm_finished() -> void:
 		_bgm_player.play()
 
 
-func _on_scene_changed(scene: Node) -> void:
-	_play_scene_bgm(scene)
-	match scene.name:
-		"Reward", "Victory": play_sfx("reward")
-		"Defeat", "Shatter": play_sfx("lose")
-
-
-func _sync_bgm_for_current_scene() -> void:
-	var scene := get_tree().current_scene
-	if scene:
-		_play_scene_bgm(scene)
-
-
-func _play_scene_bgm(scene: Node) -> void:
-	match scene.name:
-		"MainMenu": play_bgm("title")
-		"Hub", "Rest": play_bgm("rest")
-		"Combat":
+func play_bgm_for_scene(scene_name: String) -> void:
+	match scene_name:
+		"title": play_bgm("title")
+		"hub", "rest": play_bgm("rest")
+		"combat":
 			var kind := str(GameState.combat.get("kind", "combat")) if GameState.combat is Dictionary else "combat"
 			play_bgm("boss" if kind == "boss" else "combat")
-		"Event": play_bgm("event")
+		"event": play_bgm("event")
+		"reward", "victory":
+			play_bgm("none")
+			play_sfx("reward")
+		"defeat", "shatter":
+			play_bgm("none")
+			play_sfx("lose")
 		_: play_bgm("none")
 
 
