@@ -74,10 +74,13 @@ func _on_end_turn_pressed() -> void:
 func _play_card(card_uid: String, target_id) -> void:
 	if resolving or state.get("phase") != "player" or state.get("result") != "ongoing":
 		return
+	var selected_card = _find_hand(card_uid)
+	var card_type := str(Cards.get_card(str(selected_card.defId)).get("type", "skill")) if selected_card else "skill"
 	var played: Dictionary = CombatLogic.play_card(state, player, card_uid, target_id, Callable(GameState, "_rand"))
 	if played.get("error"):
 		message_label.text = str(played.error)
 		return
+	AudioManager.play_sfx("attack" if card_type == "attack" else "skill")
 	targeting_uid = ""
 	GameState.apply_player_hook(player)
 	_refresh()
@@ -89,6 +92,7 @@ func _play_card(card_uid: String, target_id) -> void:
 
 func _end_turn() -> void:
 	targeting_uid = ""
+	AudioManager.play_sfx("step")
 	CombatLogic.end_turn(state, player, Callable(GameState, "_rand"))
 	GameState.apply_player_hook(player)
 	_refresh()
@@ -137,12 +141,14 @@ func _check_result() -> void:
 	resolving = true
 	end_turn_button.disabled = true
 	if result == "win":
+		AudioManager.play_sfx("win")
 		message_label.text = "回廊は、しばらく静かだ。"
 		get_tree().create_timer(RESULT_WIN_DELAY).timeout.connect(func(): GameState.win_combat(get_tree()))
 	elif result == "fled":
 		message_label.text = "敵が逃げ去った。"
 		get_tree().create_timer(RESULT_FLEE_DELAY).timeout.connect(func(): GameState.resolve_flee(get_tree()))
 	else:
+		AudioManager.play_sfx("lose")
 		message_label.text = "肉体が、折れた。" if int(player.hp) <= 0 else "正気が、0になった。"
 		get_tree().create_timer(RESULT_LOSE_DELAY).timeout.connect(func(): GameState.lose_combat(get_tree()))
 
