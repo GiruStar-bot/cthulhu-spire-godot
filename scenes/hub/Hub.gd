@@ -12,18 +12,18 @@ extends Control
 @onready var info_label: Label = $Root/Header/InfoLabel
 @onready var top_right_button: Button = $Root/Header/TopRightButton
 
-@onready var descend_panel: VBoxContainer = $Root/Body/Content/DescendPanel
-@onready var descend_status_label: Label = $Root/Body/Content/DescendPanel/DescendStatusLabel
-@onready var primary_action_button: Button = $Root/Body/Content/DescendPanel/PrimaryActionButton
-@onready var extract_button: Button = $Root/Body/Content/DescendPanel/ExtractButton
-@onready var stat_panel: VBoxContainer = $Root/Body/Content/DescendPanel/StatPanel
-@onready var stat_header_label: Label = $Root/Body/Content/DescendPanel/StatPanel/StatHeaderLabel
-@onready var stat_rows_container: VBoxContainer = $Root/Body/Content/DescendPanel/StatPanel/StatRowsContainer
-@onready var prepare_equipment_summary_panel: PanelContainer = $Root/Body/Content/PrepareEquipmentSummaryPanel
-@onready var prepare_equipment_stats_label: Label = $Root/Body/Content/PrepareEquipmentSummaryPanel/Margin/Content/StatsLabel
-@onready var prepare_deck_select_panel: PanelContainer = $Root/Body/Content/PrepareDeckSelectPanel
-@onready var prepare_deck_list: VBoxContainer = $Root/Body/Content/PrepareDeckSelectPanel/Margin/Content/DeckList
-@onready var prepare_selected_deck_label: Label = $Root/Body/Content/PrepareDeckSelectPanel/Margin/Content/SelectedDeckLabel
+@onready var descend_panel: HBoxContainer = $Root/Body/Content/DescendPanel
+@onready var descend_status_label: Label = $Root/Body/Content/DescendPanel/DescendLeftColumn/DescendStatusLabel
+@onready var primary_action_button: Button = $Root/Body/Content/DescendPanel/DescendLeftColumn/PrimaryActionButton
+@onready var extract_button: Button = $Root/Body/Content/DescendPanel/DescendLeftColumn/ExtractButton
+@onready var stat_panel: VBoxContainer = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel
+@onready var stat_header_label: Label = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel/StatHeaderLabel
+@onready var stat_rows_container: VBoxContainer = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel/StatRowsContainer
+@onready var prepare_equipment_summary_panel: PanelContainer = $Root/Body/Content/DescendPanel/PrepareEquipmentSummaryPanel
+@onready var prepare_equipment_stats_label: Label = $Root/Body/Content/DescendPanel/PrepareEquipmentSummaryPanel/Margin/Content/StatsLabel
+@onready var prepare_deck_select_panel: PanelContainer = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel
+@onready var prepare_deck_list: VBoxContainer = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content/DeckList
+@onready var prepare_selected_deck_label: Label = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content/SelectedDeckLabel
 
 @onready var placeholder_panel: Label = $Root/Body/Content/PlaceholderPanel
 @onready var commerce_panel: VBoxContainer = $Root/Body/Content/CommercePanel
@@ -37,7 +37,7 @@ extends Control
 @onready var sell_surplus_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellSurplusButton
 @onready var sell_select_all_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellSelectAllButton
 @onready var sell_clear_all_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellClearAllButton
-@onready var sell_list_container: VBoxContainer = $Root/Body/Content/SellPanel/SellListScroll/SellListContainer
+@onready var sell_list_container: HFlowContainer = $Root/Body/Content/SellPanel/SellListScroll/SellListContainer
 @onready var sell_total_label: Label = $Root/Body/Content/SellPanel/SellFooterRow/SellTotalLabel
 @onready var sell_confirm_button: Button = $Root/Body/Content/SellPanel/SellFooterRow/SellConfirmButton
 
@@ -290,15 +290,33 @@ func _equipment_filterable_archetypes() -> Array:
 	return out
 
 
+## Content配下の全パネルをまとめて非表示にする。tab === "packs" || tab === "deck" の時
+## Content内の他パネルが一切見えない（HubScreen.tsx 42-62行目の早期returnレンダー）実ソースの
+## 挙動を、個別のvisible設定漏れが起きないよう一箇所にまとめて再現する。
+func _hide_all_content_panels() -> void:
+	descend_panel.visible = false
+	deck_panel.visible = false
+	equipment_panel.visible = false
+	sell_panel.visible = false
+	commerce_panel.visible = false
+	placeholder_panel.visible = false
+
+
 func _select_tab(tab_name: String) -> void:
 	for key in nav_buttons.keys():
 		nav_buttons[key].disabled = key == tab_name
-	descend_panel.visible = tab_name == "descend"
-	deck_panel.visible = tab_name == "deck"
-	equipment_panel.visible = tab_name == "equipment"
-	sell_panel.visible = tab_name == "sell"
-	commerce_panel.visible = tab_name in ["shop", "packs"]
-	placeholder_panel.visible = false
+	_hide_all_content_panels()
+	match tab_name:
+		"descend":
+			descend_panel.visible = true
+		"deck":
+			deck_panel.visible = true
+		"equipment":
+			equipment_panel.visible = true
+		"sell":
+			sell_panel.visible = true
+		"shop", "packs":
+			commerce_panel.visible = true
 	if tab_name == "descend":
 		_update_descend_panel()
 	elif tab_name == "deck":
@@ -800,6 +818,8 @@ func _refresh_sell_tab() -> void:
 		child.queue_free()
 
 	if _sell_tab == "card":
+		## SellScreen.tsx の grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] 相当。
+		## 1枚あたり最小 Vector2(128,180) のセルを HFlowContainer で折り返し表示する。
 		var rows := _sellable_card_rows()
 		if rows.is_empty():
 			var empty_label := Label.new()
@@ -813,39 +833,55 @@ func _refresh_sell_tab() -> void:
 			var def := Cards.get_card(base_card_id)
 			var unit_price := Smith.card_sell_price(def)
 
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 8)
-			row.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(46, 56)))
+			var cell := VBoxContainer.new()
+			cell.custom_minimum_size = Vector2(128, 180)
+			cell.add_theme_constant_override("separation", 4)
 
-			var select_btn := Button.new()
-			select_btn.text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
-			select_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			select_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, 0 if qty > 0 else sellable, sellable))
-			row.add_child(select_btn)
+			## SellScreen.tsx の CardView onClick（クリックで最大/解除トグル）相当
+			var thumb_btn := Button.new()
+			thumb_btn.custom_minimum_size = Vector2(0, 82)
+			thumb_btn.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
+			thumb_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, 0 if qty > 0 else sellable, sellable))
+			thumb_btn.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(0, 82)))
+			var owned_badge := Label.new()
+			owned_badge.text = "x%d" % owned_n
+			owned_badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
+			owned_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			thumb_btn.add_child(owned_badge)
+			cell.add_child(thumb_btn)
 
+			var name_label := Label.new()
+			name_label.text = str(def.get("name", base_card_id))
+			name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			cell.add_child(name_label)
+
+			var qty_row := HBoxContainer.new()
+			qty_row.alignment = BoxContainer.ALIGNMENT_CENTER
+			qty_row.add_theme_constant_override("separation", 4)
 			var minus_btn := Button.new()
 			minus_btn.text = "-"
 			minus_btn.disabled = qty <= 0
 			minus_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, qty - 1, sellable))
-			row.add_child(minus_btn)
-
+			qty_row.add_child(minus_btn)
 			var qty_label := Label.new()
 			qty_label.text = "%d/%d" % [qty, sellable]
-			qty_label.custom_minimum_size = Vector2(48, 0)
+			qty_label.custom_minimum_size = Vector2(40, 0)
 			qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			row.add_child(qty_label)
-
+			qty_row.add_child(qty_label)
 			var plus_btn := Button.new()
 			plus_btn.text = "+"
 			plus_btn.disabled = qty >= sellable
 			plus_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, qty + 1, sellable))
-			row.add_child(plus_btn)
+			qty_row.add_child(plus_btn)
+			cell.add_child(qty_row)
 
 			var price_label := Label.new()
 			price_label.text = "貝殻%d/枚" % unit_price
-			row.add_child(price_label)
+			price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cell.add_child(price_label)
 
-			sell_list_container.add_child(row)
+			sell_list_container.add_child(cell)
 
 	elif _sell_tab == "equipment":
 		var equipment_list := _sellable_equipment()
@@ -858,19 +894,19 @@ func _refresh_sell_tab() -> void:
 			var def := Equipment.get_equipment(str(inst.get("def_id", "")))
 			var selected := _sell_equipment_uids.has(uid)
 
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 8)
-			row.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(46, 56)))
+			var cell := VBoxContainer.new()
+			cell.custom_minimum_size = Vector2(112, 140)
+			cell.add_theme_constant_override("separation", 4)
+			cell.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(0, 64)))
 
 			var btn := Button.new()
 			btn.toggle_mode = true
 			btn.button_pressed = selected
-			btn.text = "%s（貝殻%d）" % [Equipment.equipment_label(inst), Smith.equipment_sell_price(inst)]
-			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			btn.text = "%s\n貝殻%d" % [Equipment.equipment_label(inst), Smith.equipment_sell_price(inst)]
 			btn.toggled.connect(_on_sell_equipment_toggled.bind(uid))
-			row.add_child(btn)
+			cell.add_child(btn)
 
-			sell_list_container.add_child(row)
+			sell_list_container.add_child(cell)
 
 	else:
 		var rune_list := _sellable_runes()
@@ -882,18 +918,14 @@ func _refresh_sell_tab() -> void:
 			var rid := str(rune.get("id", ""))
 			var selected := _sell_rune_ids.has(rid)
 
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 8)
-
 			var btn := Button.new()
+			btn.custom_minimum_size = Vector2(112, 64)
 			btn.toggle_mode = true
 			btn.button_pressed = selected
-			btn.text = "%s（値%s, 貝殻%d）" % [str(rune.get("effect", "?")), str(rune.get("value", "?")), Smith.rune_sell_price(rune)]
-			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			btn.text = "%s（値%s）\n貝殻%d" % [str(rune.get("effect", "?")), str(rune.get("value", "?")), Smith.rune_sell_price(rune)]
 			btn.toggled.connect(_on_sell_rune_toggled.bind(rid))
-			row.add_child(btn)
 
-			sell_list_container.add_child(row)
+			sell_list_container.add_child(btn)
 
 	sell_total_label.text = "選択中 %d点 · 獲得予定 貝殻%d" % [_sell_total_selected(), _sell_total_value()]
 	sell_confirm_button.disabled = _sell_total_selected() == 0
