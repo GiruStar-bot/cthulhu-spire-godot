@@ -303,114 +303,165 @@ grow_vertical = 2
 visible = false
 theme_override_constants/separation = 8
 
-[node name="DeckHeaderRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckListSubPanel" type="VBoxContainer" parent="Root/Body/Content/DeckPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="DeckListHeaderRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckListSubPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="NewDeckNameEdit" type="LineEdit" parent="Root/Body/Content/DeckPanel/DeckHeaderRow"]
+[node name="DeckListTitleLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListHeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-placeholder_text = "新しいデッキ名"
+text = "禁書目録"
 
-[node name="CreateDeckButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckHeaderRow"]
+[node name="DeckListCreateButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListHeaderRow"]
 layout_mode = 2
-text = "作成"
+text = "＋新規デッキ"
 
-[node name="DeleteDeckButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckHeaderRow"]
+[node name="DeckListScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckListSubPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="DeckListContainer" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="DeckEditSubPanel" type="VBoxContainer" parent="Root/Body/Content/DeckPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="DeckEditHeaderRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="DeckEditTitleLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckEditHeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "デッキ1"
+
+[node name="RenameDeckButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckEditHeaderRow"]
+layout_mode = 2
+text = "名前変更"
+
+[node name="DeleteDeckButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckEditHeaderRow"]
 layout_mode = 2
 text = "削除"
 
-[node name="DeckOptionButton" type="OptionButton" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckRenameRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
+visible = false
+theme_override_constants/separation = 6
 
-[node name="DeckCountLabel" type="Label" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckRenameEdit" type="LineEdit" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_length = 12
+
+[node name="ConfirmRenameButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow"]
+layout_mode = 2
+text = "決定"
+
+[node name="CancelRenameButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow"]
+layout_mode = 2
+text = "取消"
+
+[node name="DeckCountLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 text = "デッキ1: 0/20枚"
 
-[node name="DeckErrorLabel" type="Label" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckErrorLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.35, 0.32, 1)
 text = ""
 
-[node name="DeckSearchRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckSearchRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="DeckSearchEdit" type="LineEdit" parent="Root/Body/Content/DeckPanel/DeckSearchRow"]
+[node name="DeckSearchEdit" type="LineEdit" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "カード名で検索..."
 
-[node name="DeckSortOptionButton" type="OptionButton" parent="Root/Body/Content/DeckPanel/DeckSearchRow"]
+[node name="DeckSortOptionButton" type="OptionButton" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow"]
 layout_mode = 2
 
-[node name="DeckFilterResetButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckSearchRow"]
+[node name="DeckFilterResetButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow"]
 layout_mode = 2
 text = "条件をリセット"
 
-[node name="DeckFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/separation = 6
 
-[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckFilterTriggerRow"]
+[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow"]
 layout_mode = 2
 text = "ジャンル ▾"
 
-[node name="RarityButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckFilterTriggerRow"]
+[node name="RarityButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow"]
 layout_mode = 2
 text = "レア度 ▾"
 
-[node name="AiTagButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckFilterTriggerRow"]
+[node name="AiTagButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow"]
 layout_mode = 2
 text = "種別 ▾"
 
-[node name="DeckFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleRitualPanel")
 
-[node name="DeckFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterArchetypePopover"]
+[node name="DeckFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterArchetypePopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 
-[node name="DeckFilterRarityPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckFilterRarityPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleRitualPanel")
 
-[node name="DeckFilterRarityRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterRarityPopover"]
+[node name="DeckFilterRarityRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterRarityPopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 
-[node name="DeckFilterAiTagPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckFilterAiTagPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleRitualPanel")
 
-[node name="DeckFilterAiTagRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterAiTagPopover"]
+[node name="DeckFilterAiTagRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterAiTagPopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 
-[node name="DeckResultCountLabel" type="Label" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckResultCountLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 text = ""
 
-[node name="CardScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="CardScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="CardListContainer" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/CardScroll"]
+[node name="CardListContainer" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/CardScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 2
+
+[node name="DeckBackToListButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+layout_mode = 2
+text = "記録して戻る"
 
 [node name="EquipmentPanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1

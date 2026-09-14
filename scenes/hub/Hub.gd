@@ -26,26 +26,36 @@ extends Control
 @onready var commerce_list: VBoxContainer = $Root/Body/Content/CommercePanel/CommerceList
 
 @onready var deck_panel: VBoxContainer = $Root/Body/Content/DeckPanel
-@onready var new_deck_name_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckHeaderRow/NewDeckNameEdit
-@onready var create_deck_button: Button = $Root/Body/Content/DeckPanel/DeckHeaderRow/CreateDeckButton
-@onready var delete_deck_button: Button = $Root/Body/Content/DeckPanel/DeckHeaderRow/DeleteDeckButton
-@onready var deck_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckOptionButton
-@onready var deck_count_label: Label = $Root/Body/Content/DeckPanel/DeckCountLabel
-@onready var deck_error_label: Label = $Root/Body/Content/DeckPanel/DeckErrorLabel
-@onready var deck_search_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckSearchEdit
-@onready var deck_sort_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckSortOptionButton
-@onready var deck_filter_reset_button: Button = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckFilterResetButton
-@onready var deck_filter_archetype_button: Button = $Root/Body/Content/DeckPanel/DeckFilterTriggerRow/ArchetypeButton
-@onready var deck_filter_rarity_button: Button = $Root/Body/Content/DeckPanel/DeckFilterTriggerRow/RarityButton
-@onready var deck_filter_ai_tag_button: Button = $Root/Body/Content/DeckPanel/DeckFilterTriggerRow/AiTagButton
-@onready var deck_filter_archetype_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckFilterArchetypePopover
-@onready var deck_filter_rarity_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckFilterRarityPopover
-@onready var deck_filter_ai_tag_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckFilterAiTagPopover
-@onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterArchetypePopover/DeckFilterArchetypeRow
-@onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterRarityPopover/DeckFilterRarityRow
-@onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterAiTagPopover/DeckFilterAiTagRow
-@onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckResultCountLabel
-@onready var card_list_container: VBoxContainer = $Root/Body/Content/DeckPanel/CardScroll/CardListContainer
+
+@onready var deck_list_sub_panel: VBoxContainer = $Root/Body/Content/DeckPanel/DeckListSubPanel
+@onready var deck_list_create_button: Button = $Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListHeaderRow/DeckListCreateButton
+@onready var deck_list_container: VBoxContainer = $Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListScroll/DeckListContainer
+
+@onready var deck_edit_sub_panel: VBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel
+@onready var deck_edit_title_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckEditHeaderRow/DeckEditTitleLabel
+@onready var rename_deck_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckEditHeaderRow/RenameDeckButton
+@onready var delete_deck_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckEditHeaderRow/DeleteDeckButton
+@onready var deck_rename_row: HBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow
+@onready var deck_rename_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow/DeckRenameEdit
+@onready var confirm_rename_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow/ConfirmRenameButton
+@onready var cancel_rename_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow/CancelRenameButton
+@onready var deck_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckCountLabel
+@onready var deck_error_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckErrorLabel
+@onready var deck_search_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow/DeckSearchEdit
+@onready var deck_sort_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow/DeckSortOptionButton
+@onready var deck_filter_reset_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow/DeckFilterResetButton
+@onready var deck_filter_archetype_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow/ArchetypeButton
+@onready var deck_filter_rarity_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow/RarityButton
+@onready var deck_filter_ai_tag_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow/AiTagButton
+@onready var deck_filter_archetype_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterArchetypePopover
+@onready var deck_filter_rarity_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterRarityPopover
+@onready var deck_filter_ai_tag_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterAiTagPopover
+@onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterArchetypePopover/DeckFilterArchetypeRow
+@onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterRarityPopover/DeckFilterRarityRow
+@onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterAiTagPopover/DeckFilterAiTagRow
+@onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckResultCountLabel
+@onready var card_list_container: VBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/CardScroll/CardListContainer
+@onready var deck_back_to_list_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckBackToListButton
 
 @onready var equipment_panel: VBoxContainer = $Root/Body/Content/EquipmentPanel
 @onready var equipped_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/EquippedListContainer
@@ -122,6 +132,8 @@ const RUNE_CATEGORY_OF_EFFECT := {
 const RUNE_CATEGORIES := ["attack", "defense", "heal", "special"]
 const RUNE_CATEGORY_LABELS := {"attack": "攻", "defense": "防", "heal": "回復", "special": "特殊"}
 
+var _deck_mode: String = "list"  ## DeckHubScreen.tsx の mode: "list" | "edit"
+var _deck_renaming: bool = false
 var _deck_filter_archetypes: Dictionary = {}
 var _deck_filter_rarities: Dictionary = {}
 var _deck_filter_ai_tags: Dictionary = {}
@@ -142,9 +154,12 @@ func _ready() -> void:
 	primary_action_button.pressed.connect(_on_primary_action_pressed)
 	extract_button.pressed.connect(_on_extract_button_pressed)
 	top_right_button.pressed.connect(_on_top_right_button_pressed)
-	create_deck_button.pressed.connect(_on_create_deck_pressed)
+	deck_list_create_button.pressed.connect(_on_deck_list_create_pressed)
+	rename_deck_button.pressed.connect(_on_rename_deck_pressed)
 	delete_deck_button.pressed.connect(_on_delete_deck_pressed)
-	deck_option_button.item_selected.connect(_on_deck_selected)
+	confirm_rename_button.pressed.connect(_on_rename_confirm_pressed)
+	cancel_rename_button.pressed.connect(_on_rename_cancel_pressed)
+	deck_back_to_list_button.pressed.connect(_on_deck_back_to_list_pressed)
 	grimoire_action_button.pressed.connect(_on_grimoire_turn_pressed)
 	_setup_deck_filters()
 	_setup_equipment_filters()
@@ -265,6 +280,11 @@ func _select_tab(tab_name: String) -> void:
 	if tab_name == "descend":
 		_update_descend_panel()
 	elif tab_name == "deck":
+		## HubScreen.tsx では"deck"タブは専用の早期returnレンダー（DeckHubScreen）に
+		## 切り替わり、他のタブへ移動すると通常アンマウントされる。そのためmode(useState)は
+		## タブへ再入するたびに初期値"list"へ戻る。ここではそれをタブ選択時のリセットで再現する。
+		_deck_mode = "list"
+		_deck_renaming = false
 		_refresh_deck_tab()
 	elif tab_name == "equipment":
 		_selected_rune_id = ""
@@ -586,20 +606,72 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 # デッキ編成タブ（DeckHubScreen.tsx / DeckBuilderScreen.tsx 相当）
 # ============================================================
 
+## DeckHubScreen.tsx の mode: "list" | "edit" 相当のトップレベル切り替え
 func _refresh_deck_tab() -> void:
-	_rebuild_deck_option_button()
-	_refresh_deck_summary()
-	_rebuild_card_list()
+	deck_list_sub_panel.visible = _deck_mode == "list"
+	deck_edit_sub_panel.visible = _deck_mode == "edit"
+	if _deck_mode == "list":
+		_rebuild_deck_list()
+	else:
+		_refresh_deck_edit_header()
+		_refresh_deck_summary()
+		_rebuild_card_list()
 
 
-func _rebuild_deck_option_button() -> void:
-	deck_option_button.clear()
+## DeckListScreen.tsx の topArchetypeOfCounts()
+func _top_archetype_of_counts(counts: Dictionary) -> Dictionary:
+	var tally: Dictionary = {}
+	for card_id in counts.keys():
+		var def := Cards.get_card(str(card_id))
+		var archetype: String = str(def.get("archetype", ""))
+		if archetype == "" or archetype == "generic":
+			continue
+		tally[archetype] = int(tally.get(archetype, 0)) + int(counts[card_id])
+	var best_archetype := ""
+	var best_count := 0
+	for archetype in tally.keys():
+		var count: int = int(tally[archetype])
+		if best_archetype == "" or count > best_count:
+			best_archetype = archetype
+			best_count = count
+	if best_archetype == "":
+		return {}
+	return {"archetype": best_archetype, "count": best_count}
+
+
+## DeckListScreen.tsx の「禁書目録」一覧（本のようなタイル一覧、簡易UI版）
+func _rebuild_deck_list() -> void:
+	for child in deck_list_container.get_children():
+		child.queue_free()
 	var names := CollectionData.decks.keys()
-	for i in range(names.size()):
-		deck_option_button.add_item(str(names[i]), i)
-		if names[i] == CollectionData.active_deck:
-			deck_option_button.select(i)
+	if names.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "デッキがありません。"
+		deck_list_container.add_child(empty_label)
+		return
+	for name in names:
+		var counts: Dictionary = CollectionData.decks.get(name, {})
+		var total := CollectionData.deck_size(counts)
+		var top := _top_archetype_of_counts(counts)
+		var top_text := "印はまだ定まらない"
+		if not top.is_empty():
+			top_text = "%sの印 · %d枚" % [str(Cards.ARCHETYPE_LABELS.get(top.archetype, top.archetype)), int(top.count)]
+		var btn := Button.new()
+		btn.text = "%s\n%d/%d枚\n%s" % [str(name), total, CollectionData.DECK_LIMIT, top_text]
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.pressed.connect(_on_deck_list_open.bind(str(name)))
+		deck_list_container.add_child(btn)
+
+
+## DeckBuilderScreen.tsx のデッキ名表示/名前変更/削除ボタン行の状態更新
+func _refresh_deck_edit_header() -> void:
+	var names := CollectionData.decks.keys()
+	deck_edit_title_label.text = CollectionData.active_deck
+	deck_edit_title_label.visible = not _deck_renaming
+	rename_deck_button.visible = not _deck_renaming
+	delete_deck_button.visible = not _deck_renaming
 	delete_deck_button.disabled = names.size() <= 1
+	deck_rename_row.visible = _deck_renaming
 
 
 func _refresh_deck_summary() -> void:
@@ -712,22 +784,52 @@ func _on_deck_remove_pressed(card_id: String) -> void:
 	_update_header()
 
 
-func _on_create_deck_pressed() -> void:
-	if CollectionData.create_deck(new_deck_name_edit.text):
-		new_deck_name_edit.text = ""
+## DeckListScreen.tsx の「＋新規デッキ」（nextDeckName()で自動命名→即編集モードへ）
+func _on_deck_list_create_pressed() -> void:
+	var name := CollectionData.next_deck_name(CollectionData.decks)
+	if CollectionData.create_deck(name):
+		_deck_mode = "edit"
+		_deck_renaming = false
 		_refresh_deck_tab()
 		_update_header()
 
 
-func _on_delete_deck_pressed() -> void:
-	CollectionData.delete_deck(CollectionData.active_deck)
+## DeckListScreen.tsx の onEditDeck()（デッキタイルクリック→編集モードへ）
+func _on_deck_list_open(name: String) -> void:
+	CollectionData.set_active_deck(name)
+	_deck_mode = "edit"
+	_deck_renaming = false
 	_refresh_deck_tab()
 	_update_header()
 
 
-func _on_deck_selected(index: int) -> void:
-	var name := deck_option_button.get_item_text(index)
-	CollectionData.set_active_deck(name)
+## DeckBuilderScreen.tsx の「記録して戻る」（onBack、一覧モードへ）
+func _on_deck_back_to_list_pressed() -> void:
+	_deck_mode = "list"
+	_refresh_deck_tab()
+	_update_header()
+
+
+func _on_rename_deck_pressed() -> void:
+	_deck_renaming = true
+	deck_rename_edit.text = CollectionData.active_deck
+	_refresh_deck_edit_header()
+
+
+func _on_rename_confirm_pressed() -> void:
+	if CollectionData.rename_deck(CollectionData.active_deck, deck_rename_edit.text):
+		_deck_renaming = false
+	_refresh_deck_edit_header()
+	_update_header()
+
+
+func _on_rename_cancel_pressed() -> void:
+	_deck_renaming = false
+	_refresh_deck_edit_header()
+
+
+func _on_delete_deck_pressed() -> void:
+	CollectionData.delete_deck(CollectionData.active_deck)
 	_refresh_deck_tab()
 	_update_header()
 

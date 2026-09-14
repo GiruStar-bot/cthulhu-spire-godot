@@ -97,6 +97,15 @@ static func copies_of_base(deck: Dictionary, base_card_id: String) -> int:
 	return int(deck.get(base_card_id, 0))
 
 
+## DeckBuilderScreen.tsx の nextDeckName()。「デッキN」の空いている番号を探す
+## （DeckListScreen.tsx の「＋新規デッキ」が使う）。
+static func next_deck_name(existing_decks: Dictionary) -> String:
+	var n := existing_decks.size() + 1
+	while existing_decks.has("デッキ%d" % n):
+		n += 1
+	return "デッキ%d" % n
+
+
 ## useCollectionStore.ts の createDeck()
 func create_deck(deck_name: String) -> bool:
 	var trimmed := deck_name.strip_edges()
