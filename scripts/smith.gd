@@ -1,0 +1,148 @@
+class_name Smith
+extends RefCounted
+
+## src/game/smith.ts 相当。SHOP_CARDS自体（鉄剣・鉄斧・ナイフ等）は cards.gd の
+## Cards.CARDS に既にマージ済み（Object.assign(CARDS, SHOP_CARDS)相当、cards.gd冒頭コメント
+## 参照）のため、ここでは鍛冶屋の品揃え生成ロジック（SHOP_POOL/SLOTS/rollShopRank/makeSmith等）
+## のみを移植する。
+##
+## 参照: reference/cthulhu-spire-main/src/game/smith.ts
+
+const SHOP_POOL := {
+	"sword": {
+		"normal": ["iron_sword", "iron_axe", "knife"],
+		"mid": ["ritual_dagger", "ghoul_claw"],
+		"genius": ["deep_spear", "star_sword"],
+		"god": ["spawn_blade", "cthugha_blade"],
+		"taboo": ["nyar_fake", "azathoth_end"],
+	},
+	"bow": {
+		"normal": ["short_bow", "hunter_bow", "crossbow"],
+		"mid": ["bone_bow", "fanatic_dart"],
+		"genius": ["migo_gun", "elder_staff"],
+		"god": ["hastur_bow", "blackwood_bow"],
+		"taboo": ["hunter_shot", "yog_gun"],
+	},
+	"heavy": {
+		"normal": ["iron_shield", "tower_shield", "chain_mail"],
+		"mid": ["deep_scale", "shoggoth_plate"],
+		"genius": ["yith_shell", "dagon_shield"],
+		"god": ["cthulhu_mail", "tsathoggua_shield"],
+		"taboo": ["yog_gate", "plateau_mail"],
+	},
+	"light": {
+		"normal": ["buckler", "leather", "thief_cloak"],
+		"mid": ["ghoul_rags", "gaki_hide"],
+		"genius": ["yith_coat", "penguin_fur"],
+		"god": ["yellow_rags", "nameless_veil"],
+		"taboo": ["azathoth_nap", "colour_robe"],
+	},
+}
+
+const SHOP_PRICE := {
+	"iron_sword": 8, "iron_axe": 10, "knife": 3, "ritual_dagger": 15, "ghoul_claw": 12,
+	"deep_spear": 25, "star_sword": 32, "spawn_blade": 80, "cthugha_blade": 75,
+	"nyar_fake": 130, "azathoth_end": 999,
+	"short_bow": 3, "hunter_bow": 8, "crossbow": 11, "bone_bow": 16, "fanatic_dart": 14,
+	"migo_gun": 35, "elder_staff": 28, "hastur_bow": 75, "blackwood_bow": 65,
+	"hunter_shot": 150, "yog_gun": 140,
+	"iron_shield": 8, "tower_shield": 12, "chain_mail": 7, "deep_scale": 18, "shoggoth_plate": 15,
+	"yith_shell": 35, "dagon_shield": 40, "cthulhu_mail": 80, "tsathoggua_shield": 70,
+	"yog_gate": 150, "plateau_mail": 145,
+	"buckler": 4, "leather": 7, "thief_cloak": 10, "ghoul_rags": 12, "gaki_hide": 14,
+	"yith_coat": 30, "penguin_fur": 28, "yellow_rags": 75, "nameless_veil": 80,
+	"azathoth_nap": 120, "colour_robe": 140,
+	"beer": 5,
+}
+
+const SLOTS := {
+	"normal": [["normal"], ["normal"], ["normal"], ["normal"], ["normal"], ["normal", "normal", "normal", "normal", "mid"]],
+	"mid": [["normal"], ["normal"], ["mid"], ["mid"], ["mid"], ["mid", "mid", "mid", "mid", "genius"]],
+	"genius": [["normal", "mid"], ["normal", "mid"], ["genius"], ["genius"], ["genius"], ["genius", "genius", "genius", "genius", "god"]],
+	"god": [["mid"], ["mid"], ["genius"], ["genius"], ["god"], ["god", "god", "god", "god", "taboo"]],
+	"taboo": [["genius"], ["genius"], ["god"], ["god"], ["taboo"], ["taboo"]],
+}
+
+const EQUIPMENT_TIER_BY_RANK := {"normal": 1, "mid": 2, "genius": 3, "god": 4, "taboo": 5}
+
+const RANK_LABELS := {"normal": "普通", "mid": "中級", "genius": "天才", "god": "神", "taboo": "禁忌"}
+
+
+## smith.ts の rollShopRank()
+static func roll_shop_rank(rng: Mulberry32) -> String:
+	var r := rng.next_float()
+	if r < 0.002:
+		return "taboo"
+	if r < 0.032:
+		return "god"
+	if r < 0.182:
+		return "genius"
+	if r < 0.382:
+		return "mid"
+	return "normal"
+
+
+## smith.ts の makeEquipmentGoods()。表示用の在庫データ（uid/def_id/tier/price/sold）のみを
+## 生成する。uidを確保するために roll_equipment_at_tier() を一度呼ぶが、そこで決まる
+## power/bonus_stats は捨てる ——購入時（buyEquipmentGood相当、Rest.gd参照）に同じ
+## def_id/tierで改めてロールし直す、という実ソースの挙動を忠実に踏襲している
+## （在庫プレビューと実際に手に入る個体のステータスが一致しない、実ソース側の仕様）。
+static func make_equipment_goods(rank: String, rng: Mulberry32) -> Array:
+	var tier: int = int(EQUIPMENT_TIER_BY_RANK.get(rank, 1))
+	var ids := Equipment.EQUIPMENT.keys()
+	var out: Array = []
+	for i in range(2):
+		var def_id: String = str(Mulberry32.pick(ids, rng))
+		var inst := Equipment.roll_equipment_at_tier(def_id, tier, rng, "smith")
+		out.append({
+			"uid": str(inst.get("uid", "")),
+			"def_id": def_id,
+			"tier": tier,
+			"price": 0 if rank == "taboo" else tier * 15,
+			"sold": false,
+		})
+	return out
+
+
+## smith.ts の makeSmith()
+static func make_smith(rng: Mulberry32) -> Dictionary:
+	var weapon := rng.next_float() < 0.5
+	var kind: String
+	if weapon:
+		kind = "sword" if rng.next_float() < 0.5 else "bow"
+	else:
+		kind = "heavy" if rng.next_float() < 0.5 else "light"
+	var rank := roll_shop_rank(rng)
+	var taboo := rank == "taboo"
+
+	var rank_slots: Array = SLOTS[rank]
+	var goods: Array = []
+	for opts in rank_slots:
+		var slot_options: Array = opts
+		var slot_rank: String = str(Mulberry32.pick(slot_options, rng))
+		var pool: Array = SHOP_POOL[kind][slot_rank]
+		var def_id: String = str(Mulberry32.pick(pool, rng))
+		goods.append({
+			"uid": Mulberry32.uid("g"),
+			"def_id": def_id,
+			"price": 0 if taboo else int(SHOP_PRICE.get(def_id, 8)),
+			"sold": false,
+		})
+
+	return {
+		"rank": rank,
+		"kind": kind,
+		"taboo": taboo,
+		"goods": goods,
+		"equipment_goods": make_equipment_goods(rank, rng),
+	}
+
+
+## smith.ts の rankLabel()
+static func rank_label(rank: String) -> String:
+	return str(RANK_LABELS.get(rank, rank))
+
+
+## smith.ts の shopLabel()
+static func shop_label() -> String:
+	return "鍛冶屋"

@@ -13,6 +13,7 @@ extends Node
 ##       reference/cthulhu-spire-main/src/game/floors.ts
 ##       reference/cthulhu-spire-main/src/game/equipment.ts
 ##       reference/cthulhu-spire-main/src/game/grimoire.ts
+##       reference/cthulhu-spire-main/src/game/smith.ts
 ##       reference/cthulhu-spire-main/src/components/game/GameApp.tsx
 ##
 ## 実ソースの Scene 型のうち "prologue" / "map" / "prepare" / "between" は
@@ -327,10 +328,9 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		goto_scene(tree, "combat")
 	elif kind == "rest":
 		rest_mode = "hub"
-		## smith.ts の makeSmith(rand)。品揃え/ランク階層（SLOTS/SHOP_POOL/equipmentGoods）は
-		## 未移植（フェーズB以降）だが、taboo判定だけは rollShopRank() と同じ確率（0.2%）で
-		## 先行して用意する（forge_at_smith相当のtaboo無料・倍率2倍分岐が必要なため）。
-		village = {"smith": {"taboo": _rand() < 0.002}}
+		## smith.ts の makeSmith(rand)。ランの継続シード(rng)を渡すことで、実ソースの
+		## s.rand（ラン中は同一ストリームを使い続ける）と同じ乱数の消費順を再現する。
+		village = {"smith": Smith.make_smith(rng)}
 		goto_scene(tree, "rest")
 	else:
 		## 実際は EVENTS から該当イベントを引く（フェーズB以降）
