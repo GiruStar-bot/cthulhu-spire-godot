@@ -1,7 +1,86 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scenes/hub/Hub.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/pixel/bg/loadout.jpg" id="2"]
+
+[sub_resource type="StyleBoxFlat" id="StyleDeckPanel"]
+bg_color = Color(0.045, 0.043, 0.035, 0.9)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.48, 0.39, 0.25, 0.9)
+content_margin_left = 14.0
+content_margin_top = 14.0
+content_margin_right = 14.0
+content_margin_bottom = 14.0
+shadow_color = Color(0, 0, 0, 0.72)
+shadow_size = 6
+shadow_offset = Vector2(3, 4)
+
+[sub_resource type="StyleBoxFlat" id="StyleLedger"]
+bg_color = Color(0.027, 0.029, 0.027, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.31, 0.28, 0.21, 0.9)
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+
+[sub_resource type="StyleBoxFlat" id="StyleButton"]
+bg_color = Color(0.12, 0.105, 0.075, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.57, 0.46, 0.29, 1)
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="StyleButtonHover"]
+bg_color = Color(0.2, 0.167, 0.105, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.9, 0.71, 0.38, 1)
+content_margin_left = 10.0
+content_margin_top = 6.0
+content_margin_right = 10.0
+content_margin_bottom = 6.0
+
+[sub_resource type="StyleBoxFlat" id="StyleInput"]
+bg_color = Color(0.018, 0.019, 0.018, 0.96)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.39, 0.33, 0.23, 1)
+content_margin_left = 9.0
+content_margin_top = 6.0
+content_margin_right = 9.0
+content_margin_bottom = 6.0
+
+[sub_resource type="Theme" id="ThemeHubLedger"]
+Button/styles/normal = SubResource("StyleButton")
+Button/styles/hover = SubResource("StyleButtonHover")
+Button/styles/pressed = SubResource("StyleButtonHover")
+Button/colors/font_color = Color(0.91, 0.84, 0.68, 1)
+Button/colors/font_hover_color = Color(1, 0.93, 0.73, 1)
+Button/colors/font_disabled_color = Color(0.45, 0.43, 0.38, 1)
+Button/font_sizes/font_size = 12
+LineEdit/styles/normal = SubResource("StyleInput")
+LineEdit/colors/font_color = Color(0.94, 0.88, 0.75, 1)
+LineEdit/colors/font_placeholder_color = Color(0.51, 0.47, 0.39, 1)
+OptionButton/styles/normal = SubResource("StyleButton")
+OptionButton/colors/font_color = Color(0.91, 0.84, 0.68, 1)
+OptionButton/font_sizes/font_size = 12
+Label/colors/font_color = Color(0.87, 0.81, 0.69, 1)
 
 [node name="Hub" type="Control"]
 layout_mode = 3
@@ -229,30 +308,37 @@ offset_bottom = -12.0
 grow_horizontal = 2
 grow_vertical = 2
 visible = false
-theme_override_constants/separation = 8
+theme = SubResource("ThemeHubLedger")
+theme_override_constants/separation = 10
 
 [node name="DeckHeaderRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 8
 
 [node name="NewDeckNameEdit" type="LineEdit" parent="Root/Body/Content/DeckPanel/DeckHeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 38)
 placeholder_text = "新しいデッキ名"
 
 [node name="CreateDeckButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckHeaderRow"]
 layout_mode = 2
+custom_minimum_size = Vector2(82, 38)
 text = "作成"
 
 [node name="DeleteDeckButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckHeaderRow"]
 layout_mode = 2
+custom_minimum_size = Vector2(82, 38)
 text = "削除"
 
 [node name="DeckOptionButton" type="OptionButton" parent="Root/Body/Content/DeckPanel"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 38)
 
 [node name="DeckCountLabel" type="Label" parent="Root/Body/Content/DeckPanel"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
+theme_override_font_sizes/font_size = 15
 text = "デッキ1: 0/20枚"
 
 [node name="DeckErrorLabel" type="Label" parent="Root/Body/Content/DeckPanel"]
@@ -263,11 +349,13 @@ text = ""
 [node name="CardScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleLedger")
 
 [node name="CardListContainer" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/CardScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme = SubResource("ThemeHubLedger")
+theme_override_constants/separation = 5
 
 [node name="EquipmentPanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1
@@ -281,46 +369,60 @@ offset_bottom = -12.0
 grow_horizontal = 2
 grow_vertical = 2
 visible = false
-theme_override_constants/separation = 8
+theme = SubResource("ThemeHubLedger")
+theme_override_constants/separation = 10
 
 [node name="EquippedLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
+theme_override_font_sizes/font_size = 15
 text = "装着中"
 
 [node name="EquippedListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
-theme_override_constants/separation = 2
+theme = SubResource("ThemeHubLedger")
+theme_override_constants/separation = 5
 
 [node name="StatsLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
+theme_override_styles/normal = SubResource("StyleLedger")
+theme_override_colors/font_color = Color(0.69, 0.82, 0.78, 1)
+theme_override_font_sizes/font_size = 12
 autowrap_mode = 3
 text = "合計ステータス: -"
 
 [node name="InventoryLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
+theme_override_font_sizes/font_size = 15
 text = "所持装備"
 
 [node name="InventoryScroll" type="ScrollContainer" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleLedger")
 
 [node name="InventoryListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel/InventoryScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 4
+theme = SubResource("ThemeHubLedger")
+theme_override_constants/separation = 6
 
 [node name="RuneLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.69, 0.82, 0.78, 1)
 text = "所持ルーン（選択してから装備側の「ここに装着」を押す）"
 
 [node name="RuneScroll" type="ScrollContainer" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 120)
+theme_override_styles/panel = SubResource("StyleLedger")
 
 [node name="RuneListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel/RuneScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme = SubResource("ThemeHubLedger")
+theme_override_constants/separation = 5
 
 [node name="GrimoirePanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1
