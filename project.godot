@@ -12,6 +12,7 @@ config_version=5
 
 GameState="*res://autoload/GameState.gd"
 CollectionData="*res://autoload/CollectionData.gd"
+AudioManager="*res://autoload/AudioManager.gd"
 
 [application]
 

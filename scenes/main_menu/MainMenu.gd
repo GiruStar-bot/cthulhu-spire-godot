@@ -9,6 +9,10 @@ extends Control
 @onready var play_button: Button = $Stage/ButtonRow/PlayButton
 @onready var settings_button: Button = $Stage/ButtonRow/SettingsButton
 @onready var credits_button: Button = $Stage/ButtonRow/CreditsButton
+@onready var settings_panel: PanelContainer = $SettingsPanel
+@onready var music_slider: HSlider = $SettingsPanel/Margin/Content/MusicSlider
+@onready var sfx_slider: HSlider = $SettingsPanel/Margin/Content/SfxSlider
+@onready var close_settings_button: Button = $SettingsPanel/Margin/Content/CloseButton
 
 var _logo_base_y: float
 
@@ -17,6 +21,11 @@ func _ready() -> void:
 	play_button.pressed.connect(_on_play_pressed)
 	settings_button.pressed.connect(_on_settings_pressed)
 	credits_button.pressed.connect(_on_credits_pressed)
+	music_slider.value_changed.connect(_on_music_volume_changed)
+	sfx_slider.value_changed.connect(_on_sfx_volume_changed)
+	close_settings_button.pressed.connect(_on_close_settings_pressed)
+	music_slider.set_value_no_signal(AudioManager.get_music_volume())
+	sfx_slider.set_value_no_signal(AudioManager.get_sfx_volume())
 	_start_drift()
 
 
@@ -35,8 +44,20 @@ func _on_play_pressed() -> void:
 
 
 func _on_settings_pressed() -> void:
-	pass  ## SettingsPanel相当は未実装（フェーズB以降）
+	settings_panel.visible = true
 
 
 func _on_credits_pressed() -> void:
 	pass  ## CreditsPanel相当は未実装（フェーズB以降）
+
+
+func _on_music_volume_changed(value: float) -> void:
+	AudioManager.set_music_volume(value)
+
+
+func _on_sfx_volume_changed(value: float) -> void:
+	AudioManager.set_sfx_volume(value)
+
+
+func _on_close_settings_pressed() -> void:
+	settings_panel.visible = false
