@@ -156,6 +156,25 @@ func total_points() -> int:
 	return Profile.total_points(best_floor)
 
 
+## store.ts の setStat(key, value)。予算(totalPoints)を超える配分は無視する。
+func set_stat(key: String, value: int) -> void:
+	var next: int = max(Profile.STAT_MIN, value)
+	var others: int = Profile.stat_sum(stats) - int(stats.get(key, 0))
+	var budget := total_points()
+	if others + next > budget:
+		return
+	stats[key] = next
+	stats = Profile.clamp_stats(stats)
+	earned_points = budget
+	unspent_points = max(0, budget - Profile.stat_sum(stats))
+	_persist_profile()
+
+
+## store.ts の starterPath(stats)
+func starter_path(p_stats: Dictionary) -> String:
+	return "investigator" if int(p_stats.get("hp", 0)) >= int(p_stats.get("san", 0)) else "cultist"
+
+
 # ============================================================
 # シーン遷移（GameApp.tsx のレンダー切替 + store.ts の各アクション相当）
 # ============================================================
@@ -185,7 +204,7 @@ func to_title(tree: SceneTree) -> void:
 ## 実際はプレイヤー名・デッキ枚数のバリデーションを行うが、
 ## ステ振り/デッキ編成UIが未実装のフェーズAでは省略する（フェーズB以降で追加）。
 func start_run(tree: SceneTree) -> void:
-	character = "investigator"  ## 実際は starterPath(stats) で決定（フェーズB以降）
+	character = starter_path(stats)
 	max_hp = derived_max_hp()
 	hp = max_hp
 	max_sanity = derived_max_sanity()

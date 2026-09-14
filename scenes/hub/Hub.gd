@@ -16,6 +16,9 @@ extends Control
 @onready var descend_status_label: Label = $Root/Body/Content/DescendPanel/DescendStatusLabel
 @onready var primary_action_button: Button = $Root/Body/Content/DescendPanel/PrimaryActionButton
 @onready var extract_button: Button = $Root/Body/Content/DescendPanel/ExtractButton
+@onready var stat_panel: VBoxContainer = $Root/Body/Content/DescendPanel/StatPanel
+@onready var stat_header_label: Label = $Root/Body/Content/DescendPanel/StatPanel/StatHeaderLabel
+@onready var stat_rows_container: VBoxContainer = $Root/Body/Content/DescendPanel/StatPanel/StatRowsContainer
 
 @onready var placeholder_panel: Label = $Root/Body/Content/PlaceholderPanel
 @onready var commerce_panel: VBoxContainer = $Root/Body/Content/CommercePanel
@@ -117,14 +120,77 @@ func _update_descend_panel() -> void:
 		]
 		primary_action_button.text = "次の層へ沈む"
 		extract_button.visible = true
+		stat_panel.visible = false
 	else:
-		## PrepareView.tsx 相当（ステ振りは未実装、フェーズB以降）
+		## PrepareView.tsx 相当
 		descend_status_label.text = "探索準備\n最深到達: %s · 貝殻 %d" % [
 			Floors.layer_label(GameState.best_floor) if GameState.best_floor > 0 else "未潜航",
 			GameState.shells,
 		]
 		primary_action_button.text = "潜航開始"
 		extract_button.visible = false
+		stat_panel.visible = true
+		_refresh_stat_panel()
+
+
+# ============================================================
+# ステ振りUI（PrepareView.tsx の STAT_UI / StatRow 相当）
+# ============================================================
+
+const STAT_UI := [
+	{"key": "hp", "name": "体力", "tag": "HP"},
+	{"key": "san", "name": "正気", "tag": "SAN"},
+	{"key": "intelligent", "name": "知力", "tag": "INT"},
+	{"key": "strength", "name": "筋力", "tag": "STR"},
+	{"key": "energy", "name": "気力", "tag": "NRG"},
+]
+
+
+func _refresh_stat_panel() -> void:
+	var spent := Profile.stat_sum(GameState.stats)
+	var budget := GameState.total_points()
+	var remain: int = max(0, budget - spent)
+	stat_header_label.text = "使用可能ポイント: %d / 総ポイント: %d" % [remain, budget]
+
+	for child in stat_rows_container.get_children():
+		child.queue_free()
+	for row in STAT_UI:
+		var key: String = row.key
+		var sp: int = int(GameState.stats.get(key, 0))
+		var base: int = Profile.stat_base(key, GameState.madness)
+		var final: int = Profile.stat_final(key, sp, GameState.madness)
+
+		var hrow := HBoxContainer.new()
+		hrow.add_theme_constant_override("separation", 6)
+
+		var label := Label.new()
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.text = "%s（%s） SP%d　%d → %d" % [row.name, row.tag, sp, base, final]
+		hrow.add_child(label)
+
+		var minus_btn := Button.new()
+		minus_btn.text = "-"
+		minus_btn.disabled = sp <= Profile.STAT_MIN
+		minus_btn.pressed.connect(_on_stat_minus_pressed.bind(key))
+		hrow.add_child(minus_btn)
+
+		var plus_btn := Button.new()
+		plus_btn.text = "+"
+		plus_btn.disabled = remain <= 0
+		plus_btn.pressed.connect(_on_stat_plus_pressed.bind(key))
+		hrow.add_child(plus_btn)
+
+		stat_rows_container.add_child(hrow)
+
+
+func _on_stat_minus_pressed(key: String) -> void:
+	GameState.set_stat(key, int(GameState.stats.get(key, 0)) - 1)
+	_refresh_stat_panel()
+
+
+func _on_stat_plus_pressed(key: String) -> void:
+	GameState.set_stat(key, int(GameState.stats.get(key, 0)) + 1)
+	_refresh_stat_panel()
 
 
 func _deck_count() -> int:
