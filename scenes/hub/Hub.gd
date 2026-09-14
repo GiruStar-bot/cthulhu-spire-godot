@@ -25,6 +25,17 @@ extends Control
 @onready var commerce_title: Label = $Root/Body/Content/CommercePanel/CommerceTitle
 @onready var commerce_list: VBoxContainer = $Root/Body/Content/CommercePanel/CommerceList
 
+@onready var sell_panel: VBoxContainer = $Root/Body/Content/SellPanel
+@onready var sell_card_tab_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellCardTabButton
+@onready var sell_equipment_tab_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellEquipmentTabButton
+@onready var sell_rune_tab_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellRuneTabButton
+@onready var sell_surplus_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellSurplusButton
+@onready var sell_select_all_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellSelectAllButton
+@onready var sell_clear_all_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellClearAllButton
+@onready var sell_list_container: VBoxContainer = $Root/Body/Content/SellPanel/SellListScroll/SellListContainer
+@onready var sell_total_label: Label = $Root/Body/Content/SellPanel/SellFooterRow/SellTotalLabel
+@onready var sell_confirm_button: Button = $Root/Body/Content/SellPanel/SellFooterRow/SellConfirmButton
+
 @onready var deck_panel: VBoxContainer = $Root/Body/Content/DeckPanel
 
 @onready var deck_list_sub_panel: VBoxContainer = $Root/Body/Content/DeckPanel/DeckListSubPanel
@@ -94,6 +105,12 @@ var _selected_rune_id: String = ""
 var _commerce_tab := ""
 var _last_pack_result: Array = []  ## store.ts の lastPackResult 相当（ShopPanel.tsx の通常パック結果表示）
 
+# SellScreen.tsx 相当の状態
+var _sell_tab: String = "card"  ## "card" | "equipment" | "rune"
+var _sell_card_selections: Dictionary = {}  ## base_card_id -> 選択数
+var _sell_equipment_uids: Dictionary = {}  ## uid -> true
+var _sell_rune_ids: Dictionary = {}  ## id -> true
+
 # ============================================================
 # デッキ編成/装備タブの検索・フィルター・ソート
 # （DeckBuilderScreen.tsx / EquipmentScreen.tsx 相当）
@@ -160,6 +177,13 @@ func _ready() -> void:
 	confirm_rename_button.pressed.connect(_on_rename_confirm_pressed)
 	cancel_rename_button.pressed.connect(_on_rename_cancel_pressed)
 	deck_back_to_list_button.pressed.connect(_on_deck_back_to_list_pressed)
+	sell_card_tab_button.pressed.connect(_on_sell_tab_selected.bind("card"))
+	sell_equipment_tab_button.pressed.connect(_on_sell_tab_selected.bind("equipment"))
+	sell_rune_tab_button.pressed.connect(_on_sell_tab_selected.bind("rune"))
+	sell_surplus_button.pressed.connect(_on_sell_surplus_pressed)
+	sell_select_all_button.pressed.connect(_on_sell_select_all_pressed)
+	sell_clear_all_button.pressed.connect(_on_sell_clear_all_pressed)
+	sell_confirm_button.pressed.connect(_on_sell_confirm_pressed)
 	grimoire_action_button.pressed.connect(_on_grimoire_turn_pressed)
 	_setup_deck_filters()
 	_setup_equipment_filters()
@@ -274,7 +298,8 @@ func _select_tab(tab_name: String) -> void:
 	descend_panel.visible = tab_name == "descend"
 	deck_panel.visible = tab_name == "deck"
 	equipment_panel.visible = tab_name == "equipment"
-	commerce_panel.visible = tab_name in ["sell", "shop", "packs"]
+	sell_panel.visible = tab_name == "sell"
+	commerce_panel.visible = tab_name in ["shop", "packs"]
 	grimoire_panel.visible = tab_name == "grimoire"
 	placeholder_panel.visible = false
 	if tab_name == "descend":
@@ -289,6 +314,15 @@ func _select_tab(tab_name: String) -> void:
 	elif tab_name == "equipment":
 		_selected_rune_id = ""
 		_refresh_equipment_tab()
+	elif tab_name == "sell":
+		## HubScreen.tsx の {tab === "sell" ? <SellScreen .../> : null} も、deckタブ同様
+		## タブ切替でSellScreenがアンマウント/再マウントされ、選択状態(useState)は
+		## タブへ再入するたびに初期化される。ここでも同じくタブ選択時にリセットする。
+		_sell_tab = "card"
+		_sell_card_selections.clear()
+		_sell_equipment_uids.clear()
+		_sell_rune_ids.clear()
+		_refresh_sell_tab()
 	elif tab_name == "grimoire":
 		_refresh_grimoire_tab()
 	elif commerce_panel.visible:
@@ -431,27 +465,7 @@ func _on_top_right_button_pressed() -> void:
 
 func _refresh_commerce() -> void:
 	for child in commerce_list.get_children(): child.free()
-	if _commerce_tab == "sell":
-		commerce_title.text = "売却　所持: %d貝殻" % GameState.shells
-		var reserved := {}
-		for deck in CollectionData.decks.values():
-			for id in deck.keys(): reserved[id] = int(reserved.get(id, 0)) + int(deck[id])
-		for card in CollectionData.inventory.cards:
-			var id := str(card.get("base_card_id", ""))
-			if int(reserved.get(id, 0)) > 0:
-				reserved[id] -= 1
-				continue
-			var def := Cards.get_card(id)
-			var value: int = {"starter":2,"common":5,"uncommon":10,"rare":20}.get(def.get("rarity", ""), 0)
-			if value > 0:
-				_commerce_button("カードを売却: %s (+%d貝殻)" % [def.get("name", id), value], _sell_card.bind(str(card.get("instance_id", "")), value), false,
-					str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")))
-		for gear in CollectionData.inventory.equipment:
-			if not _equipped(gear):
-				var gear_def := Equipment.get_equipment(str(gear.get("def_id", "")))
-				_commerce_button("装備を売却: %s (+%d貝殻)" % [Equipment.equipment_label(gear), int(gear.get("tier",1))*5], _sell_gear.bind(str(gear.get("uid", ""))), false,
-					str(gear_def.get("art", "")), str(gear_def.get("archetype", "")), "common")
-	elif _commerce_tab == "shop":
+	if _commerce_tab == "shop":
 		## ShopPanel.tsx 相当：通常パック（buyCardPack()）購入のみ。
 		## 以前ここにあったSHOP_CARDS（鉄剣等）販売は鍛冶屋（Rest.gd）側の実装であり、
 		## Hubのショップタブの内容として誤っていたため撤去した。
@@ -475,15 +489,6 @@ func _refresh_commerce() -> void:
 			_commerce_button("%sパックを開封（所持%d）" % [a,n], _open_pack.bind(a), n <= 0,
 				"res://art/pixel/tickets/ticket_%s.png" % a, a, "rare")
 
-
-func _sell_card(uid: String, value: int) -> void:
-	CollectionData.remove_cards([uid]); GameState.add_shells(value); _refresh_commerce()
-
-func _sell_gear(uid: String) -> void:
-	for gear in CollectionData.inventory.equipment:
-		if gear.get("uid", "") == uid:
-			CollectionData.remove_equipment([uid]); GameState.add_shells(int(gear.get("tier",1))*5); break
-	_refresh_commerce()
 
 ## ShopPanel.tsx の buyCardPack ボタン相当
 func _on_buy_card_pack() -> void:
@@ -600,6 +605,311 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 		frame.patch_margin_bottom = margin
 	holder.add_child(frame)
 	return holder
+
+
+# ============================================================
+# 売却タブ（SellScreen.tsx 相当）
+# ============================================================
+
+## SellScreen.tsx の usedAcrossDecks()
+func _used_across_decks() -> Dictionary:
+	var used: Dictionary = {}
+	for counts in CollectionData.decks.values():
+		for card_id in counts.keys():
+			used[card_id] = int(used.get(card_id, 0)) + int(counts[card_id])
+	return used
+
+
+## SellScreen.tsx の cardRows（groupInventory()+所持数-デッキ使用数=売却可能数、0枚は除外）
+func _sellable_card_rows() -> Array:
+	var used := _used_across_decks()
+	var owned := CollectionData.owned_card_counts()
+	var out: Array = []
+	for card_id in owned.keys():
+		var owned_n: int = int(owned[card_id])
+		var used_n: int = int(used.get(str(card_id), 0))
+		var sellable: int = max(0, owned_n - used_n)
+		if sellable > 0:
+			out.append({"base_card_id": str(card_id), "owned": owned_n, "sellable": sellable})
+	return out
+
+
+## SellScreen.tsx の sellableEquipment（装着中は除外）
+func _sellable_equipment() -> Array:
+	var out: Array = []
+	for inst in CollectionData.inventory.equipment:
+		if not _equipped(inst):
+			out.append(inst)
+	return out
+
+
+func _socketed_rune_ids() -> Dictionary:
+	var out: Dictionary = {}
+	for inst in CollectionData.inventory.equipment:
+		for rid in inst.get("socketed_runes", []):
+			if rid != null:
+				out[str(rid)] = true
+	return out
+
+
+## SellScreen.tsx の sellableRunes（いずれかの装備にソケット中のものは除外）
+func _sellable_runes() -> Array:
+	var socketed := _socketed_rune_ids()
+	var out: Array = []
+	for rune in CollectionData.inventory.runes:
+		if not socketed.has(str(rune.get("id", ""))):
+			out.append(rune)
+	return out
+
+
+## SellScreen.tsx の qtyFor()
+func _sell_qty_for(base_card_id: String, sellable: int) -> int:
+	return min(int(_sell_card_selections.get(base_card_id, 0)), sellable)
+
+
+## SellScreen.tsx の setCardQty()
+func _set_sell_card_qty(base_card_id: String, qty: int, max_qty: int) -> void:
+	var clamped: int = max(0, min(max_qty, qty))
+	if clamped <= 0:
+		_sell_card_selections.erase(base_card_id)
+	else:
+		_sell_card_selections[base_card_id] = clamped
+	_refresh_sell_tab()
+
+
+func _sell_card_total_count() -> int:
+	var total := 0
+	for r in _sellable_card_rows():
+		total += _sell_qty_for(str(r.base_card_id), int(r.sellable))
+	return total
+
+
+func _sell_card_total_value() -> int:
+	var total := 0
+	for r in _sellable_card_rows():
+		var qty := _sell_qty_for(str(r.base_card_id), int(r.sellable))
+		if qty > 0:
+			total += qty * Smith.card_sell_price(Cards.get_card(str(r.base_card_id)))
+	return total
+
+
+func _sell_equipment_total_value() -> int:
+	var total := 0
+	for inst in _sellable_equipment():
+		if _sell_equipment_uids.has(str(inst.get("uid", ""))):
+			total += Smith.equipment_sell_price(inst)
+	return total
+
+
+func _sell_rune_total_value() -> int:
+	var total := 0
+	for rune in _sellable_runes():
+		if _sell_rune_ids.has(str(rune.get("id", ""))):
+			total += Smith.rune_sell_price(rune)
+	return total
+
+
+## SellScreen.tsx の totalValue
+func _sell_total_value() -> int:
+	return _sell_card_total_value() + _sell_equipment_total_value() + _sell_rune_total_value()
+
+
+## SellScreen.tsx の totalSelected
+func _sell_total_selected() -> int:
+	return _sell_card_total_count() + _sell_equipment_uids.size() + _sell_rune_ids.size()
+
+
+func _refresh_sell_tab() -> void:
+	for key in ["card", "equipment", "rune"]:
+		var btn: Button = sell_card_tab_button if key == "card" else (sell_equipment_tab_button if key == "equipment" else sell_rune_tab_button)
+		btn.disabled = key == _sell_tab
+	sell_surplus_button.visible = _sell_tab == "card"
+
+	for child in sell_list_container.get_children():
+		child.queue_free()
+
+	if _sell_tab == "card":
+		var rows := _sellable_card_rows()
+		if rows.is_empty():
+			var empty_label := Label.new()
+			empty_label.text = "売れるカードがない。"
+			sell_list_container.add_child(empty_label)
+		for r in rows:
+			var base_card_id: String = str(r.base_card_id)
+			var owned_n: int = int(r.owned)
+			var sellable: int = int(r.sellable)
+			var qty := _sell_qty_for(base_card_id, sellable)
+			var def := Cards.get_card(base_card_id)
+			var unit_price := Smith.card_sell_price(def)
+
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 8)
+			row.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(46, 56)))
+
+			var select_btn := Button.new()
+			select_btn.text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
+			select_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			select_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, 0 if qty > 0 else sellable, sellable))
+			row.add_child(select_btn)
+
+			var minus_btn := Button.new()
+			minus_btn.text = "-"
+			minus_btn.disabled = qty <= 0
+			minus_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, qty - 1, sellable))
+			row.add_child(minus_btn)
+
+			var qty_label := Label.new()
+			qty_label.text = "%d/%d" % [qty, sellable]
+			qty_label.custom_minimum_size = Vector2(48, 0)
+			qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			row.add_child(qty_label)
+
+			var plus_btn := Button.new()
+			plus_btn.text = "+"
+			plus_btn.disabled = qty >= sellable
+			plus_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, qty + 1, sellable))
+			row.add_child(plus_btn)
+
+			var price_label := Label.new()
+			price_label.text = "貝殻%d/枚" % unit_price
+			row.add_child(price_label)
+
+			sell_list_container.add_child(row)
+
+	elif _sell_tab == "equipment":
+		var equipment_list := _sellable_equipment()
+		if equipment_list.is_empty():
+			var empty_label := Label.new()
+			empty_label.text = "売れる装備がない。"
+			sell_list_container.add_child(empty_label)
+		for inst in equipment_list:
+			var uid := str(inst.get("uid", ""))
+			var def := Equipment.get_equipment(str(inst.get("def_id", "")))
+			var selected := _sell_equipment_uids.has(uid)
+
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 8)
+			row.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(46, 56)))
+
+			var btn := Button.new()
+			btn.toggle_mode = true
+			btn.button_pressed = selected
+			btn.text = "%s（貝殻%d）" % [Equipment.equipment_label(inst), Smith.equipment_sell_price(inst)]
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			btn.toggled.connect(_on_sell_equipment_toggled.bind(uid))
+			row.add_child(btn)
+
+			sell_list_container.add_child(row)
+
+	else:
+		var rune_list := _sellable_runes()
+		if rune_list.is_empty():
+			var empty_label := Label.new()
+			empty_label.text = "売れるルーンがない。"
+			sell_list_container.add_child(empty_label)
+		for rune in rune_list:
+			var rid := str(rune.get("id", ""))
+			var selected := _sell_rune_ids.has(rid)
+
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 8)
+
+			var btn := Button.new()
+			btn.toggle_mode = true
+			btn.button_pressed = selected
+			btn.text = "%s（値%s, 貝殻%d）" % [str(rune.get("effect", "?")), str(rune.get("value", "?")), Smith.rune_sell_price(rune)]
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			btn.toggled.connect(_on_sell_rune_toggled.bind(rid))
+			row.add_child(btn)
+
+			sell_list_container.add_child(row)
+
+	sell_total_label.text = "選択中 %d点 · 獲得予定 貝殻%d" % [_sell_total_selected(), _sell_total_value()]
+	sell_confirm_button.disabled = _sell_total_selected() == 0
+
+
+func _on_sell_tab_selected(tab_name: String) -> void:
+	_sell_tab = tab_name
+	_refresh_sell_tab()
+
+
+func _on_sell_equipment_toggled(pressed: bool, uid: String) -> void:
+	if pressed:
+		_sell_equipment_uids[uid] = true
+	else:
+		_sell_equipment_uids.erase(uid)
+	_refresh_sell_tab()
+
+
+func _on_sell_rune_toggled(pressed: bool, rid: String) -> void:
+	if pressed:
+		_sell_rune_ids[rid] = true
+	else:
+		_sell_rune_ids.erase(rid)
+	_refresh_sell_tab()
+
+
+## SellScreen.tsx の selectAll()
+func _on_sell_select_all_pressed() -> void:
+	if _sell_tab == "card":
+		_sell_card_selections.clear()
+		for r in _sellable_card_rows():
+			_sell_card_selections[str(r.base_card_id)] = int(r.sellable)
+	elif _sell_tab == "equipment":
+		_sell_equipment_uids.clear()
+		for inst in _sellable_equipment():
+			_sell_equipment_uids[str(inst.get("uid", ""))] = true
+	else:
+		_sell_rune_ids.clear()
+		for rune in _sellable_runes():
+			_sell_rune_ids[str(rune.get("id", ""))] = true
+	_refresh_sell_tab()
+
+
+## SellScreen.tsx の clearAll()
+func _on_sell_clear_all_pressed() -> void:
+	if _sell_tab == "card":
+		_sell_card_selections.clear()
+	elif _sell_tab == "equipment":
+		_sell_equipment_uids.clear()
+	else:
+		_sell_rune_ids.clear()
+	_refresh_sell_tab()
+
+
+## SellScreen.tsx の selectSurplus()：デッキ編成の上限(COPY_LIMIT)を超える余剰分だけを選択する
+func _on_sell_surplus_pressed() -> void:
+	_sell_card_selections.clear()
+	for r in _sellable_card_rows():
+		var sellable: int = int(r.sellable)
+		if sellable > CollectionData.COPY_LIMIT:
+			_sell_card_selections[str(r.base_card_id)] = sellable - CollectionData.COPY_LIMIT
+	_refresh_sell_tab()
+
+
+## SellScreen.tsx の handleSell()
+func _on_sell_confirm_pressed() -> void:
+	if _sell_total_selected() == 0:
+		return
+	var card_ids: Array = []
+	for r in _sellable_card_rows():
+		var base_card_id: String = str(r.base_card_id)
+		var qty := _sell_qty_for(base_card_id, int(r.sellable))
+		if qty <= 0:
+			continue
+		var picked := 0
+		for c in CollectionData.inventory.cards:
+			if picked >= qty:
+				break
+			if str(c.get("base_card_id", "")) == base_card_id:
+				card_ids.append(str(c.get("instance_id", "")))
+				picked += 1
+	GameState.sell_items(card_ids, _sell_equipment_uids.keys(), _sell_rune_ids.keys())
+	_sell_card_selections.clear()
+	_sell_equipment_uids.clear()
+	_sell_rune_ids.clear()
+	_refresh_sell_tab()
+	_update_header()
 
 
 # ============================================================

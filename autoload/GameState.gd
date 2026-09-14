@@ -159,6 +159,59 @@ func buy_card_pack() -> Array:
 	return result
 
 
+## store.ts の sellItems({cardIds, equipmentUids, runeIds})。装着中の装備・ソケット中の
+## ルーンは（呼び出し元が既に除外している前提だが）念のためここでも除外する。
+## 合計0円なら何もしない。
+func sell_items(card_ids: Array, equipment_uids: Array, rune_ids: Array) -> void:
+	var equipped_uids: Dictionary = {}
+	for item in equipped.values():
+		if item != null:
+			equipped_uids[str(item.get("uid", ""))] = true
+	var socketed_rune_ids: Dictionary = {}
+	for inst in CollectionData.inventory.equipment:
+		for rid in inst.get("socketed_runes", []):
+			if rid != null:
+				socketed_rune_ids[str(rid)] = true
+
+	var total := 0
+	var sell_card_ids: Array = []
+	for id in card_ids:
+		for c in CollectionData.inventory.cards:
+			if str(c.get("instance_id", "")) == str(id):
+				total += Smith.card_sell_price(Cards.get_card(str(c.get("base_card_id", ""))))
+				sell_card_ids.append(str(id))
+				break
+
+	var sell_equipment_uids: Array = []
+	for uid in equipment_uids:
+		if equipped_uids.has(str(uid)):
+			continue
+		for inst in CollectionData.inventory.equipment:
+			if str(inst.get("uid", "")) == str(uid):
+				total += Smith.equipment_sell_price(inst)
+				sell_equipment_uids.append(str(uid))
+				break
+
+	var sell_rune_ids: Array = []
+	for rid in rune_ids:
+		if socketed_rune_ids.has(str(rid)):
+			continue
+		for rune in CollectionData.inventory.runes:
+			if str(rune.get("id", "")) == str(rid):
+				total += Smith.rune_sell_price(rune)
+				sell_rune_ids.append(str(rid))
+				break
+
+	if total == 0:
+		return
+	CollectionData.remove_cards(sell_card_ids)
+	CollectionData.remove_equipment(sell_equipment_uids)
+	CollectionData.remove_runes(sell_rune_ids)
+	shells += total
+	_persist_profile()
+	toast = "貝殻+%d" % total
+
+
 ## profile.ts の derivedVitals().maxHp
 func derived_max_hp() -> int:
 	return Profile.derived_vitals(stats, madness).max_hp

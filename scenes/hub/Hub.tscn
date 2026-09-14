@@ -289,6 +289,72 @@ theme = SubResource("ThemeRitual")
 theme_override_styles/panel = SubResource("StyleInkLedger")
 theme_override_constants/separation = 8
 
+[node name="SellPanel" type="VBoxContainer" parent="Root/Body/Content"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+theme = SubResource("ThemeRitual")
+theme_override_constants/separation = 8
+
+[node name="SellTabRow" type="HBoxContainer" parent="Root/Body/Content/SellPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SellCardTabButton" type="Button" parent="Root/Body/Content/SellPanel/SellTabRow"]
+layout_mode = 2
+text = "カード"
+
+[node name="SellEquipmentTabButton" type="Button" parent="Root/Body/Content/SellPanel/SellTabRow"]
+layout_mode = 2
+text = "装備"
+
+[node name="SellRuneTabButton" type="Button" parent="Root/Body/Content/SellPanel/SellTabRow"]
+layout_mode = 2
+text = "ルーン"
+
+[node name="SellSurplusButton" type="Button" parent="Root/Body/Content/SellPanel/SellTabRow"]
+layout_mode = 2
+text = "余剰を一括選択"
+
+[node name="SellSelectAllButton" type="Button" parent="Root/Body/Content/SellPanel/SellTabRow"]
+layout_mode = 2
+text = "全選択"
+
+[node name="SellClearAllButton" type="Button" parent="Root/Body/Content/SellPanel/SellTabRow"]
+layout_mode = 2
+text = "全解除"
+
+[node name="SellListScroll" type="ScrollContainer" parent="Root/Body/Content/SellPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleInkLedger")
+
+[node name="SellListContainer" type="VBoxContainer" parent="Root/Body/Content/SellPanel/SellListScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="SellFooterRow" type="HBoxContainer" parent="Root/Body/Content/SellPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SellTotalLabel" type="Label" parent="Root/Body/Content/SellPanel/SellFooterRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "選択中 0点 · 獲得予定 貝殻0"
+
+[node name="SellConfirmButton" type="Button" parent="Root/Body/Content/SellPanel/SellFooterRow"]
+layout_mode = 2
+text = "選択したものを売却"
+
 [node name="DeckPanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1
 anchors_preset = 15

@@ -146,3 +146,21 @@ static func rank_label(rank: String) -> String:
 ## smith.ts の shopLabel()
 static func shop_label() -> String:
 	return "鍛冶屋"
+
+
+const CARD_SELL_PRICE := {"starter": 2, "common": 5, "uncommon": 10, "rare": 20}
+
+
+## smith.ts の cardSellPrice()
+static func card_sell_price(card_def: Dictionary) -> int:
+	return int(CARD_SELL_PRICE.get(str(card_def.get("rarity", "")), 0))
+
+
+## smith.ts の equipmentSellPrice()
+static func equipment_sell_price(inst: Dictionary) -> int:
+	return int(inst.get("tier", 1)) * 5
+
+
+## smith.ts の runeSellPrice()
+static func rune_sell_price(rune: Dictionary) -> int:
+	return int(rune.get("value", 0)) * 3

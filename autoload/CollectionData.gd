@@ -278,11 +278,34 @@ func add_loot_card(card_id: String) -> bool:
 	inventory.cards.append({"instance_id": "ci_%s" % Time.get_ticks_usec(), "base_card_id": card_id, "origin": "loot"})
 	return true
 
+## useCollectionStore.ts の removeCards()。削除後、各デッキの所持数を新しい所持数へ
+## クランプし直す（SellScreen.tsx側は売却可能数＝所持数-デッキ使用数しか売らせないため
+## 通常は発生しないが、実ソース同様の安全策として移植する）。
 func remove_cards(ids: Array) -> void:
+	if ids.is_empty():
+		return
 	inventory.cards = inventory.cards.filter(func(c): return not ids.has(str(c.get("instance_id", ""))))
+	var owned: Dictionary = {}
+	for c in inventory.cards:
+		var base_id: String = str(c.get("base_card_id", ""))
+		owned[base_id] = int(owned.get(base_id, 0)) + 1
+	for deck_name in decks.keys():
+		var counts: Dictionary = decks[deck_name]
+		var clamped_counts: Dictionary = {}
+		for card_id in counts.keys():
+			var clamped: int = min(int(counts[card_id]), int(owned.get(card_id, 0)))
+			if clamped > 0:
+				clamped_counts[card_id] = clamped
+		decks[deck_name] = clamped_counts
+
 
 func remove_equipment(ids: Array) -> void:
 	inventory.equipment = inventory.equipment.filter(func(e): return not ids.has(str(e.get("uid", ""))))
+
+
+## useCollectionStore.ts の removeRunes()
+func remove_runes(ids: Array) -> void:
+	inventory.runes = inventory.runes.filter(func(r): return not ids.has(str(r.get("id", ""))))
 
 func consume_pack_ticket(ticket: String) -> bool:
 	var n := int(pack_tickets.get(ticket, 0))
