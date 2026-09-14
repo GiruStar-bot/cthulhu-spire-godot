@@ -262,3 +262,21 @@ func unsocket_rune_from_equipment(equipment_uid: String, socket_index: int) -> b
 	inventory.runes.append(restored)
 	rune_registry[rune_id] = restored
 	return true
+
+
+func add_loot_card(card_id: String) -> bool:
+	if not Cards.CARDS.has(card_id): return false
+	inventory.cards.append({"instance_id": "ci_%s" % Time.get_ticks_usec(), "base_card_id": card_id, "origin": "loot"})
+	return true
+
+func remove_cards(ids: Array) -> void:
+	inventory.cards = inventory.cards.filter(func(c): return not ids.has(str(c.get("instance_id", ""))))
+
+func remove_equipment(ids: Array) -> void:
+	inventory.equipment = inventory.equipment.filter(func(e): return not ids.has(str(e.get("uid", ""))))
+
+func consume_pack_ticket(ticket: String) -> bool:
+	var n := int(pack_tickets.get(ticket, 0))
+	if n <= 0: return false
+	pack_tickets[ticket] = n - 1
+	return true

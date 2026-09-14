@@ -18,6 +18,9 @@ extends Control
 @onready var extract_button: Button = $Root/Body/Content/DescendPanel/ExtractButton
 
 @onready var placeholder_panel: Label = $Root/Body/Content/PlaceholderPanel
+@onready var commerce_panel: VBoxContainer = $Root/Body/Content/CommercePanel
+@onready var commerce_title: Label = $Root/Body/Content/CommercePanel/CommerceTitle
+@onready var commerce_list: VBoxContainer = $Root/Body/Content/CommercePanel/CommerceList
 
 @onready var deck_panel: VBoxContainer = $Root/Body/Content/DeckPanel
 @onready var new_deck_name_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckHeaderRow/NewDeckNameEdit
@@ -44,6 +47,8 @@ extends Control
 }
 
 var _selected_rune_id: String = ""
+var _commerce_tab := ""
+var _shop_stock: Array = []
 
 
 func _ready() -> void:
@@ -67,7 +72,8 @@ func _select_tab(tab_name: String) -> void:
 	descend_panel.visible = tab_name == "descend"
 	deck_panel.visible = tab_name == "deck"
 	equipment_panel.visible = tab_name == "equipment"
-	placeholder_panel.visible = tab_name in ["sell", "shop", "packs"]
+	commerce_panel.visible = tab_name in ["sell", "shop", "packs"]
+	placeholder_panel.visible = false
 	if tab_name == "descend":
 		_update_descend_panel()
 	elif tab_name == "deck":
@@ -75,8 +81,9 @@ func _select_tab(tab_name: String) -> void:
 	elif tab_name == "equipment":
 		_selected_rune_id = ""
 		_refresh_equipment_tab()
-	else:
-		placeholder_panel.text = "未実装（フェーズB以降）"
+	elif commerce_panel.visible:
+		_commerce_tab = tab_name
+		_refresh_commerce()
 
 
 func _update_header() -> void:
@@ -143,6 +150,69 @@ func _on_top_right_button_pressed() -> void:
 		GameState.extract_to_hub(get_tree())
 	else:
 		GameState.to_title(get_tree())
+
+
+func _refresh_commerce() -> void:
+	for child in commerce_list.get_children(): child.free()
+	if _commerce_tab == "sell":
+		commerce_title.text = "売却　所持: %d貝殻" % GameState.shells
+		var reserved := {}
+		for deck in CollectionData.decks.values():
+			for id in deck.keys(): reserved[id] = int(reserved.get(id, 0)) + int(deck[id])
+		for card in CollectionData.inventory.cards:
+			var id := str(card.get("base_card_id", ""))
+			if int(reserved.get(id, 0)) > 0:
+				reserved[id] -= 1
+				continue
+			var def := Cards.get_card(id)
+			var value := {"starter":2,"common":5,"uncommon":10,"rare":20}.get(def.get("rarity", ""), 0)
+			if value > 0: _commerce_button("カードを売却: %s (+%d貝殻)" % [def.get("name", id), value], _sell_card.bind(str(card.get("instance_id", "")), value))
+		for gear in CollectionData.inventory.equipment:
+			if not _equipped(gear): _commerce_button("装備を売却: %s (+%d貝殻)" % [Equipment.equipment_label(gear), int(gear.get("tier",1))*5], _sell_gear.bind(str(gear.get("uid", ""))))
+	elif _commerce_tab == "shop":
+		commerce_title.text = "ショップ　所持: %d貝殻" % GameState.shells
+		if _shop_stock.is_empty():
+			for def in Cards.CARDS.values():
+				if def.get("shop", false) and _shop_stock.size() < 6: _shop_stock.append({"id":def.id,"price":max(3,int(def.get("cost",1))*5),"sold":false})
+		for good in _shop_stock:
+			if not good.sold: _commerce_button("購入: %s (%d貝殻)" % [Cards.get_card(good.id).get("name",good.id),good.price], _buy_card.bind(good))
+	elif _commerce_tab == "packs":
+		commerce_title.text = "カードパック（チケットを1枚消費）"
+		for a in ["fanatic","knight","poison","outer","elder","deep","offering","shadow","greatold"]:
+			var n := int(CollectionData.pack_tickets.get(a,0))
+			_commerce_button("%sパックを開封（所持%d）" % [a,n], _open_pack.bind(a), n <= 0)
+
+
+func _sell_card(uid: String, value: int) -> void:
+	CollectionData.remove_cards([uid]); GameState.add_shells(value); _refresh_commerce()
+
+func _sell_gear(uid: String) -> void:
+	for gear in CollectionData.inventory.equipment:
+		if gear.get("uid", "") == uid:
+			CollectionData.remove_equipment([uid]); GameState.add_shells(int(gear.get("tier",1))*5); break
+	_refresh_commerce()
+
+func _buy_card(good: Dictionary) -> void:
+	if GameState.spend_shells(int(good.price)):
+		CollectionData.add_loot_card(str(good.id)); good.sold = true
+	_refresh_commerce()
+
+func _open_pack(archetype: String) -> void:
+	if not CollectionData.consume_pack_ticket(archetype): return
+	var forced: Array = Cards.CARDS.values().filter(func(d): return d.get("archetype","") == archetype and d.get("rarity","") not in ["starter","status"])
+	var free: Array = Cards.reward_pool("investigator")
+	for i in range(4):
+		var pool: Array = forced if i < 2 and not forced.is_empty() else free
+		CollectionData.add_loot_card(str(pool[int(GameState.rng.next_float()*pool.size())].id))
+	_refresh_commerce()
+
+func _equipped(gear: Dictionary) -> bool:
+	for item in GameState.equipped.values():
+		if item != null and item.get("uid","") == gear.get("uid",""): return true
+	return false
+
+func _commerce_button(label: String, action: Callable, disabled: bool = false) -> void:
+	var button := Button.new(); button.text = label; button.disabled = disabled; button.pressed.connect(action); commerce_list.add_child(button)
 
 
 # ============================================================
