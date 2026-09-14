@@ -99,6 +99,19 @@ const RARITY_LABELS := {"starter": "スターター", "common": "コモン", "un
 const AI_TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "効果"}
 
 const EQUIPMENT_SLOT_LABELS := {"head": "頭", "chest": "胸", "arms": "腕", "legs": "脚", "feet": "足"}
+const NORMAL_PACK_ART := "res://art/pixel/ui/card_back.png"
+
+## CombatCard.gd と同じカード枠の9-slice指定。Hubの一覧でも同じカード体系を使う。
+const CARD_FRAME_BY_RARITY := {
+	"common": ["res://art/pixel/ui/frame_card_common_9.png", 8],
+	"uncommon": ["res://art/pixel/ui/frame_card_uncommon_9.png", 16],
+	"rare": ["res://art/pixel/ui/frame_card_9.png", 13],
+}
+const CARD_FRAME_BY_ARCHETYPE := {
+	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 15],
+	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 14],
+	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
+}
 
 const RUNE_CATEGORY_OF_EFFECT := {
 	"STR+": "attack", "VULN+": "attack", "THORN": "attack",
@@ -410,9 +423,14 @@ func _refresh_commerce() -> void:
 				continue
 			var def := Cards.get_card(id)
 			var value: int = {"starter":2,"common":5,"uncommon":10,"rare":20}.get(def.get("rarity", ""), 0)
-			if value > 0: _commerce_button("カードを売却: %s (+%d貝殻)" % [def.get("name", id), value], _sell_card.bind(str(card.get("instance_id", "")), value))
+			if value > 0:
+				_commerce_button("カードを売却: %s (+%d貝殻)" % [def.get("name", id), value], _sell_card.bind(str(card.get("instance_id", "")), value), false,
+					str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")))
 		for gear in CollectionData.inventory.equipment:
-			if not _equipped(gear): _commerce_button("装備を売却: %s (+%d貝殻)" % [Equipment.equipment_label(gear), int(gear.get("tier",1))*5], _sell_gear.bind(str(gear.get("uid", ""))))
+			if not _equipped(gear):
+				var gear_def := Equipment.get_equipment(str(gear.get("def_id", "")))
+				_commerce_button("装備を売却: %s (+%d貝殻)" % [Equipment.equipment_label(gear), int(gear.get("tier",1))*5], _sell_gear.bind(str(gear.get("uid", ""))), false,
+					str(gear_def.get("art", "")), str(gear_def.get("archetype", "")), "common")
 	elif _commerce_tab == "shop":
 		## ShopPanel.tsx 相当：通常パック（buyCardPack()）購入のみ。
 		## 以前ここにあったSHOP_CARDS（鉄剣等）販売は鍛冶屋（Rest.gd）側の実装であり、
@@ -421,21 +439,21 @@ func _refresh_commerce() -> void:
 			commerce_title.text = "通常パック"
 			for def_id in _last_pack_result:
 				var d := Cards.get_card(str(def_id))
-				var lbl := Label.new()
-				lbl.text = "・%s" % str(d.get("name", def_id))
-				commerce_list.add_child(lbl)
+				_commerce_card_result(d, str(def_id))
 			_commerce_button("閉じる", _on_clear_pack_result)
 		else:
 			commerce_title.text = "ショップ　所持: %d貝殻" % GameState.shells
 			var info := Label.new()
 			info.text = "通常パック\nカードを4枚引く。所持数が少ないカードほど出やすい。"
 			commerce_list.add_child(info)
-			_commerce_button("購入 · 貝殻%d" % GameState.CARD_PACK_PRICE, _on_buy_card_pack, GameState.shells < GameState.CARD_PACK_PRICE)
+			_commerce_button("購入 · 貝殻%d" % GameState.CARD_PACK_PRICE, _on_buy_card_pack, GameState.shells < GameState.CARD_PACK_PRICE,
+				NORMAL_PACK_ART, "", "uncommon")
 	elif _commerce_tab == "packs":
 		commerce_title.text = "カードパック（チケットを1枚消費）"
 		for a in ["fanatic","knight","poison","outer","elder","deep","offering","shadow","greatold"]:
 			var n := int(CollectionData.pack_tickets.get(a,0))
-			_commerce_button("%sパックを開封（所持%d）" % [a,n], _open_pack.bind(a), n <= 0)
+			_commerce_button("%sパックを開封（所持%d）" % [a,n], _open_pack.bind(a), n <= 0,
+				"res://art/pixel/tickets/ticket_%s.png" % a, a, "rare")
 
 
 func _sell_card(uid: String, value: int) -> void:
@@ -480,8 +498,88 @@ func _equipped(gear: Dictionary) -> bool:
 		if item != null and item.get("uid","") == gear.get("uid",""): return true
 	return false
 
-func _commerce_button(label: String, action: Callable, disabled: bool = false) -> void:
-	var button := Button.new(); button.text = label; button.disabled = disabled; button.pressed.connect(action); commerce_list.add_child(button)
+func _commerce_button(label: String, action: Callable, disabled: bool = false, art_path: String = "", archetype: String = "", rarity: String = "common") -> void:
+	var button := Button.new()
+	button.disabled = disabled
+	button.pressed.connect(action)
+	if art_path == "":
+		button.text = label
+		commerce_list.add_child(button)
+		return
+
+	button.custom_minimum_size = Vector2(0, 68)
+	var row := HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 6)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 10)
+	row.add_child(_make_art_thumbnail(art_path, archetype, rarity, Vector2(46, 56)))
+	var text_label := Label.new()
+	text_label.text = label
+	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(text_label)
+	button.add_child(row)
+	commerce_list.add_child(button)
+
+
+func _commerce_card_result(definition: Dictionary, fallback_id: String) -> void:
+	var row := HBoxContainer.new()
+	row.custom_minimum_size = Vector2(0, 60)
+	row.add_theme_constant_override("separation", 10)
+	row.add_child(_make_art_thumbnail(str(definition.get("art", "")), str(definition.get("archetype", "")), str(definition.get("rarity", "common")), Vector2(46, 56)))
+	var label := Label.new()
+	label.text = "・%s" % str(definition.get("name", fallback_id))
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(label)
+	commerce_list.add_child(row)
+
+
+## カード/装備/チケット用の実画像サムネイル。
+## TextureRectで art を表示し、CombatCard.gd と同一の NinePatchRect 枠を重ねる。
+func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, minimum_size: Vector2) -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = minimum_size
+	holder.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var backdrop := ColorRect.new()
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.color = Color("100f0c")
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(backdrop)
+
+	var thumbnail := TextureRect.new()
+	thumbnail.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	thumbnail.offset_left = 5
+	thumbnail.offset_top = 5
+	thumbnail.offset_right = -5
+	thumbnail.offset_bottom = -5
+	thumbnail.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	thumbnail.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	thumbnail.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	thumbnail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if art_path != "" and ResourceLoader.exists(art_path):
+		thumbnail.texture = load(art_path)
+	holder.add_child(thumbnail)
+
+	var frame_data: Array = CARD_FRAME_BY_ARCHETYPE.get(archetype, CARD_FRAME_BY_RARITY.get(rarity, CARD_FRAME_BY_RARITY["common"]))
+	var frame := NinePatchRect.new()
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame_path := str(frame_data[0])
+	if ResourceLoader.exists(frame_path):
+		frame.texture = load(frame_path)
+		var margin := int(frame_data[1])
+		frame.patch_margin_left = margin
+		frame.patch_margin_top = margin
+		frame.patch_margin_right = margin
+		frame.patch_margin_bottom = margin
+	holder.add_child(frame)
+	return holder
 
 
 # ============================================================
@@ -579,6 +677,7 @@ func _rebuild_card_list() -> void:
 
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(62, 82)))
 
 		var label := Label.new()
 		label.text = "%s（所持%d / デッキ内%d）" % [name, owned_count, in_deck]
@@ -704,6 +803,9 @@ func _rebuild_equipped_list() -> void:
 	for slot in Equipment.EQUIPMENT_SLOTS:
 		var inst = GameState.equipped.get(slot)
 		var row := HBoxContainer.new()
+		if inst != null:
+			var equipped_def := Equipment.get_equipment(str(inst.get("def_id", "")))
+			row.add_child(_make_art_thumbnail(str(equipped_def.get("art", "")), str(equipped_def.get("archetype", "")), "common", Vector2(50, 50)))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if inst != null:
@@ -778,6 +880,7 @@ func _rebuild_inventory_list() -> void:
 		var col := VBoxContainer.new()
 
 		var header := HBoxContainer.new()
+		header.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(62, 62)))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.text = "%s（%s, Tier%d, 威力%.2f）" % [
