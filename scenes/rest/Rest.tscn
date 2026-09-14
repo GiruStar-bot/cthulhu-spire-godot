@@ -157,6 +157,38 @@ grow_vertical = 0
 visible = false
 text = "戻る"
 
+[node name="RoomPanel" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -160.0
+offset_right = 250.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+theme_override_constants/separation = 10
+
+[node name="RoomTitle" type="Label" parent="RoomPanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "酒場"
+horizontal_alignment = 1
+
+[node name="RoomInfo" type="Label" parent="RoomPanel"]
+layout_mode = 2
+text = "所持: 0貝殻"
+horizontal_alignment = 1
+
+[node name="RoomActions" type="VBoxContainer" parent="RoomPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
 [connection signal="pressed" from="VillageButtons/InnButton" to="." method="_on_inn_button_pressed"]
 [connection signal="pressed" from="VillageButtons/SmithButton" to="." method="_on_smith_button_pressed"]
 [connection signal="pressed" from="VillageButtons/LeaveButton" to="." method="_on_leave_button_pressed"]
