@@ -1,12 +1,8 @@
 extends Control
 
-## 実ソースの HubScreen.tsx 相当。単一画面＋サイドナビ（タブ）で
-## 探索開始/デッキ編成/装備/売却/ショップ/カードパックを行き来する。
-## floor>0（中継点）でもfloor==0（拠点）でも同じこの画面が使われ、
-## descendタブの中身だけが CheckpointPanel / PrepareView 相当で切り替わる。
-##
-## 実装済みタブ: 探索開始 / デッキ編成（DeckHubScreen.tsx + DeckBuilderScreen.tsx 相当）/
-## 装備（EquipmentScreen.tsx 相当）。売却/ショップ/カードパックは未実装プレースホルダーのまま。
+## Godot向けHub画面。単一画面＋サイドナビで、探索準備・ロードアウト・
+## 売買・パック開封を一貫して操作する。ゲームロジックと永続データは
+## Autoload／scripts側に置き、このスクリプトは表示と入力の接続を担当する。
 
 @onready var player_name_label: Label = $Root/Header/PlayerNameLabel
 @onready var info_label: Label = $Root/Header/InfoLabel
@@ -304,7 +300,7 @@ func _hide_all_content_panels() -> void:
 
 func _select_tab(tab_name: String) -> void:
 	for key in nav_buttons.keys():
-		nav_buttons[key].disabled = key == tab_name
+		nav_buttons[key].set_pressed_no_signal(key == tab_name)
 	_hide_all_content_panels()
 	match tab_name:
 		"descend":
@@ -346,17 +342,19 @@ func _select_tab(tab_name: String) -> void:
 func _update_header() -> void:
 	player_name_label.text = GameState.player_name if GameState.player_name != "" else "無名"
 	if GameState.floor > 0:
-		info_label.text = "%s · デッキ %d/%d" % [
+		info_label.text = "%s　｜　デッキ %d/%d　｜　貝殻 %d" % [
 			Floors.layer_label(GameState.floor),
 			_deck_count(),
 			CollectionData.DECK_LIMIT,
+			GameState.shells,
 		]
 		top_right_button.text = "帰還"
 	else:
-		info_label.text = "最深 %s · デッキ %d/%d" % [
+		info_label.text = "最深 %s　｜　デッキ %d/%d　｜　貝殻 %d" % [
 			Floors.layer_label(GameState.best_floor) if GameState.best_floor > 0 else "—",
 			_deck_count(),
 			CollectionData.DECK_LIMIT,
+			GameState.shells,
 		]
 		top_right_button.text = "タイトル"
 
@@ -460,7 +458,8 @@ func _refresh_stat_panel() -> void:
 		var final: int = Profile.stat_final(key, sp, GameState.madness)
 
 		var hrow := HBoxContainer.new()
-		hrow.add_theme_constant_override("separation", 6)
+		hrow.custom_minimum_size = Vector2(0, 44)
+		hrow.add_theme_constant_override("separation", 8)
 
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -468,13 +467,15 @@ func _refresh_stat_panel() -> void:
 		hrow.add_child(label)
 
 		var minus_btn := Button.new()
-		minus_btn.text = "-"
+		minus_btn.text = "−"
+		minus_btn.custom_minimum_size = Vector2(42, 36)
 		minus_btn.disabled = sp <= Profile.STAT_MIN
 		minus_btn.pressed.connect(_on_stat_minus_pressed.bind(key))
 		hrow.add_child(minus_btn)
 
 		var plus_btn := Button.new()
 		plus_btn.text = "+"
+		plus_btn.custom_minimum_size = Vector2(42, 36)
 		plus_btn.disabled = remain <= 0
 		plus_btn.pressed.connect(_on_stat_plus_pressed.bind(key))
 		hrow.add_child(plus_btn)
@@ -624,7 +625,7 @@ func _commerce_card_result(definition: Dictionary, fallback_id: String) -> void:
 ## PackShopScreen.tsx と同様に、チケットではなく pack_${archetype}.png のパック本体をグリッド表示する。
 func _make_pack_button(archetype: String, ticket_count: int) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(150, 190)
+	button.custom_minimum_size = Vector2(174, 216)
 	button.disabled = ticket_count <= 0
 	button.pressed.connect(_open_pack.bind(archetype))
 	var content := VBoxContainer.new()
@@ -632,7 +633,7 @@ func _make_pack_button(archetype: String, ticket_count: int) -> Button:
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	var pack_art := TextureRect.new()
-	pack_art.custom_minimum_size = Vector2(0, 112)
+	pack_art.custom_minimum_size = Vector2(0, 142)
 	pack_art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pack_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pack_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -1070,7 +1071,8 @@ func _rebuild_deck_list() -> void:
 		if not top.is_empty():
 			top_text = "%sの印 · %d枚" % [str(Cards.ARCHETYPE_LABELS.get(top.archetype, top.archetype)), int(top.count)]
 		var btn := Button.new()
-		btn.text = "%s\n%d/%d枚\n%s" % [str(name), total, CollectionData.DECK_LIMIT, top_text]
+		btn.text = "%s\n%d/%d枚　｜　%s" % [str(name), total, CollectionData.DECK_LIMIT, top_text]
+		btn.custom_minimum_size = Vector2(0, 76)
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		btn.pressed.connect(_on_deck_list_open.bind(str(name)))
 		deck_list_container.add_child(btn)
@@ -1161,7 +1163,9 @@ func _rebuild_card_list() -> void:
 		var owned_count: int = int(owned[card_id])
 
 		var row := HBoxContainer.new()
+		row.custom_minimum_size = Vector2(0, 92)
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("separation", 12)
 		row.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(62, 82)))
 
 		var label := Label.new()
@@ -1170,13 +1174,15 @@ func _rebuild_card_list() -> void:
 		row.add_child(label)
 
 		var minus_btn := Button.new()
-		minus_btn.text = "-"
+		minus_btn.text = "−"
+		minus_btn.custom_minimum_size = Vector2(44, 44)
 		minus_btn.disabled = in_deck <= 0
 		minus_btn.pressed.connect(_on_deck_remove_pressed.bind(str(card_id)))
 		row.add_child(minus_btn)
 
 		var plus_btn := Button.new()
 		plus_btn.text = "+"
+		plus_btn.custom_minimum_size = Vector2(44, 44)
 		var deck_total := CollectionData.deck_size(deck)
 		plus_btn.disabled = deck_total >= CollectionData.DECK_LIMIT or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count
 		plus_btn.pressed.connect(_on_deck_add_pressed.bind(str(card_id)))
@@ -1318,6 +1324,8 @@ func _rebuild_equipped_list() -> void:
 	for slot in Equipment.EQUIPMENT_SLOTS:
 		var inst = GameState.equipped.get(slot)
 		var row := HBoxContainer.new()
+		row.custom_minimum_size = Vector2(0, 58)
+		row.add_theme_constant_override("separation", 10)
 		if inst != null:
 			var equipped_def := Equipment.get_equipment(str(inst.get("def_id", "")))
 			row.add_child(_make_art_thumbnail(str(equipped_def.get("art", "")), str(equipped_def.get("archetype", "")), "common", Vector2(50, 50)))
@@ -1395,6 +1403,8 @@ func _rebuild_inventory_list() -> void:
 		var col := VBoxContainer.new()
 
 		var header := HBoxContainer.new()
+		header.custom_minimum_size = Vector2(0, 76)
+		header.add_theme_constant_override("separation", 10)
 		header.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(62, 62)))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1458,6 +1468,8 @@ func _rebuild_rune_list() -> void:
 	rune_label.text = "所持ルーン（選択してから装備側の「ここに装着」を押す） %d/%d" % [filtered.size(), CollectionData.inventory.runes.size()]
 	for rune in filtered:
 		var row := HBoxContainer.new()
+		row.custom_minimum_size = Vector2(0, 48)
+		row.add_theme_constant_override("separation", 10)
 		var rune_id: String = str(rune.get("id", ""))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
