@@ -1,7 +1,9 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scenes/hub/Hub.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/pixel/bg/loadout.jpg" id="2"]
+[ext_resource type="Script" path="res://scenes/hub/HubArtworkList.gd" id="3_artwork"]
+[ext_resource type="Texture2D" path="res://art/pixel/cards/all-geo.jpg" id="4_grimoire_art"]
 
 [sub_resource type="StyleBoxFlat" id="StyleRitualPanel"]
 bg_color = Color(0.045, 0.043, 0.035, 0.92)
@@ -29,6 +31,21 @@ content_margin_left = 9.0
 content_margin_top = 9.0
 content_margin_right = 9.0
 content_margin_bottom = 9.0
+
+[sub_resource type="StyleBoxFlat" id="StyleFilterPopover"]
+bg_color = Color(0.035, 0.033, 0.025, 0.985)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.64, 0.5, 0.29, 0.98)
+content_margin_left = 16.0
+content_margin_top = 12.0
+content_margin_right = 16.0
+content_margin_bottom = 12.0
+shadow_color = Color(0, 0, 0, 0.9)
+shadow_size = 10
+shadow_offset = Vector2(4, 5)
 
 [sub_resource type="StyleBoxFlat" id="StyleStamp"]
 bg_color = Color(0.79, 0.72, 0.57, 0.98)
@@ -288,6 +305,8 @@ size_flags_vertical = 3
 theme = SubResource("ThemeRitual")
 theme_override_styles/panel = SubResource("StyleInkLedger")
 theme_override_constants/separation = 8
+script = ExtResource("3_artwork")
+presentation = "commerce"
 
 [node name="DeckPanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1
@@ -368,7 +387,8 @@ text = "種別 ▾"
 [node name="DeckFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
 visible = false
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleRitualPanel")
+custom_minimum_size = Vector2(440, 0)
+theme_override_styles/panel = SubResource("StyleFilterPopover")
 
 [node name="DeckFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterArchetypePopover"]
 layout_mode = 2
@@ -379,7 +399,8 @@ theme_override_constants/v_separation = 4
 [node name="DeckFilterRarityPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
 visible = false
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleRitualPanel")
+custom_minimum_size = Vector2(440, 0)
+theme_override_styles/panel = SubResource("StyleFilterPopover")
 
 [node name="DeckFilterRarityRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterRarityPopover"]
 layout_mode = 2
@@ -390,7 +411,8 @@ theme_override_constants/v_separation = 4
 [node name="DeckFilterAiTagPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
 visible = false
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleRitualPanel")
+custom_minimum_size = Vector2(440, 0)
+theme_override_styles/panel = SubResource("StyleFilterPopover")
 
 [node name="DeckFilterAiTagRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterAiTagPopover"]
 layout_mode = 2
@@ -411,6 +433,8 @@ size_flags_vertical = 3
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 2
+script = ExtResource("3_artwork")
+presentation = "cards"
 
 [node name="EquipmentPanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1
@@ -433,6 +457,8 @@ text = "装着中"
 [node name="EquippedListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
 theme_override_constants/separation = 2
+script = ExtResource("3_artwork")
+presentation = "equipment"
 
 [node name="StatsLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
@@ -467,7 +493,8 @@ text = "部位 ▾"
 [node name="EquipmentFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/EquipmentPanel"]
 visible = false
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleRitualPanel")
+custom_minimum_size = Vector2(440, 0)
+theme_override_styles/panel = SubResource("StyleFilterPopover")
 
 [node name="EquipmentFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypePopover"]
 layout_mode = 2
@@ -478,7 +505,8 @@ theme_override_constants/v_separation = 4
 [node name="EquipmentFilterSlotPopover" type="PanelContainer" parent="Root/Body/Content/EquipmentPanel"]
 visible = false
 layout_mode = 2
-theme_override_styles/panel = SubResource("StyleRitualPanel")
+custom_minimum_size = Vector2(440, 0)
+theme_override_styles/panel = SubResource("StyleFilterPopover")
 
 [node name="EquipmentFilterSlotRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterSlotPopover"]
 layout_mode = 2
@@ -498,6 +526,8 @@ size_flags_vertical = 3
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
+script = ExtResource("3_artwork")
+presentation = "equipment"
 
 [node name="RuneLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
@@ -541,6 +571,14 @@ theme_override_font_sizes/font_size = 16
 autowrap_mode = 3
 text = "図鑑"
 
+[node name="GrimoireSeal" type="TextureRect" parent="Root/Body/Content/GrimoirePanel"]
+custom_minimum_size = Vector2(0, 92)
+layout_mode = 2
+texture = ExtResource("4_grimoire_art")
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
 [node name="GrimoireScroll" type="ScrollContainer" parent="Root/Body/Content/GrimoirePanel"]
 layout_mode = 2
 size_flags_vertical = 3
@@ -551,6 +589,8 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme = SubResource("ThemeRitual")
 theme_override_constants/separation = 4
+script = ExtResource("3_artwork")
+presentation = "grimoire"
 
 [node name="GrimoireActionButton" type="Button" parent="Root/Body/Content/GrimoirePanel"]
 layout_mode = 2
