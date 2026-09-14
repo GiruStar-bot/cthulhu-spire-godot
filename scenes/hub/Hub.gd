@@ -82,7 +82,7 @@ extends Control
 
 var _selected_rune_id: String = ""
 var _commerce_tab := ""
-var _shop_stock: Array = []
+var _last_pack_result: Array = []  ## store.ts の lastPackResult 相当（ShopPanel.tsx の通常パック結果表示）
 
 # ============================================================
 # デッキ編成/装備タブの検索・フィルター・ソート
@@ -414,12 +414,23 @@ func _refresh_commerce() -> void:
 		for gear in CollectionData.inventory.equipment:
 			if not _equipped(gear): _commerce_button("装備を売却: %s (+%d貝殻)" % [Equipment.equipment_label(gear), int(gear.get("tier",1))*5], _sell_gear.bind(str(gear.get("uid", ""))))
 	elif _commerce_tab == "shop":
-		commerce_title.text = "ショップ　所持: %d貝殻" % GameState.shells
-		if _shop_stock.is_empty():
-			for def in Cards.CARDS.values():
-				if def.get("shop", false) and _shop_stock.size() < 6: _shop_stock.append({"id":def.id,"price":max(3,int(def.get("cost",1))*5),"sold":false})
-		for good in _shop_stock:
-			if not good.sold: _commerce_button("購入: %s (%d貝殻)" % [Cards.get_card(good.id).get("name",good.id),good.price], _buy_card.bind(good))
+		## ShopPanel.tsx 相当：通常パック（buyCardPack()）購入のみ。
+		## 以前ここにあったSHOP_CARDS（鉄剣等）販売は鍛冶屋（Rest.gd）側の実装であり、
+		## Hubのショップタブの内容として誤っていたため撤去した。
+		if not _last_pack_result.is_empty():
+			commerce_title.text = "通常パック"
+			for def_id in _last_pack_result:
+				var d := Cards.get_card(str(def_id))
+				var lbl := Label.new()
+				lbl.text = "・%s" % str(d.get("name", def_id))
+				commerce_list.add_child(lbl)
+			_commerce_button("閉じる", _on_clear_pack_result)
+		else:
+			commerce_title.text = "ショップ　所持: %d貝殻" % GameState.shells
+			var info := Label.new()
+			info.text = "通常パック\nカードを4枚引く。所持数が少ないカードほど出やすい。"
+			commerce_list.add_child(info)
+			_commerce_button("購入 · 貝殻%d" % GameState.CARD_PACK_PRICE, _on_buy_card_pack, GameState.shells < GameState.CARD_PACK_PRICE)
 	elif _commerce_tab == "packs":
 		commerce_title.text = "カードパック（チケットを1枚消費）"
 		for a in ["fanatic","knight","poison","outer","elder","deep","offering","shadow","greatold"]:
@@ -436,9 +447,17 @@ func _sell_gear(uid: String) -> void:
 			CollectionData.remove_equipment([uid]); GameState.add_shells(int(gear.get("tier",1))*5); break
 	_refresh_commerce()
 
-func _buy_card(good: Dictionary) -> void:
-	if GameState.spend_shells(int(good.price)):
-		CollectionData.add_loot_card(str(good.id)); good.sold = true
+## ShopPanel.tsx の buyCardPack ボタン相当
+func _on_buy_card_pack() -> void:
+	var result := GameState.buy_card_pack()
+	if not result.is_empty():
+		_last_pack_result = result
+	_refresh_commerce()
+
+
+## ShopPanel.tsx の clearPackResult() 相当
+func _on_clear_pack_result() -> void:
+	_last_pack_result = []
 	_refresh_commerce()
 
 ## store.ts の openArchetypePack()。前半2枚は weightedArchetypeCard()（当該アーキタイプ保証＋

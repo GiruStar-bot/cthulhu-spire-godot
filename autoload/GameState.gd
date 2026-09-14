@@ -132,6 +132,32 @@ func spend_shells(amount: int) -> bool:
 	return true
 
 
+## store.ts の CARD_PACK_PRICE
+const CARD_PACK_PRICE := 150
+
+
+## store.ts の buyCardPack()。貝殻CARD_PACK_PRICEで通常パックを購入し、
+## Cards.weighted_card()（所持数が少ないカードほど出やすい重み付け）で4枚引く。
+## 戻り値は引いたカードのdefId配列（実ソースの lastPackResult 相当）。
+## 購入失敗（貝殻不足）時は toast をセットして空配列を返す。
+func buy_card_pack() -> Array:
+	if shells < CARD_PACK_PRICE:
+		toast = "貝殻が足りない。"
+		return []
+	var owner: String = character if character != "" else starter_path(stats)
+	var rand := Callable(self, "_rand")
+	var result: Array = []
+	for i in range(4):
+		var card := Cards.weighted_card(owner, rand)
+		var def_id := str(card.get("defId", ""))
+		CollectionData.add_loot_card(def_id)
+		result.append(def_id)
+	shells -= CARD_PACK_PRICE
+	_persist_profile()
+	toast = "通常パックを開封した。"
+	return result
+
+
 ## profile.ts の derivedVitals().maxHp
 func derived_max_hp() -> int:
 	return Profile.derived_vitals(stats, madness).max_hp
