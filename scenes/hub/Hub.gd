@@ -32,12 +32,27 @@ extends Control
 @onready var deck_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckOptionButton
 @onready var deck_count_label: Label = $Root/Body/Content/DeckPanel/DeckCountLabel
 @onready var deck_error_label: Label = $Root/Body/Content/DeckPanel/DeckErrorLabel
+@onready var deck_search_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckSearchEdit
+@onready var deck_sort_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckSortOptionButton
+@onready var deck_filter_reset_button: Button = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckFilterResetButton
+@onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterArchetypeRow
+@onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterRarityRow
+@onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterAiTagRow
+@onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckResultCountLabel
 @onready var card_list_container: VBoxContainer = $Root/Body/Content/DeckPanel/CardScroll/CardListContainer
 
 @onready var equipment_panel: VBoxContainer = $Root/Body/Content/EquipmentPanel
 @onready var equipped_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/EquippedListContainer
 @onready var stats_label: Label = $Root/Body/Content/EquipmentPanel/StatsLabel
+@onready var equipment_sort_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterRow/EquipmentSortButton
+@onready var equipment_filter_reset_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterRow/EquipmentFilterResetButton
+@onready var equipment_filter_archetype_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypeRow
+@onready var equipment_filter_slot_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterSlotRow
+@onready var inventory_label: Label = $Root/Body/Content/EquipmentPanel/InventoryLabel
 @onready var inventory_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/InventoryScroll/InventoryListContainer
+@onready var rune_label: Label = $Root/Body/Content/EquipmentPanel/RuneLabel
+@onready var rune_search_edit: LineEdit = $Root/Body/Content/EquipmentPanel/RuneSearchEdit
+@onready var rune_category_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/RuneCategoryRow
 @onready var rune_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/RuneScroll/RuneListContainer
 
 @onready var grimoire_panel: VBoxContainer = $Root/Body/Content/GrimoirePanel
@@ -59,6 +74,44 @@ var _selected_rune_id: String = ""
 var _commerce_tab := ""
 var _shop_stock: Array = []
 
+# ============================================================
+# デッキ編成/装備タブの検索・フィルター・ソート
+# （DeckBuilderScreen.tsx / EquipmentScreen.tsx 相当）
+# ============================================================
+
+const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold"]
+const DECK_FILTERABLE_RARITIES := ["starter", "common", "uncommon", "rare"]
+const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
+const DECK_RARITY_ORDER := ["starter", "common", "uncommon", "rare", "status"]
+const DECK_SORT_MODES := ["cost", "rarity", "owned", "archetype"]
+const DECK_SORT_LABELS := {"cost": "コスト順", "rarity": "レア度順", "owned": "所持数順", "archetype": "ジャンル順"}
+const RARITY_LABELS := {"starter": "スターター", "common": "コモン", "uncommon": "アンコモン", "rare": "レア", "status": "状態"}
+const AI_TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "効果"}
+
+const EQUIPMENT_SLOT_LABELS := {"head": "頭", "chest": "胸", "arms": "腕", "legs": "脚", "feet": "足"}
+
+const RUNE_CATEGORY_OF_EFFECT := {
+	"STR+": "attack", "VULN+": "attack", "THORN": "attack",
+	"BLK+": "defense", "POISON": "defense",
+	"HEAL": "heal", "SAN+": "heal",
+	"DRAW": "special", "ENERGY+": "special",
+}
+const RUNE_CATEGORIES := ["attack", "defense", "heal", "special"]
+const RUNE_CATEGORY_LABELS := {"attack": "攻", "defense": "防", "heal": "回復", "special": "特殊"}
+
+var _deck_filter_archetypes: Dictionary = {}
+var _deck_filter_rarities: Dictionary = {}
+var _deck_filter_ai_tags: Dictionary = {}
+var _deck_search: String = ""
+var _deck_sort_mode: String = "cost"
+
+var _equip_filter_archetypes: Dictionary = {}
+var _equip_filter_slots: Dictionary = {}
+var _equip_sort_asc: bool = false
+
+var _rune_search: String = ""
+var _rune_category: String = ""  # "" = 全て
+
 
 func _ready() -> void:
 	for tab_name in nav_buttons.keys():
@@ -70,10 +123,96 @@ func _ready() -> void:
 	delete_deck_button.pressed.connect(_on_delete_deck_pressed)
 	deck_option_button.item_selected.connect(_on_deck_selected)
 	grimoire_action_button.pressed.connect(_on_grimoire_turn_pressed)
+	_setup_deck_filters()
+	_setup_equipment_filters()
 	_select_tab("descend")
 	_update_header()
 	if GameState.toast != "":
 		GameState.toast = ""
+
+
+## デッキ編成タブの検索欄・ソートドロップダウン・フィルタートグル行を一度だけ構築する。
+func _setup_deck_filters() -> void:
+	deck_search_edit.text_changed.connect(_on_deck_search_changed)
+	deck_filter_reset_button.pressed.connect(_on_deck_filter_reset_pressed)
+
+	deck_sort_option_button.clear()
+	for mode in DECK_SORT_MODES:
+		deck_sort_option_button.add_item(str(DECK_SORT_LABELS.get(mode, mode)))
+	deck_sort_option_button.select(DECK_SORT_MODES.find(_deck_sort_mode))
+	deck_sort_option_button.item_selected.connect(_on_deck_sort_selected)
+
+	_build_toggle_row(deck_filter_archetype_row, DECK_FILTERABLE_ARCHETYPES,
+		func(a): return str(Cards.ARCHETYPE_LABELS.get(a, a)),
+		_deck_filter_archetypes, _on_deck_filter_archetype_toggled)
+	_build_toggle_row(deck_filter_rarity_row, DECK_FILTERABLE_RARITIES,
+		func(r): return str(RARITY_LABELS.get(r, r)),
+		_deck_filter_rarities, _on_deck_filter_rarity_toggled)
+	_build_toggle_row(deck_filter_ai_tag_row, DECK_FILTERABLE_AI_TAGS,
+		func(t): return str(AI_TAG_LABELS.get(t, t)),
+		_deck_filter_ai_tags, _on_deck_filter_ai_tag_toggled)
+
+
+## 装備タブのジャンル/部位フィルター・tierソート・ルーン検索/カテゴリ行を一度だけ構築する。
+func _setup_equipment_filters() -> void:
+	equipment_sort_button.pressed.connect(_on_equipment_sort_toggle_pressed)
+	equipment_filter_reset_button.pressed.connect(_on_equipment_filter_reset_pressed)
+	rune_search_edit.text_changed.connect(_on_rune_search_changed)
+
+	_build_toggle_row(equipment_filter_archetype_row, _equipment_filterable_archetypes(),
+		func(a): return "汎用" if a == "generic" else str(Cards.ARCHETYPE_LABELS.get(a, a)),
+		_equip_filter_archetypes, _on_equip_filter_archetype_toggled)
+	_build_toggle_row(equipment_filter_slot_row, Equipment.EQUIPMENT_SLOTS,
+		func(s): return str(EQUIPMENT_SLOT_LABELS.get(s, s)),
+		_equip_filter_slots, _on_equip_filter_slot_toggled)
+
+	var group := ButtonGroup.new()
+	var rune_cat_options: Array = [""] + RUNE_CATEGORIES
+	for opt in rune_cat_options:
+		var btn := Button.new()
+		btn.toggle_mode = true
+		btn.button_group = group
+		btn.text = "全て" if opt == "" else str(RUNE_CATEGORY_LABELS.get(opt, opt))
+		btn.button_pressed = _rune_category == opt
+		btn.toggled.connect(_on_rune_category_toggled.bind(opt))
+		rune_category_row.add_child(btn)
+
+
+## 複数選択トグル行を一度だけ構築する共通ヘルパー。
+## option_label: (value) -> String、on_toggle: (pressed: bool, value) -> void
+func _build_toggle_row(container: Control, options: Array, option_label: Callable, state: Dictionary, on_toggle: Callable) -> void:
+	for child in container.get_children():
+		child.queue_free()
+	for opt in options:
+		var btn := Button.new()
+		btn.toggle_mode = true
+		btn.text = str(option_label.call(opt))
+		btn.button_pressed = state.has(opt)
+		btn.toggled.connect(on_toggle.bind(opt))
+		container.add_child(btn)
+
+
+## _build_toggle_row()で構築済みの行のボタン押下状態を、リセット等で外部からstateを
+## 変更した後に再同期する（シグナルは発火させない）。
+func _sync_toggle_row(container: Control, options: Array, state: Dictionary) -> void:
+	var i := 0
+	for child in container.get_children():
+		if child is Button and i < options.size():
+			child.set_pressed_no_signal(state.has(options[i]))
+		i += 1
+
+
+## EquipmentScreen.tsx の FILTERABLE_ARCHETYPES 相当：EQUIPMENTカタログに実在する
+## アーキタイプ（"generic"含む）を出現順に重複無しで集めたもの。
+func _equipment_filterable_archetypes() -> Array:
+	var seen: Dictionary = {}
+	var out: Array = []
+	for def in Equipment.EQUIPMENT.values():
+		var a: String = str(def.get("archetype", "generic"))
+		if not seen.has(a):
+			seen[a] = true
+			out.append(a)
+	return out
 
 
 func _select_tab(tab_name: String) -> void:
@@ -320,13 +459,64 @@ func _refresh_deck_summary() -> void:
 	deck_error_label.text = CollectionData.loadout_error()
 
 
+## DeckBuilderScreen.tsx の groupInventory()+検索+フィルター相当。
+## 所持カード（base_card_id単位）を名前検索・ジャンル/レア度/種別フィルターで絞り込む。
+func _filtered_deck_card_ids(owned: Dictionary) -> Array:
+	var query := _deck_search.strip_edges().to_lower()
+	var out: Array = []
+	for card_id in owned.keys():
+		var def := Cards.get_card(str(card_id))
+		if def.is_empty():
+			continue
+		if query != "" and not str(def.get("name", "")).to_lower().contains(query):
+			continue
+		var archetype: String = str(def.get("archetype", "generic"))
+		if _deck_filter_archetypes.size() > 0 and not _deck_filter_archetypes.has(archetype):
+			continue
+		var rarity: String = str(def.get("rarity", ""))
+		if _deck_filter_rarities.size() > 0 and not _deck_filter_rarities.has(rarity):
+			continue
+		var ai_tag: String = str(def.get("aiTag", ""))
+		if _deck_filter_ai_tags.size() > 0 and (ai_tag == "" or not _deck_filter_ai_tags.has(ai_tag)):
+			continue
+		out.append(card_id)
+	return out
+
+
+## DeckBuilderScreen.tsx の sortGroups(groups, mode, ownedOf) 相当
+func _sort_deck_card_ids(ids: Array, owned: Dictionary) -> void:
+	ids.sort_custom(func(a, b):
+		var ad := Cards.get_card(str(a))
+		var bd := Cards.get_card(str(b))
+		match _deck_sort_mode:
+			"cost":
+				var ac: int = int(ad.get("cost", 0))
+				var bc: int = int(bd.get("cost", 0))
+				return ac < bc if ac != bc else str(ad.get("name", "")) < str(bd.get("name", ""))
+			"rarity":
+				var ar: int = DECK_RARITY_ORDER.find(str(ad.get("rarity", "")))
+				var br: int = DECK_RARITY_ORDER.find(str(bd.get("rarity", "")))
+				return ar < br if ar != br else int(ad.get("cost", 0)) < int(bd.get("cost", 0))
+			"owned":
+				var ao: int = int(owned.get(a, 0))
+				var bo: int = int(owned.get(b, 0))
+				return ao > bo if ao != bo else int(ad.get("cost", 0)) < int(bd.get("cost", 0))
+			"archetype":
+				var aa: int = DECK_FILTERABLE_ARCHETYPES.find(str(ad.get("archetype", "generic")))
+				var ba: int = DECK_FILTERABLE_ARCHETYPES.find(str(bd.get("archetype", "generic")))
+				return aa < ba if aa != ba else int(ad.get("cost", 0)) < int(bd.get("cost", 0))
+		return false
+	)
+
+
 func _rebuild_card_list() -> void:
 	for child in card_list_container.get_children():
 		child.queue_free()
 	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
 	var owned: Dictionary = CollectionData.owned_card_counts()
-	var ids := owned.keys()
-	ids.sort()
+	var ids := _filtered_deck_card_ids(owned)
+	_sort_deck_card_ids(ids, owned)
+	deck_result_count_label.text = "%d/%d件" % [ids.size(), owned.size()]
 	for card_id in ids:
 		var def := Cards.get_card(str(card_id))
 		var name: String = def.get("name", str(card_id)) if not def.is_empty() else str(card_id)
@@ -389,6 +579,53 @@ func _on_deck_selected(index: int) -> void:
 	_update_header()
 
 
+func _on_deck_search_changed(text: String) -> void:
+	_deck_search = text
+	_rebuild_card_list()
+
+
+func _on_deck_sort_selected(index: int) -> void:
+	_deck_sort_mode = DECK_SORT_MODES[index]
+	_rebuild_card_list()
+
+
+func _on_deck_filter_archetype_toggled(pressed: bool, value: String) -> void:
+	if pressed:
+		_deck_filter_archetypes[value] = true
+	else:
+		_deck_filter_archetypes.erase(value)
+	_rebuild_card_list()
+
+
+func _on_deck_filter_rarity_toggled(pressed: bool, value: String) -> void:
+	if pressed:
+		_deck_filter_rarities[value] = true
+	else:
+		_deck_filter_rarities.erase(value)
+	_rebuild_card_list()
+
+
+func _on_deck_filter_ai_tag_toggled(pressed: bool, value: String) -> void:
+	if pressed:
+		_deck_filter_ai_tags[value] = true
+	else:
+		_deck_filter_ai_tags.erase(value)
+	_rebuild_card_list()
+
+
+## DeckBuilderScreen.tsx の「条件をリセット」相当
+func _on_deck_filter_reset_pressed() -> void:
+	_deck_filter_archetypes.clear()
+	_deck_filter_rarities.clear()
+	_deck_filter_ai_tags.clear()
+	_deck_search = ""
+	deck_search_edit.text = ""
+	_sync_toggle_row(deck_filter_archetype_row, DECK_FILTERABLE_ARCHETYPES, _deck_filter_archetypes)
+	_sync_toggle_row(deck_filter_rarity_row, DECK_FILTERABLE_RARITIES, _deck_filter_rarities)
+	_sync_toggle_row(deck_filter_ai_tag_row, DECK_FILTERABLE_AI_TAGS, _deck_filter_ai_tags)
+	_rebuild_card_list()
+
+
 # ============================================================
 # 装備タブ（EquipmentScreen.tsx 相当）
 # ============================================================
@@ -446,11 +683,35 @@ func _refresh_stats_label() -> void:
 	]
 
 
+## EquipmentScreen.tsx のジャンル/部位フィルター＋tierソート相当
+func _filtered_sorted_equipment() -> Array:
+	var out: Array = []
+	for inst in CollectionData.inventory.equipment:
+		var def := Equipment.get_equipment(str(inst.get("def_id", "")))
+		if def.is_empty():
+			continue
+		var archetype: String = str(def.get("archetype", "generic"))
+		if _equip_filter_archetypes.size() > 0 and not _equip_filter_archetypes.has(archetype):
+			continue
+		var slot: String = str(def.get("slot", ""))
+		if _equip_filter_slots.size() > 0 and not _equip_filter_slots.has(slot):
+			continue
+		out.append(inst)
+	out.sort_custom(func(a, b):
+		var at: int = int(a.get("tier", 1))
+		var bt: int = int(b.get("tier", 1))
+		return at < bt if _equip_sort_asc else at > bt
+	)
+	return out
+
+
 func _rebuild_inventory_list() -> void:
 	for child in inventory_list_container.get_children():
 		child.queue_free()
-	for inst in CollectionData.inventory.equipment:
-		var def := Equipment.get_equipment(inst.get("def_id", ""))
+	var filtered := _filtered_sorted_equipment()
+	inventory_label.text = "所持装備 %d/%d" % [filtered.size(), CollectionData.inventory.equipment.size()]
+	for inst in filtered:
+		var def := Equipment.get_equipment(str(inst.get("def_id", "")))
 		if def.is_empty():
 			continue
 
@@ -498,10 +759,26 @@ func _rebuild_inventory_list() -> void:
 		inventory_list_container.add_child(HSeparator.new())
 
 
+## EquipmentScreen.tsx のルーン検索＋カテゴリフィルター相当
+func _filtered_runes() -> Array:
+	var query := _rune_search.strip_edges().to_lower()
+	var out: Array = []
+	for rune in CollectionData.inventory.runes:
+		var effect: String = str(rune.get("effect", ""))
+		if _rune_category != "" and str(RUNE_CATEGORY_OF_EFFECT.get(effect, "")) != _rune_category:
+			continue
+		if query != "" and not effect.to_lower().contains(query):
+			continue
+		out.append(rune)
+	return out
+
+
 func _rebuild_rune_list() -> void:
 	for child in rune_list_container.get_children():
 		child.queue_free()
-	for rune in CollectionData.inventory.runes:
+	var filtered := _filtered_runes()
+	rune_label.text = "所持ルーン（選択してから装備側の「ここに装着」を押す） %d/%d" % [filtered.size(), CollectionData.inventory.runes.size()]
+	for rune in filtered:
 		var row := HBoxContainer.new()
 		var rune_id: String = str(rune.get("id", ""))
 		var label := Label.new()
@@ -544,6 +821,49 @@ func _on_unsocket_pressed(equipment_uid: String, socket_index: int) -> void:
 	if CollectionData.unsocket_rune_from_equipment(equipment_uid, socket_index):
 		GameState.sync_equipped_from_inventory(equipment_uid)
 	_refresh_equipment_tab()
+
+
+func _on_equip_filter_archetype_toggled(pressed: bool, value: String) -> void:
+	if pressed:
+		_equip_filter_archetypes[value] = true
+	else:
+		_equip_filter_archetypes.erase(value)
+	_rebuild_inventory_list()
+
+
+func _on_equip_filter_slot_toggled(pressed: bool, value: String) -> void:
+	if pressed:
+		_equip_filter_slots[value] = true
+	else:
+		_equip_filter_slots.erase(value)
+	_rebuild_inventory_list()
+
+
+## EquipmentScreen.tsx の「tier{sortAsc ? "低い順" : "高い順"}」トグルボタン相当
+func _on_equipment_sort_toggle_pressed() -> void:
+	_equip_sort_asc = not _equip_sort_asc
+	equipment_sort_button.text = "tier低い順" if _equip_sort_asc else "tier高い順"
+	_rebuild_inventory_list()
+
+
+## EquipmentScreen.tsx の「フィルターをリセット」相当
+func _on_equipment_filter_reset_pressed() -> void:
+	_equip_filter_archetypes.clear()
+	_equip_filter_slots.clear()
+	_sync_toggle_row(equipment_filter_archetype_row, _equipment_filterable_archetypes(), _equip_filter_archetypes)
+	_sync_toggle_row(equipment_filter_slot_row, Equipment.EQUIPMENT_SLOTS, _equip_filter_slots)
+	_rebuild_inventory_list()
+
+
+func _on_rune_search_changed(text: String) -> void:
+	_rune_search = text
+	_rebuild_rune_list()
+
+
+func _on_rune_category_toggled(pressed: bool, value: String) -> void:
+	if pressed:
+		_rune_category = value
+		_rebuild_rune_list()
 
 
 # ============================================================
