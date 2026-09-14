@@ -348,14 +348,55 @@ layout_mode = 2
 layout_mode = 2
 text = "条件をリセット"
 
-[node name="DeckFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="DeckFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel"]
 layout_mode = 2
+theme = SubResource("ThemeRitual")
+theme_override_constants/separation = 6
 
-[node name="DeckFilterRarityRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckFilterTriggerRow"]
 layout_mode = 2
+text = "ジャンル ▾"
 
-[node name="DeckFilterAiTagRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel"]
+[node name="RarityButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckFilterTriggerRow"]
 layout_mode = 2
+text = "レア度 ▾"
+
+[node name="AiTagButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckFilterTriggerRow"]
+layout_mode = 2
+text = "種別 ▾"
+
+[node name="DeckFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleRitualPanel")
+
+[node name="DeckFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterArchetypePopover"]
+layout_mode = 2
+theme = SubResource("ThemeRitual")
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+
+[node name="DeckFilterRarityPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleRitualPanel")
+
+[node name="DeckFilterRarityRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterRarityPopover"]
+layout_mode = 2
+theme = SubResource("ThemeRitual")
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+
+[node name="DeckFilterAiTagPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel"]
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleRitualPanel")
+
+[node name="DeckFilterAiTagRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckFilterAiTagPopover"]
+layout_mode = 2
+theme = SubResource("ThemeRitual")
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
 
 [node name="DeckResultCountLabel" type="Label" parent="Root/Body/Content/DeckPanel"]
 layout_mode = 2
@@ -410,11 +451,40 @@ text = "tier高い順"
 layout_mode = 2
 text = "条件をリセット"
 
-[node name="EquipmentFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="EquipmentFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
+theme = SubResource("ThemeRitual")
+theme_override_constants/separation = 6
 
-[node name="EquipmentFilterSlotRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterTriggerRow"]
 layout_mode = 2
+text = "ジャンル ▾"
+
+[node name="SlotButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterTriggerRow"]
+layout_mode = 2
+text = "部位 ▾"
+
+[node name="EquipmentFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/EquipmentPanel"]
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleRitualPanel")
+
+[node name="EquipmentFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypePopover"]
+layout_mode = 2
+theme = SubResource("ThemeRitual")
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+
+[node name="EquipmentFilterSlotPopover" type="PanelContainer" parent="Root/Body/Content/EquipmentPanel"]
+visible = false
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleRitualPanel")
+
+[node name="EquipmentFilterSlotRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterSlotPopover"]
+layout_mode = 2
+theme = SubResource("ThemeRitual")
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
 
 [node name="InventoryLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
