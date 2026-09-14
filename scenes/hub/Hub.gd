@@ -86,11 +86,6 @@ extends Control
 @onready var rune_category_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/RuneCategoryRow
 @onready var rune_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/RuneScroll/RuneListContainer
 
-@onready var grimoire_panel: VBoxContainer = $Root/Body/Content/GrimoirePanel
-@onready var grimoire_status_label: Label = $Root/Body/Content/GrimoirePanel/GrimoireStatusLabel
-@onready var grimoire_list_container: VBoxContainer = $Root/Body/Content/GrimoirePanel/GrimoireScroll/GrimoireListContainer
-@onready var grimoire_action_button: Button = $Root/Body/Content/GrimoirePanel/GrimoireActionButton
-
 @onready var nav_buttons: Dictionary = {
 	"descend": $Root/Body/Nav/DescendButton,
 	"deck": $Root/Body/Nav/DeckButton,
@@ -98,7 +93,6 @@ extends Control
 	"sell": $Root/Body/Nav/SellButton,
 	"shop": $Root/Body/Nav/ShopButton,
 	"packs": $Root/Body/Nav/PacksButton,
-	"grimoire": $Root/Body/Nav/GrimoireButton,
 }
 
 var _selected_rune_id: String = ""
@@ -184,7 +178,6 @@ func _ready() -> void:
 	sell_select_all_button.pressed.connect(_on_sell_select_all_pressed)
 	sell_clear_all_button.pressed.connect(_on_sell_clear_all_pressed)
 	sell_confirm_button.pressed.connect(_on_sell_confirm_pressed)
-	grimoire_action_button.pressed.connect(_on_grimoire_turn_pressed)
 	_setup_deck_filters()
 	_setup_equipment_filters()
 	_select_tab("descend")
@@ -300,7 +293,6 @@ func _select_tab(tab_name: String) -> void:
 	equipment_panel.visible = tab_name == "equipment"
 	sell_panel.visible = tab_name == "sell"
 	commerce_panel.visible = tab_name in ["shop", "packs"]
-	grimoire_panel.visible = tab_name == "grimoire"
 	placeholder_panel.visible = false
 	if tab_name == "descend":
 		_update_descend_panel()
@@ -323,8 +315,6 @@ func _select_tab(tab_name: String) -> void:
 		_sell_equipment_uids.clear()
 		_sell_rune_ids.clear()
 		_refresh_sell_tab()
-	elif tab_name == "grimoire":
-		_refresh_grimoire_tab()
 	elif commerce_panel.visible:
 		_commerce_tab = tab_name
 		_refresh_commerce()
@@ -1443,42 +1433,3 @@ func _on_rune_category_toggled(pressed: bool, value: String) -> void:
 	if pressed:
 		_rune_category = value
 		_rebuild_rune_list()
-
-
-# ============================================================
-# 図鑑タブ（GrimoireView.tsx 相当）
-# ============================================================
-
-## GrimoireView.tsx の grimoireOpen(profile) ゲート＋章一覧＋「記す」ボタン相当。
-## GRIMOIRE_ENABLEDが実ソース同様falseのため、現状は常にロック画面が表示される
-## （実ソースの仕様通り。忠実性を優先しそのまま踏襲する）。
-func _refresh_grimoire_tab() -> void:
-	for child in grimoire_list_container.get_children():
-		child.queue_free()
-
-	var allowed: bool = Profile.grimoire_open(GameState.stats)
-	if not allowed:
-		grimoire_status_label.text = "文字は、まだこの器の知識に降りてこない。"
-		grimoire_action_button.visible = false
-		return
-
-	var next = Grimoire.next_unread(GameState.grimoire_read)
-	grimoire_status_label.text = "目次：知識級数の深淵（狂気 %d）" % GameState.madness
-	for ch in Grimoire.chapters():
-		var got: bool = ch.card_id != null and GameState.grimoire_read.has(ch.card_id)
-		var locked: bool = ch.card_id == null
-		var title: String = "■■■" if locked else str(ch.title)
-		var label := Label.new()
-		label.text = "第%d篇 %s%s" % [int(ch.index), title, ("・記した" if got else "")]
-		grimoire_list_container.add_child(label)
-
-	grimoire_action_button.visible = true
-	grimoire_action_button.disabled = next == null
-	grimoire_action_button.text = ("次の頁を記す（狂気+%d）" % Profile.MADNESS_STEP) if next != null else "これ以上記す頁はない"
-
-
-func _on_grimoire_turn_pressed() -> void:
-	GameState.turn_grimoire_page(get_tree())
-	if GameState.scene == "hub":
-		_refresh_grimoire_tab()
-		_update_header()
