@@ -635,7 +635,7 @@ func _make_pack_button(archetype: String, ticket_count: int) -> Button:
 	pack_art.custom_minimum_size = Vector2(0, 112)
 	pack_art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pack_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pack_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pack_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	pack_art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	pack_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var art_path := "res://art/pixel/packs/pack_%s.png" % archetype
