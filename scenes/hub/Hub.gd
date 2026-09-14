@@ -293,12 +293,30 @@ func _equipment_filterable_archetypes() -> Array:
 func _select_tab(tab_name: String) -> void:
 	for key in nav_buttons.keys():
 		nav_buttons[key].disabled = key == tab_name
-	descend_panel.visible = tab_name == "descend"
-	deck_panel.visible = tab_name == "deck"
-	equipment_panel.visible = tab_name == "equipment"
-	sell_panel.visible = tab_name == "sell"
-	commerce_panel.visible = tab_name in ["shop", "packs"]
-	placeholder_panel.visible = false
+	## Content直下の画面は、必ず一度すべて隠してから対象タブだけを表示する。
+	## 準備画面の補助パネルが他タブに重なって残ることを防ぐ。
+	for panel in [
+		descend_panel,
+		prepare_equipment_summary_panel,
+		prepare_deck_select_panel,
+		placeholder_panel,
+		commerce_panel,
+		sell_panel,
+		deck_panel,
+		equipment_panel,
+	]:
+		panel.visible = false
+
+	if tab_name == "descend":
+		descend_panel.visible = true
+	elif tab_name == "deck":
+		deck_panel.visible = true
+	elif tab_name == "equipment":
+		equipment_panel.visible = true
+	elif tab_name == "sell":
+		sell_panel.visible = true
+	elif tab_name in ["shop", "packs"]:
+		commerce_panel.visible = true
 	if tab_name == "descend":
 		_update_descend_panel()
 	elif tab_name == "deck":
@@ -320,7 +338,7 @@ func _select_tab(tab_name: String) -> void:
 		_sell_equipment_uids.clear()
 		_sell_rune_ids.clear()
 		_refresh_sell_tab()
-	elif commerce_panel.visible:
+	elif tab_name in ["shop", "packs"]:
 		_commerce_tab = tab_name
 		_refresh_commerce()
 
@@ -617,7 +635,7 @@ func _make_pack_button(archetype: String, ticket_count: int) -> Button:
 	pack_art.custom_minimum_size = Vector2(0, 112)
 	pack_art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pack_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pack_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pack_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	pack_art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	pack_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var art_path := "res://art/pixel/packs/pack_%s.png" % archetype
