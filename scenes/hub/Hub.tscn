@@ -124,6 +124,10 @@ text = "ショップ"
 layout_mode = 2
 text = "カードパック"
 
+[node name="GrimoireButton" type="Button" parent="Root/Body/Nav"]
+layout_mode = 2
+text = "図鑑"
+
 [node name="Content" type="Control" parent="Root/Body"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -317,3 +321,35 @@ custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 2
+
+[node name="GrimoirePanel" type="VBoxContainer" parent="Root/Body/Content"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+theme_override_constants/separation = 8
+
+[node name="GrimoireStatusLabel" type="Label" parent="Root/Body/Content/GrimoirePanel"]
+layout_mode = 2
+autowrap_mode = 3
+text = "図鑑"
+
+[node name="GrimoireScroll" type="ScrollContainer" parent="Root/Body/Content/GrimoirePanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="GrimoireListContainer" type="VBoxContainer" parent="Root/Body/Content/GrimoirePanel/GrimoireScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 1
+
+[node name="GrimoireActionButton" type="Button" parent="Root/Body/Content/GrimoirePanel"]
+layout_mode = 2
+text = "次の頁を記す"

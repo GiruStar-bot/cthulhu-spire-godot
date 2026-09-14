@@ -12,6 +12,7 @@ extends Node
 ##       reference/cthulhu-spire-main/src/game/profile.ts
 ##       reference/cthulhu-spire-main/src/game/floors.ts
 ##       reference/cthulhu-spire-main/src/game/equipment.ts
+##       reference/cthulhu-spire-main/src/game/grimoire.ts
 ##       reference/cthulhu-spire-main/src/components/game/GameApp.tsx
 ##
 ## 実ソースの Scene 型のうち "prologue" / "map" / "prepare" / "between" は
@@ -202,14 +203,34 @@ func to_title(tree: SceneTree) -> void:
 
 ## store.ts の startRun()。
 ## 実際はプレイヤー名・デッキ枚数のバリデーションを行うが、
-## ステ振り/デッキ編成UIが未実装のフェーズAでは省略する（フェーズB以降で追加）。
+## 名前入力/デッキ編成の必須チェックUIが未実装のため、それらのバリデーションのみ省略する
+## （デッキが空でも実行は継続する。フェーズB以降で追加）。
+## runs加算・madness蓄積による正気0シャター判定・初回ルルイエ強制遭遇は実ソース通り実装する。
 func start_run(tree: SceneTree) -> void:
+	runs += 1
+	_persist_profile()
+
 	character = starter_path(stats)
-	max_hp = derived_max_hp()
+	var vitals := Profile.derived_vitals(stats, madness)
+	var fanatic: bool = Equipment.has_full_set(equipped, "fanatic")
+
+	max_hp = vitals.max_hp
 	hp = max_hp
-	max_sanity = derived_max_sanity()
-	sanity = max_sanity
-	run_strength = 0
+
+	max_sanity = vitals.max_sanity
+	if max_sanity <= 0:
+		if not fanatic:
+			_shatter(tree)
+			return
+		max_sanity = 1
+	sanity = max_sanity if profile_sanity == null else min(int(profile_sanity), max_sanity)
+	if sanity <= 0:
+		if not fanatic:
+			_shatter(tree)
+			return
+		sanity = max(1, sanity)
+
+	run_strength = int(vitals.strength)
 	extra_energy_next = 0
 	act = 1
 	deck = loadout_deck()
@@ -217,7 +238,27 @@ func start_run(tree: SceneTree) -> void:
 		seed = randi()
 		rng = Mulberry32.new(seed)
 		run_floors = Floors.generate_run_table(rng, Floors.DEMO_MAX_FLOOR)
+
+	if not seen_rlyeh:
+		## store.ts startRun()：初回のみ1階の遭遇を"drowned"に強制上書きする
+		seen_rlyeh = true
+		_persist_profile()
+		if run_floors.size() > 0:
+			run_floors[0] = {"floor": 1, "type": "combat", "enemy_ids": ["drowned"]}
+
 	enter_floor(tree, 1)
+
+
+## start_run()/turn_grimoire_page() 共通のshatter処理
+## （正気0でwipeProfile()するstore.ts側の各箇所の重複ロジックをまとめたヘルパー。
+## 実ソースにこの関数自体は存在しないが、lose_combat()と合わせて3箇所で同じ処理を
+## 繰り返さないための移植時の整理。挙動はwipeProfile()呼び出し箇所と完全に同一）。
+func _shatter(tree: SceneTree) -> void:
+	Profile.wipe_profile()
+	_load_profile()
+	player_name = ""
+	reset_run()
+	goto_scene(tree, "shatter")
 
 
 ## store.ts の enterFloor(floor, carry) 相当。
@@ -395,12 +436,33 @@ func _mark_defeat() -> void:
 func lose_combat(tree: SceneTree) -> void:
 	_mark_defeat()
 	if (sanity <= 0 or max_sanity <= 0) and not Equipment.has_full_set(equipped, "fanatic"):
-		Profile.wipe_profile()
-		_load_profile()
-		player_name = ""
-		goto_scene(tree, "shatter")
+		_shatter(tree)
 	else:
 		goto_scene(tree, "defeat")
+
+
+## grimoire.ts の nextUnread() + store.ts の turnGrimoirePage() 相当。
+## 図鑑（The All）を1頁読み進める：未読の章が無ければ何もしない。
+## 狂気+MADNESS_STEP・対応カードIDをgrimoire_readへ追加・正気を新最大値でクランプする。
+## 正気0（かつ狂信者フルセット未装備）になる場合はプロフィール全消去（shatter）。
+func turn_grimoire_page(tree: SceneTree) -> void:
+	var next = Grimoire.next_unread(grimoire_read)
+	if next == null or next.get("card_id") == null:
+		return
+	var prev_max: int = Profile.derived_vitals(stats, madness).max_sanity
+	var new_madness: int = madness + Profile.MADNESS_STEP
+	var new_read: Array = grimoire_read.duplicate()
+	new_read.append(next.card_id)
+	var max_sanity_next: int = Profile.derived_vitals(stats, new_madness).max_sanity
+	var cur: int = prev_max if profile_sanity == null else int(profile_sanity)
+	var new_sanity: int = max(0, min(cur, max_sanity_next))
+	if (max_sanity_next <= 0 or new_sanity <= 0) and not Equipment.has_full_set(equipped, "fanatic"):
+		_shatter(tree)
+		return
+	madness = new_madness
+	grimoire_read = new_read
+	profile_sanity = max(1, new_sanity)
+	_persist_profile()
 
 
 func _rand() -> float:
