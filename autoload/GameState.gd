@@ -183,6 +183,7 @@ func starter_path(p_stats: Dictionary) -> String:
 func goto_scene(tree: SceneTree, next_scene: String) -> void:
 	scene = next_scene
 	tree.change_scene_to_file(SCENE_PATHS[next_scene])
+	AudioManager.play_bgm_for_scene(next_scene)
 
 
 ## store.ts の begin()：プレイ開始（タイトル→拠点）。プロフィールを再読込しランテーブルを生成する。
