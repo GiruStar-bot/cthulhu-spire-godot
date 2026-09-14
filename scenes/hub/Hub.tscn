@@ -1,7 +1,68 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scenes/hub/Hub.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/pixel/bg/loadout.jpg" id="2"]
+
+[sub_resource type="StyleBoxFlat" id="StyleRitualPanel"]
+bg_color = Color(0.045, 0.043, 0.035, 0.92)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.48, 0.39, 0.25, 0.94)
+content_margin_left = 14.0
+content_margin_top = 14.0
+content_margin_right = 14.0
+content_margin_bottom = 14.0
+shadow_color = Color(0, 0, 0, 0.76)
+shadow_size = 6
+shadow_offset = Vector2(3, 4)
+
+[sub_resource type="StyleBoxFlat" id="StyleInkLedger"]
+bg_color = Color(0.024, 0.026, 0.025, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.31, 0.28, 0.21, 0.92)
+content_margin_left = 9.0
+content_margin_top = 9.0
+content_margin_right = 9.0
+content_margin_bottom = 9.0
+
+[sub_resource type="StyleBoxFlat" id="StyleStamp"]
+bg_color = Color(0.79, 0.72, 0.57, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.21, 0.18, 0.13, 1)
+content_margin_left = 10.0
+content_margin_top = 7.0
+content_margin_right = 10.0
+content_margin_bottom = 7.0
+
+[sub_resource type="StyleBoxFlat" id="StyleStampHover"]
+bg_color = Color(0.92, 0.84, 0.65, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.39, 0.19, 0.16, 1)
+content_margin_left = 10.0
+content_margin_top = 7.0
+content_margin_right = 10.0
+content_margin_bottom = 7.0
+
+[sub_resource type="Theme" id="ThemeRitual"]
+Button/styles/normal = SubResource("StyleStamp")
+Button/styles/hover = SubResource("StyleStampHover")
+Button/styles/pressed = SubResource("StyleStampHover")
+Button/colors/font_color = Color(0.08, 0.075, 0.06, 1)
+Button/colors/font_hover_color = Color(0.08, 0.075, 0.06, 1)
+Button/colors/font_disabled_color = Color(0.35, 0.33, 0.29, 1)
+Button/font_sizes/font_size = 12
+Label/colors/font_color = Color(0.87, 0.81, 0.69, 1)
 
 [node name="Hub" type="Control"]
 layout_mode = 3
@@ -146,29 +207,36 @@ offset_right = 220.0
 offset_bottom = 180.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = SubResource("ThemeRitual")
 theme_override_constants/separation = 12
 
 [node name="DescendStatusLabel" type="Label" parent="Root/Body/Content/DescendPanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.84, 0.78, 0.67, 1)
+theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 text = "探索準備\n最深到達: 未潜航 · 貝殻 0"
 
 [node name="PrimaryActionButton" type="Button" parent="Root/Body/Content/DescendPanel"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 52)
 text = "潜航開始"
 
 [node name="ExtractButton" type="Button" parent="Root/Body/Content/DescendPanel"]
 layout_mode = 2
 visible = false
+custom_minimum_size = Vector2(0, 44)
 text = "拠点へ帰還"
 
 [node name="StatPanel" type="VBoxContainer" parent="Root/Body/Content/DescendPanel"]
 layout_mode = 2
+theme = SubResource("ThemeRitual")
+theme_override_styles/panel = SubResource("StyleInkLedger")
 theme_override_constants/separation = 4
 
 [node name="StatHeaderLabel" type="Label" parent="Root/Body/Content/DescendPanel/StatPanel"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
 horizontal_alignment = 1
 text = "使用可能ポイント: 0 / 総ポイント: 0"
 
@@ -205,17 +273,21 @@ offset_bottom = -12.0
 grow_horizontal = 2
 grow_vertical = 2
 visible = false
-theme_override_constants/separation = 8
+theme = SubResource("ThemeRitual")
+theme_override_constants/separation = 10
 
 [node name="CommerceTitle" type="Label" parent="Root/Body/Content/CommercePanel"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
 theme_override_font_sizes/font_size = 20
 text = "売却"
 
 [node name="CommerceList" type="VBoxContainer" parent="Root/Body/Content/CommercePanel"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 6
+theme = SubResource("ThemeRitual")
+theme_override_styles/panel = SubResource("StyleInkLedger")
+theme_override_constants/separation = 8
 
 [node name="DeckPanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1
@@ -334,22 +406,28 @@ offset_bottom = -12.0
 grow_horizontal = 2
 grow_vertical = 2
 visible = false
-theme_override_constants/separation = 8
+theme = SubResource("ThemeRitual")
+theme_override_constants/separation = 10
 
 [node name="GrimoireStatusLabel" type="Label" parent="Root/Body/Content/GrimoirePanel"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
+theme_override_font_sizes/font_size = 16
 autowrap_mode = 3
 text = "図鑑"
 
 [node name="GrimoireScroll" type="ScrollContainer" parent="Root/Body/Content/GrimoirePanel"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleInkLedger")
 
 [node name="GrimoireListContainer" type="VBoxContainer" parent="Root/Body/Content/GrimoirePanel/GrimoireScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 1
+theme = SubResource("ThemeRitual")
+theme_override_constants/separation = 4
 
 [node name="GrimoireActionButton" type="Button" parent="Root/Body/Content/GrimoirePanel"]
 layout_mode = 2
+custom_minimum_size = Vector2(0, 42)
 text = "次の頁を記す"
