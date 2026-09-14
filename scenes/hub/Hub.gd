@@ -35,9 +35,15 @@ extends Control
 @onready var deck_search_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckSearchEdit
 @onready var deck_sort_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckSortOptionButton
 @onready var deck_filter_reset_button: Button = $Root/Body/Content/DeckPanel/DeckSearchRow/DeckFilterResetButton
-@onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterArchetypeRow
-@onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterRarityRow
-@onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterAiTagRow
+@onready var deck_filter_archetype_button: Button = $Root/Body/Content/DeckPanel/DeckFilterTriggerRow/ArchetypeButton
+@onready var deck_filter_rarity_button: Button = $Root/Body/Content/DeckPanel/DeckFilterTriggerRow/RarityButton
+@onready var deck_filter_ai_tag_button: Button = $Root/Body/Content/DeckPanel/DeckFilterTriggerRow/AiTagButton
+@onready var deck_filter_archetype_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckFilterArchetypePopover
+@onready var deck_filter_rarity_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckFilterRarityPopover
+@onready var deck_filter_ai_tag_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckFilterAiTagPopover
+@onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterArchetypePopover/DeckFilterArchetypeRow
+@onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterRarityPopover/DeckFilterRarityRow
+@onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckFilterAiTagPopover/DeckFilterAiTagRow
 @onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckResultCountLabel
 @onready var card_list_container: VBoxContainer = $Root/Body/Content/DeckPanel/CardScroll/CardListContainer
 
@@ -46,8 +52,12 @@ extends Control
 @onready var stats_label: Label = $Root/Body/Content/EquipmentPanel/StatsLabel
 @onready var equipment_sort_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterRow/EquipmentSortButton
 @onready var equipment_filter_reset_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterRow/EquipmentFilterResetButton
-@onready var equipment_filter_archetype_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypeRow
-@onready var equipment_filter_slot_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterSlotRow
+@onready var equipment_filter_archetype_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterTriggerRow/ArchetypeButton
+@onready var equipment_filter_slot_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterTriggerRow/SlotButton
+@onready var equipment_filter_archetype_popover: PanelContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypePopover
+@onready var equipment_filter_slot_popover: PanelContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterSlotPopover
+@onready var equipment_filter_archetype_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypePopover/EquipmentFilterArchetypeRow
+@onready var equipment_filter_slot_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterSlotPopover/EquipmentFilterSlotRow
 @onready var inventory_label: Label = $Root/Body/Content/EquipmentPanel/InventoryLabel
 @onready var inventory_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/InventoryScroll/InventoryListContainer
 @onready var rune_label: Label = $Root/Body/Content/EquipmentPanel/RuneLabel
@@ -135,6 +145,9 @@ func _ready() -> void:
 func _setup_deck_filters() -> void:
 	deck_search_edit.text_changed.connect(_on_deck_search_changed)
 	deck_filter_reset_button.pressed.connect(_on_deck_filter_reset_pressed)
+	deck_filter_archetype_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_archetype_popover))
+	deck_filter_rarity_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_rarity_popover))
+	deck_filter_ai_tag_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_ai_tag_popover))
 
 	deck_sort_option_button.clear()
 	for mode in DECK_SORT_MODES:
@@ -158,6 +171,8 @@ func _setup_equipment_filters() -> void:
 	equipment_sort_button.pressed.connect(_on_equipment_sort_toggle_pressed)
 	equipment_filter_reset_button.pressed.connect(_on_equipment_filter_reset_pressed)
 	rune_search_edit.text_changed.connect(_on_rune_search_changed)
+	equipment_filter_archetype_button.pressed.connect(_toggle_equipment_popover.bind(equipment_filter_archetype_popover))
+	equipment_filter_slot_button.pressed.connect(_toggle_equipment_popover.bind(equipment_filter_slot_popover))
 
 	_build_toggle_row(equipment_filter_archetype_row, _equipment_filterable_archetypes(),
 		func(a): return "汎用" if a == "generic" else str(Cards.ARCHETYPE_LABELS.get(a, a)),
@@ -190,6 +205,16 @@ func _build_toggle_row(container: Control, options: Array, option_label: Callabl
 		btn.button_pressed = state.has(opt)
 		btn.toggled.connect(on_toggle.bind(opt))
 		container.add_child(btn)
+
+
+func _toggle_deck_popover(target: Control) -> void:
+	for panel in [deck_filter_archetype_popover, deck_filter_rarity_popover, deck_filter_ai_tag_popover]:
+		panel.visible = panel == target and not target.visible
+
+
+func _toggle_equipment_popover(target: Control) -> void:
+	for panel in [equipment_filter_archetype_popover, equipment_filter_slot_popover]:
+		panel.visible = panel == target and not target.visible
 
 
 ## _build_toggle_row()で構築済みの行のボタン押下状態を、リセット等で外部からstateを
@@ -605,6 +630,7 @@ func _on_deck_filter_archetype_toggled(pressed: bool, value: String) -> void:
 	else:
 		_deck_filter_archetypes.erase(value)
 	_rebuild_card_list()
+	deck_filter_archetype_popover.visible = false
 
 
 func _on_deck_filter_rarity_toggled(pressed: bool, value: String) -> void:
@@ -613,6 +639,7 @@ func _on_deck_filter_rarity_toggled(pressed: bool, value: String) -> void:
 	else:
 		_deck_filter_rarities.erase(value)
 	_rebuild_card_list()
+	deck_filter_rarity_popover.visible = false
 
 
 func _on_deck_filter_ai_tag_toggled(pressed: bool, value: String) -> void:
@@ -621,6 +648,7 @@ func _on_deck_filter_ai_tag_toggled(pressed: bool, value: String) -> void:
 	else:
 		_deck_filter_ai_tags.erase(value)
 	_rebuild_card_list()
+	deck_filter_ai_tag_popover.visible = false
 
 
 ## DeckBuilderScreen.tsx の「条件をリセット」相当
@@ -634,6 +662,9 @@ func _on_deck_filter_reset_pressed() -> void:
 	_sync_toggle_row(deck_filter_rarity_row, DECK_FILTERABLE_RARITIES, _deck_filter_rarities)
 	_sync_toggle_row(deck_filter_ai_tag_row, DECK_FILTERABLE_AI_TAGS, _deck_filter_ai_tags)
 	_rebuild_card_list()
+	deck_filter_archetype_popover.visible = false
+	deck_filter_rarity_popover.visible = false
+	deck_filter_ai_tag_popover.visible = false
 
 
 # ============================================================
@@ -839,6 +870,7 @@ func _on_equip_filter_archetype_toggled(pressed: bool, value: String) -> void:
 	else:
 		_equip_filter_archetypes.erase(value)
 	_rebuild_inventory_list()
+	equipment_filter_archetype_popover.visible = false
 
 
 func _on_equip_filter_slot_toggled(pressed: bool, value: String) -> void:
@@ -847,6 +879,7 @@ func _on_equip_filter_slot_toggled(pressed: bool, value: String) -> void:
 	else:
 		_equip_filter_slots.erase(value)
 	_rebuild_inventory_list()
+	equipment_filter_slot_popover.visible = false
 
 
 ## EquipmentScreen.tsx の「tier{sortAsc ? "低い順" : "高い順"}」トグルボタン相当
@@ -863,6 +896,8 @@ func _on_equipment_filter_reset_pressed() -> void:
 	_sync_toggle_row(equipment_filter_archetype_row, _equipment_filterable_archetypes(), _equip_filter_archetypes)
 	_sync_toggle_row(equipment_filter_slot_row, Equipment.EQUIPMENT_SLOTS, _equip_filter_slots)
 	_rebuild_inventory_list()
+	equipment_filter_archetype_popover.visible = false
+	equipment_filter_slot_popover.visible = false
 
 
 func _on_rune_search_changed(text: String) -> void:
