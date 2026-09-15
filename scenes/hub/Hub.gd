@@ -6,6 +6,10 @@ extends Control
 
 const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const INSPECTOR_CARD_SIZE := Vector2(220, 330)
+const INSPECTOR_IN_DUR := 0.22
+const INSPECTOR_OUT_DUR := 0.20
+const INSPECTOR_BTN_DUR := 0.14
+const INSPECTOR_GHOST_DUR := 0.16
 
 @onready var player_name_label: Label = $Root/Header/PlayerNameLabel
 @onready var info_label: Label = $Root/Header/InfoLabel
@@ -163,6 +167,15 @@ var _deck_search: String = ""
 var _deck_sort_mode: String = "cost"
 var _inspector_card_id: String = ""
 var _inspector_layer: Control = null
+var _inspector_dim: ColorRect = null
+var _inspector_card: CombatCard = null
+var _inspector_actions: HBoxContainer = null
+var _inspector_minus: Button = null
+var _inspector_plus: Button = null
+var _inspector_count: Label = null
+var _inspector_busy_close: bool = false
+var _inspector_card_tween: Tween = null
+var _deck_contents_dirty: bool = false
 
 var _equip_filter_archetypes: Dictionary = {}
 var _equip_filter_slots: Dictionary = {}
@@ -1355,10 +1368,7 @@ func _sort_deck_card_ids(ids: Array, owned: Dictionary) -> void:
 
 
 func _rebuild_card_list() -> void:
-	for child in card_list_container.get_children():
-		child.queue_free()
-	for child in deck_contents_container.get_children():
-		child.queue_free()
+	_free_children(card_list_container)
 	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
 	var owned: Dictionary = CollectionData.owned_card_counts()
 	var ids := _filtered_deck_card_ids(owned)
@@ -1381,6 +1391,9 @@ func _rebuild_card_list() -> void:
 
 
 func _rebuild_deck_contents(deck: Dictionary) -> void:
+	deck_contents_container.custom_minimum_size.x = 0
+	deck_contents_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_free_children(deck_contents_container)
 	var card_ids: Array = deck.keys()
 	card_ids.sort_custom(func(a, b):
 		var a_name := str(Cards.get_card(str(a)).get("name", a))
@@ -1392,8 +1405,8 @@ func _rebuild_deck_contents(deck: Dictionary) -> void:
 		empty_label.text = "カードをクリックして編成"
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		deck_contents_container.add_child(empty_label)
-		call_deferred("_fit_deck_contents_width")
 		return
 	for card_id in card_ids:
 		var count: int = int(deck.get(card_id, 0))
@@ -1403,90 +1416,139 @@ func _rebuild_deck_contents(deck: Dictionary) -> void:
 		var row := HBoxContainer.new()
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.custom_minimum_size = Vector2(0, 40)
-		row.clip_contents = false
+		row.clip_contents = true
 		row.mouse_filter = Control.MOUSE_FILTER_STOP
 		row.add_theme_constant_override("separation", 8)
-		row.gui_input.connect(_on_deck_row_gui.bind(str(card_id)))
+		row.gui_input.connect(_on_deck_row_gui.bind(str(card_id), row))
 
 		var thumb: Control = _make_art_strip(str(def.get("art", "")), Vector2(72, 32))
+		thumb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(thumb)
 
-		var text_col := VBoxContainer.new()
-		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text_col.add_theme_constant_override("separation", 0)
+		## Controlは子の最小幅を合算しない。Labelの全文幅で右パネルが押し広がるのを防ぐ。
+		var text_host := Control.new()
+		text_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		text_host.custom_minimum_size = Vector2(8, 32)
+		text_host.clip_contents = true
+		text_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var name_label := Label.new()
 		name_label.text = str(def.get("name", card_id))
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_label.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		name_label.offset_top = 2
+		name_label.offset_bottom = 20
 		name_label.clip_text = true
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		name_label.add_theme_font_size_override("font_size", 12)
-		text_col.add_child(name_label)
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		text_host.add_child(name_label)
 		var arch: String = str(def.get("archetype", ""))
 		if arch != "" and arch != "generic":
 			var arch_label := Label.new()
 			arch_label.text = str(Cards.ARCHETYPE_LABELS.get(arch, arch))
+			arch_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+			arch_label.offset_top = -16
+			arch_label.offset_bottom = -1
 			arch_label.add_theme_font_size_override("font_size", 10)
 			arch_label.add_theme_color_override("font_color", Color("d4a84b"))
-			text_col.add_child(arch_label)
-		row.add_child(text_col)
+			arch_label.clip_text = true
+			arch_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			arch_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			text_host.add_child(arch_label)
+		row.add_child(text_host)
 
 		var count_label := Label.new()
 		count_label.text = "×%d" % count
 		count_label.custom_minimum_size = Vector2(36, 0)
 		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		count_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 		row.add_child(count_label)
 
 		var minus_btn := Button.new()
 		minus_btn.text = "✕"
 		minus_btn.custom_minimum_size = Vector2(32, 32)
+		minus_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
 		minus_btn.tooltip_text = "1枚減らす"
 		minus_btn.pressed.connect(_on_deck_remove_pressed.bind(str(card_id)))
 		row.add_child(minus_btn)
 		deck_contents_container.add_child(row)
-	call_deferred("_fit_deck_contents_width")
 
 
-func _fit_deck_contents_width() -> void:
-	if deck_contents_container == null or not is_instance_valid(deck_contents_container):
+func _free_children(node: Node) -> void:
+	if node == null or not is_instance_valid(node):
 		return
-	var scroll: ScrollContainer = deck_contents_container.get_parent() as ScrollContainer
-	if scroll == null:
-		return
-	var w: float = scroll.size.x
-	if w > 8.0:
-		deck_contents_container.custom_minimum_size.x = w
-		deck_contents_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var kids: Array = node.get_children()
+	for child in kids:
+		node.remove_child(child)
+		child.free()
 
 
 func _on_deck_add_pressed(card_id: String) -> void:
+	if card_id == "":
+		return
+	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	var owned: Dictionary = CollectionData.owned_card_counts()
+	var in_deck: int = CollectionData.copies_of_base(deck, card_id)
+	var owned_count: int = int(owned.get(card_id, 0))
+	var deck_total: int = CollectionData.deck_size(deck)
+	if deck_total >= CollectionData.DECK_LIMIT or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count:
+		_sync_inspector_actions()
+		return
 	CollectionData.add_to_deck(card_id)
-	_refresh_deck_tab()
 	_update_header()
-	call_deferred("_refresh_card_inspector")
+	_refresh_deck_summary()
+	_sync_pool_thumb(card_id)
+	_sync_inspector_actions()
+	_spawn_add_ghost()
+	_queue_deck_contents_rebuild()
 
 
 func _on_deck_remove_pressed(card_id: String) -> void:
+	if card_id == "":
+		return
 	CollectionData.remove_from_deck(card_id)
-	_refresh_deck_tab()
 	_update_header()
-	call_deferred("_refresh_card_inspector")
+	_refresh_deck_summary()
+	_sync_pool_thumb(card_id)
+	_sync_inspector_actions()
+	_queue_deck_contents_rebuild()
 
 
-func _on_deck_row_gui(event: InputEvent, card_id: String) -> void:
+func _queue_deck_contents_rebuild() -> void:
+	if _deck_contents_dirty:
+		return
+	_deck_contents_dirty = true
+	call_deferred("_rebuild_active_deck_contents")
+
+
+func _rebuild_active_deck_contents() -> void:
+	_deck_contents_dirty = false
+	if deck_contents_container == null or not is_instance_valid(deck_contents_container):
+		return
+	_rebuild_deck_contents(CollectionData.decks.get(CollectionData.active_deck, {}))
+
+
+func _on_deck_row_gui(event: InputEvent, card_id: String, row: Control) -> void:
 	if not (event is InputEventMouseButton):
 		return
 	var mouse := event as InputEventMouseButton
 	if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
-		_open_card_inspector(card_id)
+		var from_rect := Rect2()
+		if row != null and is_instance_valid(row):
+			from_rect = row.get_global_rect()
+		_open_card_inspector(card_id, from_rect)
 
 
 func _make_pool_thumb(card_id: String, def: Dictionary, card_name: String, owned_count: int, in_deck: int) -> Button:
 	var card_button := Button.new()
 	card_button.custom_minimum_size = Vector2(88, 124)
 	card_button.clip_contents = true
+	card_button.set_meta("card_id", card_id)
 	card_button.tooltip_text = "%s\n所持 %d / デッキ内 %d" % [card_name, owned_count, in_deck]
-	card_button.pressed.connect(_open_card_inspector.bind(card_id))
+	card_button.pressed.connect(_on_pool_thumb_pressed.bind(card_id, card_button))
 	var empty := StyleBoxEmpty.new()
 	card_button.add_theme_stylebox_override("normal", empty)
 	card_button.add_theme_stylebox_override("hover", empty)
@@ -1521,6 +1583,7 @@ func _make_pool_thumb(card_id: String, def: Dictionary, card_name: String, owned
 	card_button.add_child(cost_label)
 
 	var count_label := Label.new()
+	count_label.name = "CountLabel"
 	count_label.text = "%d/%d" % [in_deck, owned_count]
 	count_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	count_label.offset_left = -46
@@ -1558,172 +1621,288 @@ func _make_pool_thumb(card_id: String, def: Dictionary, card_name: String, owned
 	return card_button
 
 
-func _open_card_inspector(card_id: String) -> void:
+func _on_pool_thumb_pressed(card_id: String, thumb: Control) -> void:
+	var from_rect := Rect2()
+	if thumb != null and is_instance_valid(thumb):
+		from_rect = thumb.get_global_rect()
+	_open_card_inspector(card_id, from_rect)
+
+
+func _sync_pool_thumb(card_id: String) -> void:
+	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	var owned: Dictionary = CollectionData.owned_card_counts()
+	var in_deck: int = CollectionData.copies_of_base(deck, card_id)
+	var owned_count: int = int(owned.get(card_id, 0))
+	for child in card_list_container.get_children():
+		if str(child.get_meta("card_id", "")) != card_id:
+			continue
+		var count_label: Label = child.get_node_or_null("CountLabel") as Label
+		if count_label != null:
+			count_label.text = "%d/%d" % [in_deck, owned_count]
+		if child is CanvasItem:
+			(child as CanvasItem).modulate = Color(1, 1, 1, 0.92) if in_deck <= 0 else Color.WHITE
+
+
+func _open_card_inspector(card_id: String, from_rect: Rect2 = Rect2()) -> void:
+	if card_id == "":
+		return
+	_inspector_busy_close = false
 	_inspector_card_id = card_id
-	_rebuild_card_inspector()
+	_ensure_inspector_layer()
+	_fly_inspector_card(from_rect)
+	_sync_inspector_actions()
+	_float_inspector_actions()
+
+
+func _kill_inspector_card_tween() -> void:
+	if _inspector_card_tween != null and is_instance_valid(_inspector_card_tween):
+		_inspector_card_tween.kill()
+	_inspector_card_tween = null
+
+
+func _mute_card_hover(card: CombatCard) -> void:
+	if card.mouse_entered.is_connected(card._on_hovered):
+		card.mouse_entered.disconnect(card._on_hovered)
+	if card.mouse_exited.is_connected(card._on_unhovered):
+		card.mouse_exited.disconnect(card._on_unhovered)
+
+
+func _make_inspect_card() -> CombatCard:
+	var def: Dictionary = Cards.get_card(_inspector_card_id)
+	var fake: Dictionary = {"uid": "", "defId": _inspector_card_id}
+	var card: CombatCard = COMBAT_CARD.new()
+	card.custom_minimum_size = INSPECTOR_CARD_SIZE
+	card.size = INSPECTOR_CARD_SIZE
+	card.configure(fake, def, true, false, false)
+	return card
+
+
+func _card_pool_center() -> Vector2:
+	var scroll: Node = card_list_container.get_parent()
+	if scroll is Control:
+		return (scroll as Control).get_global_rect().get_center()
+	return card_list_container.get_global_rect().get_center()
+
+
+func _deck_contents_center() -> Vector2:
+	var scroll: Node = deck_contents_container.get_parent()
+	if scroll is Control:
+		return (scroll as Control).get_global_rect().get_center()
+	return deck_contents_container.get_global_rect().get_center()
 
 
 func _close_card_inspector() -> void:
+	_kill_inspector_card_tween()
+	_inspector_busy_close = false
 	_inspector_card_id = ""
+	_inspector_card = null
+	_inspector_actions = null
+	_inspector_minus = null
+	_inspector_plus = null
+	_inspector_count = null
+	_inspector_dim = null
 	if _inspector_layer != null and is_instance_valid(_inspector_layer):
 		remove_child(_inspector_layer)
 		_inspector_layer.free()
 	_inspector_layer = null
 
 
-func _refresh_card_inspector() -> void:
-	if _inspector_card_id == "":
+func _dismiss_inspector() -> void:
+	if _inspector_busy_close:
 		return
-	_rebuild_card_inspector()
+	if _inspector_layer == null or not is_instance_valid(_inspector_layer):
+		_close_card_inspector()
+		return
+	_inspector_busy_close = true
+	_kill_inspector_card_tween()
+	if _inspector_actions != null and is_instance_valid(_inspector_actions):
+		_inspector_actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var hide_btns := _inspector_actions.create_tween()
+		hide_btns.tween_property(_inspector_actions, "modulate:a", 0.0, 0.1)
+		hide_btns.parallel().tween_property(_inspector_actions, "position:y", _inspector_actions.position.y + 14.0, 0.1)
+	if _inspector_dim != null and is_instance_valid(_inspector_dim):
+		_inspector_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var dim_tw := _inspector_dim.create_tween()
+		dim_tw.tween_property(_inspector_dim, "color:a", 0.0, INSPECTOR_OUT_DUR)
+	if _inspector_card != null and is_instance_valid(_inspector_card):
+		var card: CombatCard = _inspector_card
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.pivot_offset = card.size * 0.5
+		var dest: Vector2 = _card_pool_center() - card.pivot_offset
+		var tw := card.create_tween().set_parallel(true)
+		_inspector_card_tween = tw
+		tw.tween_property(card, "global_position", dest, INSPECTOR_OUT_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(card, "scale", Vector2(0.28, 0.28), INSPECTOR_OUT_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(card, "modulate", Color(0.06, 0.05, 0.04, 0.0), INSPECTOR_OUT_DUR)
+		tw.chain().tween_callback(_close_card_inspector)
+	else:
+		_close_card_inspector()
 
 
-func _rebuild_card_inspector() -> void:
+func _ensure_inspector_layer() -> void:
 	if _inspector_layer != null and is_instance_valid(_inspector_layer):
-		remove_child(_inspector_layer)
-		_inspector_layer.free()
-		_inspector_layer = null
+		_inspector_layer.move_to_front()
+		return
+	var layer := Control.new()
+	layer.name = "CardInspectorLayer"
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.z_index = 80
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(layer)
+	layer.move_to_front()
+	_inspector_layer = layer
+	var dim := ColorRect.new()
+	dim.name = "Dim"
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0.02, 0.02, 0.03, 0.0)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.gui_input.connect(_on_inspector_dim_gui)
+	layer.add_child(dim)
+	_inspector_dim = dim
+	var dim_tw := dim.create_tween()
+	dim_tw.tween_property(dim, "color:a", 0.62, INSPECTOR_IN_DUR)
+	_build_inspector_actions()
+
+
+func _build_inspector_actions() -> void:
+	if _inspector_actions != null and is_instance_valid(_inspector_actions):
+		return
+	var actions := HBoxContainer.new()
+	actions.name = "InspectActions"
+	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	actions.add_theme_constant_override("separation", 18)
+	actions.mouse_filter = Control.MOUSE_FILTER_STOP
+	actions.z_index = 2
+	var minus_btn := Button.new()
+	minus_btn.text = "−"
+	minus_btn.focus_mode = Control.FOCUS_NONE
+	minus_btn.custom_minimum_size = Vector2(56, 40)
+	minus_btn.add_theme_font_size_override("font_size", 22)
+	minus_btn.pressed.connect(_on_inspector_minus)
+	actions.add_child(minus_btn)
+	var count_label := Label.new()
+	count_label.text = "×0"
+	count_label.custom_minimum_size = Vector2(72, 0)
+	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	count_label.add_theme_font_size_override("font_size", 20)
+	count_label.add_theme_color_override("font_color", Color("f3ead2"))
+	count_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	count_label.add_theme_constant_override("outline_size", 4)
+	actions.add_child(count_label)
+	var plus_btn := Button.new()
+	plus_btn.text = "＋"
+	plus_btn.focus_mode = Control.FOCUS_NONE
+	plus_btn.custom_minimum_size = Vector2(56, 40)
+	plus_btn.add_theme_font_size_override("font_size", 22)
+	plus_btn.pressed.connect(_on_inspector_plus)
+	actions.add_child(plus_btn)
+	_inspector_layer.add_child(actions)
+	_inspector_actions = actions
+	_inspector_minus = minus_btn
+	_inspector_plus = plus_btn
+	_inspector_count = count_label
+	actions.modulate.a = 0.0
+
+
+func _inspector_card_dest() -> Vector2:
+	var view: Vector2 = get_viewport_rect().size
+	return Vector2(view.x * 0.5, view.y * 0.42) - INSPECTOR_CARD_SIZE * 0.5
+
+
+func _fly_inspector_card(from_rect: Rect2) -> void:
+	if _inspector_layer == null:
+		return
+	_kill_inspector_card_tween()
+	if _inspector_card != null and is_instance_valid(_inspector_card):
+		_inspector_card.queue_free()
+		_inspector_card = null
+	var card: CombatCard = _make_inspect_card()
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.z_index = 3
+	_inspector_layer.add_child(card)
+	_mute_card_hover(card)
+	_inspector_card = card
+	card.pivot_offset = INSPECTOR_CARD_SIZE * 0.5
+	var dest: Vector2 = _inspector_card_dest()
+	var start_center: Vector2 = from_rect.get_center() if from_rect.size.x > 8.0 else _card_pool_center()
+	var start_scale: float = 0.4
+	if from_rect.size.x > 8.0:
+		start_scale = clampf(from_rect.size.x / INSPECTOR_CARD_SIZE.x, 0.28, 0.7)
+	card.global_position = start_center - card.pivot_offset
+	card.scale = Vector2(start_scale, start_scale)
+	card.modulate = Color.WHITE
+	var tw := card.create_tween().set_parallel(true)
+	_inspector_card_tween = tw
+	tw.tween_property(card, "global_position", dest, INSPECTOR_IN_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(card, "scale", Vector2.ONE, INSPECTOR_IN_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func _float_inspector_actions() -> void:
+	if _inspector_actions == null or not is_instance_valid(_inspector_actions):
+		return
+	var dest_card: Vector2 = _inspector_card_dest()
+	var min_s: Vector2 = _inspector_actions.get_combined_minimum_size()
+	var w: float = maxf(220.0, min_s.x)
+	var h: float = maxf(40.0, min_s.y)
+	_inspector_actions.size = Vector2(w, h)
+	var rest := Vector2(dest_card.x + INSPECTOR_CARD_SIZE.x * 0.5 - w * 0.5, dest_card.y + INSPECTOR_CARD_SIZE.y + 16.0)
+	_inspector_actions.position = rest + Vector2(0, 18)
+	_inspector_actions.modulate.a = 0.0
+	var tw := _inspector_actions.create_tween()
+	tw.tween_interval(INSPECTOR_IN_DUR * 0.55)
+	tw.tween_property(_inspector_actions, "position", rest, INSPECTOR_BTN_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_inspector_actions, "modulate:a", 1.0, INSPECTOR_BTN_DUR)
+
+
+func _sync_inspector_actions() -> void:
 	if _inspector_card_id == "":
 		return
-	var def: Dictionary = Cards.get_card(_inspector_card_id)
-	if def.is_empty():
+	if _inspector_count == null or not is_instance_valid(_inspector_count):
 		return
 	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
 	var owned: Dictionary = CollectionData.owned_card_counts()
 	var in_deck: int = CollectionData.copies_of_base(deck, _inspector_card_id)
 	var owned_count: int = int(owned.get(_inspector_card_id, 0))
 	var deck_total: int = CollectionData.deck_size(deck)
-	var can_add: bool = deck_total < CollectionData.DECK_LIMIT and in_deck < CollectionData.COPY_LIMIT and in_deck < owned_count
-	var can_remove: bool = in_deck > 0
+	_inspector_count.text = "×%d" % in_deck
+	if _inspector_minus != null and is_instance_valid(_inspector_minus):
+		_inspector_minus.disabled = in_deck <= 0
+	if _inspector_plus != null and is_instance_valid(_inspector_plus):
+		_inspector_plus.disabled = deck_total >= CollectionData.DECK_LIMIT or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count
 
-	var layer := Control.new()
-	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.z_index = 80
-	layer.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(layer)
-	_inspector_layer = layer
 
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0.02, 0.02, 0.03, 0.78)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(_on_inspector_dim_gui)
-	layer.add_child(dim)
+func _on_inspector_plus() -> void:
+	if _inspector_busy_close or _inspector_card_id == "":
+		return
+	_on_deck_add_pressed(_inspector_card_id)
 
-	var wrap := PanelContainer.new()
-	wrap.mouse_filter = Control.MOUSE_FILTER_STOP
-	wrap.set_anchors_preset(Control.PRESET_CENTER)
-	wrap.anchor_left = 0.5
-	wrap.anchor_top = 0.5
-	wrap.anchor_right = 0.5
-	wrap.anchor_bottom = 0.5
-	wrap.offset_left = -200.0
-	wrap.offset_top = -360.0
-	wrap.offset_right = 200.0
-	wrap.offset_bottom = 360.0
-	var wrap_style := StyleBoxFlat.new()
-	wrap_style.bg_color = Color(0.07, 0.06, 0.05, 0.97)
-	wrap_style.border_color = Color(0.47, 0.40, 0.28, 1)
-	wrap_style.set_border_width_all(2)
-	wrap_style.content_margin_left = 18
-	wrap_style.content_margin_right = 18
-	wrap_style.content_margin_top = 16
-	wrap_style.content_margin_bottom = 16
-	wrap.add_theme_stylebox_override("panel", wrap_style)
-	layer.add_child(wrap)
 
-	var sheet := VBoxContainer.new()
-	sheet.alignment = BoxContainer.ALIGNMENT_CENTER
-	sheet.add_theme_constant_override("separation", 8)
-	sheet.mouse_filter = Control.MOUSE_FILTER_STOP
-	wrap.add_child(sheet)
+func _on_inspector_minus() -> void:
+	if _inspector_busy_close or _inspector_card_id == "":
+		return
+	_on_deck_remove_pressed(_inspector_card_id)
 
-	var fake: Dictionary = {"uid": "", "defId": _inspector_card_id}
-	var preview: CombatCard = COMBAT_CARD.new()
-	preview.custom_minimum_size = INSPECTOR_CARD_SIZE
-	preview.size = INSPECTOR_CARD_SIZE
-	preview.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	preview.configure(fake, def, true, false, false)
-	sheet.add_child(preview)
 
-	var name_label := Label.new()
-	name_label.text = str(def.get("name", _inspector_card_id))
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.add_theme_font_size_override("font_size", 20)
-	name_label.add_theme_color_override("font_color", Color("f3ead2"))
-	sheet.add_child(name_label)
-
-	var meta_label := Label.new()
-	var rarity: String = str(def.get("rarity", "common"))
-	var cost_txt: String = "X" if def.get("xCost", false) else ("—" if def.get("unplayable", false) else str(int(def.get("cost", 0))))
-	meta_label.text = "%s · コスト%s · 所持%d枚" % [str(RARITY_LABELS.get(rarity, rarity)), cost_txt, owned_count]
-	meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	meta_label.add_theme_font_size_override("font_size", 12)
-	meta_label.add_theme_color_override("font_color", Color("9a917f"))
-	sheet.add_child(meta_label)
-
-	var text_label := Label.new()
-	text_label.text = str(def.get("text", ""))
-	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	text_label.add_theme_font_size_override("font_size", 14)
-	text_label.add_theme_color_override("font_color", Color("e3d9c2"))
-	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sheet.add_child(text_label)
-
-	var flavor: String = str(def.get("flavor", ""))
-	if flavor != "":
-		var flavor_label := Label.new()
-		flavor_label.text = flavor
-		flavor_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		flavor_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		flavor_label.add_theme_font_size_override("font_size", 11)
-		flavor_label.add_theme_color_override("font_color", Color("8a8274"))
-		flavor_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sheet.add_child(flavor_label)
-
-	var actions := HBoxContainer.new()
-	actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	actions.add_theme_constant_override("separation", 16)
-	var minus_btn := Button.new()
-	minus_btn.text = "−"
-	minus_btn.custom_minimum_size = Vector2(64, 44)
-	minus_btn.disabled = not can_remove
-	minus_btn.tooltip_text = "デッキから1枚抜く"
-	minus_btn.pressed.connect(_on_deck_remove_pressed.bind(_inspector_card_id))
-	actions.add_child(minus_btn)
-	var count_label := Label.new()
-	count_label.text = "デッキ内 %d" % in_deck
-	count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	count_label.add_theme_font_size_override("font_size", 14)
-	actions.add_child(count_label)
-	var plus_btn := Button.new()
-	plus_btn.text = "＋"
-	plus_btn.custom_minimum_size = Vector2(64, 44)
-	plus_btn.disabled = not can_add
-	plus_btn.tooltip_text = "デッキに1枚加える"
-	plus_btn.pressed.connect(_on_deck_add_pressed.bind(_inspector_card_id))
-	actions.add_child(plus_btn)
-	sheet.add_child(actions)
-
-	if not can_add:
-		var block_label := Label.new()
-		if deck_total >= CollectionData.DECK_LIMIT:
-			block_label.text = "デッキが上限です"
-		elif in_deck >= owned_count:
-			block_label.text = "所持数の上限です"
-		else:
-			block_label.text = "編成上限（4枚）です"
-		block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		block_label.add_theme_font_size_override("font_size", 11)
-		block_label.add_theme_color_override("font_color", Color("c45c55"))
-		sheet.add_child(block_label)
-
-	var close_btn := Button.new()
-	close_btn.text = "閉じる"
-	close_btn.custom_minimum_size = Vector2(120, 36)
-	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	close_btn.pressed.connect(func(): call_deferred("_close_card_inspector"))
-	sheet.add_child(close_btn)
+func _spawn_add_ghost() -> void:
+	if _inspector_layer == null or _inspector_card == null:
+		return
+	if not is_instance_valid(_inspector_layer) or not is_instance_valid(_inspector_card):
+		return
+	var ghost: CombatCard = _make_inspect_card()
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.z_index = 4
+	_inspector_layer.add_child(ghost)
+	_mute_card_hover(ghost)
+	ghost.pivot_offset = INSPECTOR_CARD_SIZE * 0.5
+	ghost.global_position = _inspector_card.global_position
+	ghost.scale = _inspector_card.scale
+	var dest: Vector2 = _deck_contents_center() - ghost.pivot_offset
+	var tw := ghost.create_tween().set_parallel(true)
+	tw.tween_property(ghost, "global_position", dest, INSPECTOR_GHOST_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(ghost, "scale", Vector2(0.18, 0.18), INSPECTOR_GHOST_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(ghost, "modulate", Color(0.05, 0.04, 0.03, 0.0), INSPECTOR_GHOST_DUR)
+	tw.chain().tween_callback(ghost.queue_free)
 
 
 func _on_inspector_dim_gui(event: InputEvent) -> void:
@@ -1731,7 +1910,7 @@ func _on_inspector_dim_gui(event: InputEvent) -> void:
 		return
 	var mouse := event as InputEventMouseButton
 	if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
-		call_deferred("_close_card_inspector")
+		_dismiss_inspector()
 
 
 ## DeckListScreen.tsx の「＋新規デッキ」（nextDeckName()で自動命名→即編集モードへ）
@@ -1780,6 +1959,7 @@ func _on_rename_cancel_pressed() -> void:
 
 
 func _on_delete_deck_pressed() -> void:
+	_close_card_inspector()
 	CollectionData.delete_deck(CollectionData.active_deck)
 	_refresh_deck_tab()
 	_update_header()

@@ -662,10 +662,10 @@ theme_override_colors/font_color = Color(0.85, 0.35, 0.32, 1)
 autowrap_mode = 2
 text = ""
 
-[node name="DeckWorkspace" type="HSplitContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="DeckWorkspace" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 size_flags_vertical = 3
-split_offset = 720
+theme_override_constants/separation = 10
 clip_contents = true
 
 [node name="CardPoolPanel" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace"]
@@ -772,7 +772,7 @@ theme_override_constants/v_separation = 10
 clip_contents = true
 
 [node name="DeckContentsPanel" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace"]
-custom_minimum_size = Vector2(270, 0)
+custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 1.0
@@ -794,7 +794,7 @@ text = "デッキ1: 0/20枚"
 [node name="DeckContentsScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents"]
 layout_mode = 2
 size_flags_vertical = 3
-horizontal_scroll_mode = 0
+horizontal_scroll_mode = 2
 clip_contents = true
 
 [node name="DeckContentsContainer" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckContentsScroll"]
