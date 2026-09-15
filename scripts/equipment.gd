@@ -165,6 +165,19 @@ static func pick_equipment_template(rng: Mulberry32) -> String:
 	return ids[int(rng.next_float() * ids.size())]
 
 
+## store.ts pickEquipmentDefId()
+static func pick_equipment_def_id(archetype, rng: Mulberry32) -> String:
+	if archetype != null and str(archetype) != "" and str(archetype) != "generic":
+		var matching: Array = []
+		for def_id in EQUIPMENT.keys():
+			var def: Dictionary = EQUIPMENT[def_id]
+			if str(def.get("archetype", "")) == str(archetype):
+				matching.append(str(def_id))
+		if matching.size() > 0 and rng.next_float() < 0.7:
+			return str(Mulberry32.pick(matching, rng))
+	return pick_equipment_template(rng)
+
+
 ## equipment.ts の equipmentLabel()
 static func equipment_label(inst: Dictionary) -> String:
 	var def: Dictionary = EQUIPMENT.get(inst.get("def_id", ""), {})

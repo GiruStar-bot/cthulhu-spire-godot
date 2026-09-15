@@ -19,13 +19,11 @@ const TIER_RARITIES := {
 static func roll_enemy_card(def_id: String, rand: Callable) -> Dictionary:
 	var def := Enemies.get_enemy(def_id)
 	var rarities = null if def.has("deck") else TIER_RARITIES[str(def.get("tier", "mob"))]
-	var use_archetype: bool = (not def.has("deck")) and def.get("archetype") and (float(rand.call()) < 0.8)
+	var use_archetype: bool = (not def.has("deck")) and str(def.get("archetype", "")) != ""
 
 	var build_pool := func(tag: String) -> Array:
 		if use_archetype:
-			var filtered: Array = Cards.ai_card_pool(tag, rarities, def.get("archetype"))
-			if filtered.size() > 0:
-				return filtered
+			return Cards.ai_card_pool(tag, rarities, def.get("archetype"))
 		return Cards.ai_card_pool(tag, rarities)
 
 	var pools: Dictionary

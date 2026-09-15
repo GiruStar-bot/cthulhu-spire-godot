@@ -161,6 +161,7 @@ offset_right = -12.0
 offset_bottom = 118.0
 grow_horizontal = 0
 mouse_filter = 2
+clip_contents = true
 theme_override_styles/panel = SubResource("StyleBoxLog")
 
 [node name="LogScroll" type="ScrollContainer" parent="LogPanel"]
@@ -179,7 +180,7 @@ vertical_scroll_mode = 3
 [node name="LogLabel" type="Label" parent="LogPanel/LogScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-custom_minimum_size = Vector2(240, 0)
+custom_minimum_size = Vector2(0, 0)
 theme_override_colors/font_color = Color(0.78, 0.72, 0.6, 0.88)
 theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.02, 0.7)
 theme_override_constants/outline_size = 2

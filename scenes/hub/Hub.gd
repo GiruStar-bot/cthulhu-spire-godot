@@ -385,8 +385,12 @@ func _update_descend_panel() -> void:
 			Floors.layer_label(GameState.best_floor) if GameState.best_floor > 0 else "未潜航",
 			GameState.shells,
 		]
-		primary_action_button.text = "潜航開始"
-		primary_action_button.disabled = CollectionData.loadout_error() != ""
+		if _should_show_starter_pick():
+			primary_action_button.text = "最初のデッキを選ぶ"
+			primary_action_button.disabled = false
+		else:
+			primary_action_button.text = "潜航開始"
+			primary_action_button.disabled = CollectionData.loadout_error() != ""
 		extract_button.visible = false
 		stat_panel.visible = true
 		_refresh_stat_panel()
@@ -501,6 +505,9 @@ func _deck_count() -> int:
 
 func _on_primary_action_pressed() -> void:
 	if GameState.floor <= 0:
+		if _should_show_starter_pick():
+			_select_tab("deck")
+			return
 		GameState.start_run(get_tree())
 	else:
 		GameState.resume_descent(get_tree())
@@ -1055,8 +1062,23 @@ func _on_sell_confirm_pressed() -> void:
 # デッキ編成タブ（DeckHubScreen.tsx / DeckBuilderScreen.tsx 相当）
 # ============================================================
 
-## DeckHubScreen.tsx の mode: "list" | "edit" 相当のトップレベル切り替え
+func _should_show_starter_pick() -> bool:
+	if GameState.floor > 0:
+		return false
+	if not GameState.starter_chosen:
+		return true
+	return CollectionData.deck_size(CollectionData.decks.get(CollectionData.active_deck, {})) <= 0
+
+
+## DeckHubScreen.tsx の mode: "list" | "edit" 相当のトップレベル切り替え。
+## 未選択なら StarterDeckPickScreen 相当を先に出す。
 func _refresh_deck_tab() -> void:
+	if _should_show_starter_pick():
+		deck_list_sub_panel.visible = false
+		deck_edit_sub_panel.visible = false
+		_rebuild_starter_pick()
+		return
+	_clear_starter_pick()
 	deck_list_sub_panel.visible = _deck_mode == "list"
 	deck_edit_sub_panel.visible = _deck_mode == "edit"
 	if _deck_mode == "list":
@@ -1065,6 +1087,82 @@ func _refresh_deck_tab() -> void:
 		_refresh_deck_edit_header()
 		_refresh_deck_summary()
 		_rebuild_card_list()
+
+
+func _clear_starter_pick() -> void:
+	var existing := deck_panel.get_node_or_null("StarterPickRoot")
+	if existing:
+		existing.queue_free()
+
+
+func _rebuild_starter_pick() -> void:
+	_clear_starter_pick()
+	var root := VBoxContainer.new()
+	root.name = "StarterPickRoot"
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_theme_constant_override("separation", 12)
+	var header := Label.new()
+	header.text = "FIRST DESCENT\n最初のデッキを選べ"
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root.add_child(header)
+	var blurb := Label.new()
+	blurb.text = "4つの流派から1つを選ぶと、その色に組まれたデッキで探索を始められる。この選択は最初の一度きり。リリース前は全カードを所持したまま編成できる。"
+	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	root.add_child(blurb)
+	var row := HBoxContainer.new()
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 12)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for archetype in CollectionData.STARTER_ARCHETYPES:
+		row.add_child(_make_starter_pick_card(str(archetype)))
+	root.add_child(row)
+	deck_panel.add_child(root)
+	deck_panel.move_child(root, 0)
+
+
+func _make_starter_pick_card(archetype: String) -> Control:
+	var card := VBoxContainer.new()
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size = Vector2(160, 0)
+	card.add_theme_constant_override("separation", 6)
+	var art := TextureRect.new()
+	art.custom_minimum_size = Vector2(0, 150)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var art_path := "res://art/pixel/packs/pack_%s.png" % archetype
+	if ResourceLoader.exists(art_path):
+		art.texture = load(art_path)
+	card.add_child(art)
+	var name_label := Label.new()
+	name_label.text = str(Cards.ARCHETYPE_LABELS.get(archetype, archetype))
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	card.add_child(name_label)
+	var preview := Label.new()
+	preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var names: PackedStringArray = PackedStringArray()
+	var list: Array = CollectionData.STARTER_DECKS.get(archetype, [])
+	for i in mini(3, list.size()):
+		var def := Cards.get_card(str(list[i].get("id", "")))
+		names.append("・%s" % str(def.get("name", list[i].get("id", ""))))
+	preview.text = "\n".join(names)
+	card.add_child(preview)
+	var btn := Button.new()
+	btn.text = "このデッキで始める"
+	btn.custom_minimum_size = Vector2(0, 40)
+	btn.pressed.connect(_on_starter_deck_picked.bind(archetype))
+	card.add_child(btn)
+	return card
+
+
+func _on_starter_deck_picked(archetype: String) -> void:
+	CollectionData.choose_starter_deck(archetype)
+	GameState.mark_starter_chosen()
+	_deck_mode = "list"
+	_refresh_deck_tab()
+	_update_header()
 
 
 ## DeckListScreen.tsx の topArchetypeOfCounts()
@@ -1429,6 +1527,7 @@ func _rebuild_equipped_list() -> void:
 		var inst = GameState.equipped.get(slot)
 		var row := HBoxContainer.new()
 		row.custom_minimum_size = Vector2(0, 58)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_theme_constant_override("separation", 10)
 		if inst != null:
 			var equipped_def := Equipment.get_equipment(str(inst.get("def_id", "")))
@@ -1443,6 +1542,8 @@ func _rebuild_equipped_list() -> void:
 		row.add_child(label)
 		var unequip_btn := Button.new()
 		unequip_btn.text = "外す"
+		unequip_btn.custom_minimum_size = Vector2(72, 36)
+		unequip_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
 		unequip_btn.disabled = inst == null
 		unequip_btn.pressed.connect(_on_unequip_pressed.bind(slot))
 		row.add_child(unequip_btn)

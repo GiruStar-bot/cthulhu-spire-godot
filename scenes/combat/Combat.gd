@@ -49,12 +49,16 @@ var _hud_status: Label
 var _draw_btn: Button
 var _discard_btn: Button
 var _chrome_ready: bool = false
+var _death_fx_done := {}
 
 
 func _ready() -> void:
 	_build_chrome()
+	if log_scroll:
+		log_scroll.resized.connect(_fit_log_label)
 	_begin_combat()
 	_refresh()
+	call_deferred("_fit_log_label")
 
 
 func _input(event: InputEvent) -> void:
@@ -100,12 +104,9 @@ func _begin_combat() -> void:
 
 
 func _apply_biome_art(enemy_ids: Array) -> void:
-	if enemy_ids.is_empty():
-		return
-	var def := Enemies.get_enemy(str(enemy_ids[0]))
-	var biome: String = str(def.get("biome", "reef"))
-	var path := "res://art/pixel/bg/%s.jpg" % biome
-	if ResourceLoader.exists(path):
+	var biome_id: String = Biomes.biome_for_encounter(enemy_ids, int(GameState.floor))
+	var path: String = Biomes.biome_art(biome_id)
+	if FileAccess.file_exists(path):
 		background_art.texture = load(path)
 
 
@@ -266,7 +267,17 @@ func _refresh_log() -> void:
 		log_label.text = "まだ記録がない。"
 	else:
 		log_label.text = "\n".join(lines)
+	_fit_log_label()
 	call_deferred("_scroll_log_to_end")
+
+
+func _fit_log_label() -> void:
+	if log_label == null or log_scroll == null or not is_instance_valid(log_label):
+		return
+	var w: float = maxf(8.0, log_scroll.size.x)
+	log_label.custom_minimum_size.x = w
+	log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 
 func _scroll_log_to_end() -> void:
@@ -292,18 +303,27 @@ func _refresh_enemies() -> void:
 		root.set_meta("dead", dead)
 
 		var art := TextureRect.new()
-		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.anchor_top = 0.02
+		art.offset_bottom = -8
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
 		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		art.texture = _load_texture_safe(str(def.get("art", "")))
 		if dead:
-			art.modulate = Color(0.35, 0.35, 0.35, 0.45)
+			art.modulate = Color(0.35, 0.35, 0.35, 0.0 if _death_fx_done.get(uid, false) else 0.45)
 		root.add_child(art)
+		art.resized.connect(_align_art_to_ground.bind(art))
+		call_deferred("_align_art_to_ground", art)
+
+		if dead and not _death_fx_done.get(uid, false):
+			_death_fx_done[uid] = true
+			call_deferred("_play_death_dust", root, art, uid)
 
 		if not dead:
 			root.add_child(_make_enemy_plate(e, def))
+			_death_fx_done.erase(uid)
 
 		enemy_row.add_child(root)
 		_enemy_art_by_uid[uid] = art
@@ -831,6 +851,78 @@ func _open_pile(which: String) -> void:
 	close_btn.size = Vector2(120, 40)
 	close_btn.pressed.connect(overlay.queue_free)
 	overlay.add_child(close_btn)
+
+
+func _align_art_to_ground(art: TextureRect) -> void:
+	if art == null or not is_instance_valid(art) or art.texture == null:
+		return
+	if art.get_meta("aligning", false):
+		return
+	var parent := art.get_parent() as Control
+	if parent == null:
+		return
+	var box: Vector2 = parent.size
+	var tex_size: Vector2 = art.texture.get_size()
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or box.x <= 0.0 or box.y <= 0.0:
+		return
+	var fitted: float = minf(box.x / tex_size.x, box.y / tex_size.y)
+	var drawn: Vector2 = tex_size * fitted
+	art.set_meta("aligning", true)
+	art.anchor_left = 0.5
+	art.anchor_right = 0.5
+	art.anchor_top = 1.0
+	art.anchor_bottom = 1.0
+	art.offset_left = -drawn.x * 0.5
+	art.offset_right = drawn.x * 0.5
+	art.offset_top = -drawn.y - 8.0
+	art.offset_bottom = -8.0
+	art.stretch_mode = TextureRect.STRETCH_SCALE
+	art.set_meta("aligning", false)
+
+
+func _play_death_dust(root: Control, art: TextureRect, uid: String) -> void:
+	if art == null or not is_instance_valid(art):
+		return
+	var rect: Rect2 = art.get_global_rect()
+	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
+		if root != null and is_instance_valid(root):
+			rect = root.get_global_rect()
+	var ghost := TextureRect.new()
+	ghost.texture = art.texture
+	ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ghost.stretch_mode = TextureRect.STRETCH_SCALE
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.z_index = 25
+	floater_layer.add_child(ghost)
+	ghost.global_position = rect.position
+	ghost.size = rect.size
+	var dust := CPUParticles2D.new()
+	dust.amount = 64
+	dust.lifetime = 0.95
+	dust.one_shot = true
+	dust.explosiveness = 0.94
+	dust.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	dust.emission_rect_extents = Vector2(maxf(24.0, rect.size.x * 0.22), maxf(36.0, rect.size.y * 0.38))
+	dust.direction = Vector2(0, -1)
+	dust.spread = 180.0
+	dust.initial_velocity_min = 28.0
+	dust.initial_velocity_max = 150.0
+	dust.gravity = Vector2(0, 110)
+	dust.scale_amount_min = 1.1
+	dust.scale_amount_max = 3.6
+	dust.color = Color(0.78, 0.72, 0.58, 0.95)
+	dust.z_index = 26
+	floater_layer.add_child(dust)
+	dust.global_position = rect.get_center()
+	dust.emitting = true
+	art.modulate.a = 0.0
+	var fade := ghost.create_tween()
+	fade.tween_property(ghost, "modulate:a", 0.0, 0.85)
+	fade.tween_callback(ghost.queue_free)
+	get_tree().create_timer(1.3).timeout.connect(func():
+		if is_instance_valid(dust):
+			dust.queue_free()
+	)
 
 
 func _load_texture_safe(path: String) -> Texture2D:

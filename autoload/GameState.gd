@@ -67,6 +67,7 @@ var run_floors: Array = []
 var floor: int = 0  ## 0 = 拠点（村落）に滞在中でラン未開始。1以上でラン中の現在階層
 var combat = null
 var reward = null
+var reward_shells: int = 0
 var event = null
 var rest_mode: String = ""  ## visitVillage() の room 相当："", "hub", "inn", "smith"
 var village = null
@@ -135,6 +136,19 @@ func spend_shells(amount: int) -> bool:
 
 ## store.ts の CARD_PACK_PRICE
 const CARD_PACK_PRICE := 150
+
+## store.ts DROP_RATES / ITEM_COUNT_WEIGHTS
+const DROP_RATES := {
+	"combat": {"chance": 0.5, "weights": {"card": 0.6, "rune": 0.3, "equipment": 0.1}},
+	"elite": {"chance": 0.9, "weights": {"card": 0.4, "rune": 0.35, "equipment": 0.25}},
+	"boss": {"chance": 1.0, "weights": {"card": 0.2, "rune": 0.3, "equipment": 0.5}},
+}
+
+const ITEM_COUNT_WEIGHTS := {
+	"combat": {1: 0.8, 2: 0.2},
+	"elite": {1: 0.6, 2: 0.3, 3: 0.1},
+	"boss": {1: 0.3, 2: 0.4, 3: 0.3},
+}
 
 
 ## store.ts の buyCardPack()。貝殻CARD_PACK_PRICEで通常パックを購入し、
@@ -288,6 +302,9 @@ func to_title(tree: SceneTree) -> void:
 ## （デッキが空でも実行は継続する。フェーズB以降で追加）。
 ## runs加算・madness蓄積による正気0シャター判定・初回ルルイエ強制遭遇は実ソース通り実装する。
 func start_run(tree: SceneTree) -> void:
+	if CollectionData.deck_size(CollectionData.decks.get(CollectionData.active_deck, {})) < CollectionData.MIN_RUN_DECK and not starter_chosen:
+		toast = "最初のデッキを選んでください。"
+		return
 	runs += 1
 	_persist_profile()
 
@@ -358,6 +375,7 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		_persist_profile()
 		combat = null
 		reward = null
+		reward_shells = 0
 		event = null
 		rest_mode = ""
 		goto_scene(tree, "victory")
@@ -367,6 +385,7 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 	floor = next_floor
 	combat = null
 	reward = null
+	reward_shells = 0
 	event = null
 	rest_mode = ""
 
@@ -386,8 +405,12 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		village = {"smith": Smith.make_smith(rng)}
 		goto_scene(tree, "rest")
 	else:
-		## 実際は EVENTS から該当イベントを引く（フェーズB以降）
-		event = {"id": spec.get("event_id", "")}
+		## store.ts enterFloor(): EVENTS.find(spec.eventId) ?? pick(EVENTS, rand)
+		var event_id: String = str(spec.get("event_id", ""))
+		var ev: Dictionary = Events.get_event(event_id)
+		if ev.is_empty():
+			ev = Events.pick_event(Callable(self, "_rand"))
+		event = ev
 		goto_scene(tree, "event")
 
 
@@ -409,6 +432,7 @@ func finish_advance(tree: SceneTree) -> void:
 		toast = "%sを越えた" % Floors.layer_label(floor)
 		combat = null
 		reward = null
+		reward_shells = 0
 		event = null
 		goto_scene(tree, "hub")
 		return
@@ -419,6 +443,7 @@ func finish_advance(tree: SceneTree) -> void:
 		_persist_profile()
 		combat = null
 		reward = null
+		reward_shells = 0
 		event = null
 		goto_scene(tree, "victory")
 		return
@@ -426,18 +451,94 @@ func finish_advance(tree: SceneTree) -> void:
 
 
 ## store.ts の claimReward()（reward画面の「次へ進む」）。
-## 実際の戦利品確定処理（addLootCard等）はフェーズB以降。
 func claim_reward(tree: SceneTree) -> void:
+	var rewards: Array = reward if reward is Array else []
+	var labels: Array = []
+	for offer in rewards:
+		if not (offer is Dictionary):
+			continue
+		var kind: String = str(offer.get("kind", ""))
+		if kind == "card":
+			var card: Dictionary = offer.get("card", {})
+			var def_id: String = str(card.get("defId", ""))
+			if CollectionData.add_loot_card(def_id):
+				labels.append(str(Cards.get_card(def_id).get("name", def_id)))
+		elif kind == "ticket":
+			var ticket: String = str(offer.get("ticket", ""))
+			CollectionData.add_pack_ticket(ticket)
+			labels.append("%sのパックチケット" % str(CollectionData.PACK_TICKET_LABELS.get(ticket, ticket)))
+		elif kind == "equipment":
+			var inst: Dictionary = offer.get("equipment", {})
+			CollectionData.add_loot_equipment(inst)
+			var def: Dictionary = Equipment.get_equipment(str(inst.get("def_id", "")))
+			var slot: String = str(def.get("slot", ""))
+			if slot != "" and equipped.get(slot) == null:
+				equipped[slot] = inst
+			labels.append(Equipment.equipment_label(inst))
+		elif kind == "rune":
+			var rune: Dictionary = offer.get("rune", {})
+			CollectionData.add_loot_rune(rune)
+			labels.append("%sのルーン" % str(rune.get("effect", "")))
+	toast = "何も見つからなかった。" if labels.is_empty() else "%sを戦利品として持ち帰った。" % "・".join(labels)
+	_persist_profile()
+	reward = null
+	reward_shells = 0
 	finish_advance(tree)
 
 
 ## store.ts の resolveFlee()（宝殻の徘徊者からの逃走成立後）
 func resolve_flee(tree: SceneTree) -> void:
+	toast = "宝殻の徘徊者は、逃げ去った。"
 	finish_advance(tree)
 
 
-## store.ts の resolveEvent(choiceId)。実際の効果分岐はフェーズB以降。
-func resolve_event(tree: SceneTree, _choice_id: String) -> void:
+## store.ts の resolveEvent(choiceId)。数値は events.ts / store.ts の分岐を忠実移植。
+func resolve_event(tree: SceneTree, choice_id: String) -> void:
+	var ev: Dictionary = event if event is Dictionary else {}
+	var event_id: String = str(ev.get("id", ""))
+	if event_id == "tome":
+		if choice_id == "read":
+			sanity = max(0, sanity - 8)
+			for card in deck:
+				if not card.get("upgraded", false):
+					card.upgraded = true
+					break
+			CollectionData.add_loot_card("tome")
+			toast = "頁が、瞳の裏に残る。正気-8。禁断の書を戦利品として持ち帰った。"
+		else:
+			toast = "本は、本の文法に任せる。"
+	elif event_id == "well":
+		if choice_id == "drink":
+			hp = mini(max_hp, hp + 18)
+			sanity = max(0, sanity - 7)
+			toast = "水ではなかった。体力+18、正気-7。"
+		else:
+			hp = mini(max_hp, hp + 8)
+			sanity = mini(max_sanity, sanity + 4)
+			toast = "手が、きれいになる。体力+8、正気+4。"
+	elif event_id == "cult":
+		if choice_id == "kneel":
+			sanity = max(0, sanity - 10)
+			var inst: Dictionary = Equipment.roll_equipment(Equipment.pick_equipment_template(rng), floor, rng, "gift")
+			CollectionData.add_loot_equipment(inst)
+			var def: Dictionary = Equipment.get_equipment(str(inst.get("def_id", "")))
+			var slot: String = str(def.get("slot", ""))
+			if slot != "" and equipped.get(slot) == null:
+				equipped[slot] = inst
+			toast = "%sを渡された。正気-10。" % Equipment.equipment_label(inst)
+		else:
+			hp = max(1, hp - 8)
+			sanity = mini(max_sanity, sanity + 6)
+			toast = "名を口にしなかった。体力-8、正気+6。"
+	elif event_id == "mirror":
+		if choice_id == "follow":
+			extra_energy_next = 2
+			toast = "もう一人の自分が、最初のターンを払う。"
+		else:
+			hp = max(1, hp - 10)
+			run_strength += 2
+			toast = "肺にガラス。体力-10。沈降中、筋力+2。"
+	_persist_profile()
 	event = null
 	finish_advance(tree)
 
@@ -496,10 +597,18 @@ func accept_shatter(tree: SceneTree) -> void:
 	goto_scene(tree, "title")
 
 
-## 戦闘勝利（フェーズAではカード無しのダミー）。実際は presentCombat() が
-## 920ms後に reward 画面へ遷移させる。
+## 戦闘勝利。store.ts presentCombat win 分岐：貝殻加算のあと makeRewards() で報酬画面へ。
 func win_combat(tree: SceneTree) -> void:
-	reward = {}  ## 実際は makeRewards() で戦利品候補を生成（フェーズB以降）
+	var treasure: bool = _had_treasure_wanderer()
+	var gained: int = _roll_shells()
+	if treasure:
+		gained *= 3
+	if gained > 0:
+		shells += gained
+		_persist_profile()
+		toast = "きれいな貝殻 +%d" % gained
+	reward_shells = gained
+	reward = _make_rewards()
 	goto_scene(tree, "reward")
 
 
@@ -592,12 +701,113 @@ func apply_player_hook(hook: Dictionary) -> void:
 	max_sanity = int(hook.get("maxSanity", max_sanity))
 
 
+## store.ts markStarterChosen()
+func mark_starter_chosen() -> void:
+	starter_chosen = true
+	_persist_profile()
+
+
+## store.ts rollShells()
+func _roll_shells() -> int:
+	var spec: Dictionary = run_floors[floor - 1] if floor - 1 < run_floors.size() and floor > 0 else {}
+	if str(spec.get("type", "")) == "boss":
+		if floor % 50 == 0:
+			return 40 + int(rng.next_float() * 21)
+		return 9 + int(rng.next_float() * 7)
+	var n: int = 1
+	if combat is Dictionary:
+		n = (combat.get("enemies", []) as Array).size()
+		if n <= 0:
+			n = 1
+	var total := 0
+	for i in n:
+		total += int(rng.next_float() * 3)
+	return total
+
+
+func _had_treasure_wanderer() -> bool:
+	if not (combat is Dictionary):
+		return false
+	for e in combat.get("enemies", []):
+		if str(e.get("defId", "")) == "treasure_wanderer":
+			return true
+	return false
+
+
+## store.ts encounterArchetype()
+func _encounter_archetype() -> String:
+	var counts: Dictionary = {}
+	if not (combat is Dictionary):
+		return ""
+	for e in combat.get("enemies", []):
+		var def: Dictionary = Enemies.get_enemy(str(e.get("defId", "")))
+		var arch: String = str(def.get("archetype", ""))
+		if arch == "":
+			continue
+		counts[arch] = int(counts.get(arch, 0)) + 1
+	if counts.is_empty():
+		return ""
+	var best := 0
+	for n in counts.values():
+		if int(n) > best:
+			best = int(n)
+	var top: Array = []
+	for arch in counts.keys():
+		if int(counts[arch]) == best:
+			top.append(str(arch))
+	return str(Mulberry32.pick(top, rng))
+
+
+## store.ts rewardTicketArchetype()
+func _reward_ticket_archetype() -> String:
+	var arch: String = _encounter_archetype()
+	if arch != "" and arch != "generic":
+		return arch
+	return str(Mulberry32.pick(CollectionData.PACK_TICKET_ARCHETYPES, rng))
+
+
+## store.ts makeRewards()
+func _make_rewards() -> Array:
+	var enemies: Array = combat.get("enemies", []) if combat is Dictionary else []
+	if _had_treasure_wanderer():
+		var arch: String = _encounter_archetype()
+		var effect: String = str(Mulberry32.pick(Runes.RUNE_CATALOG.keys(), rng))
+		var def_id: String = Equipment.pick_equipment_def_id(arch, rng)
+		return [
+			{"kind": "ticket", "ticket": _reward_ticket_archetype()},
+			{"kind": "equipment", "equipment": Equipment.roll_equipment(def_id, floor, rng, "drop")},
+			{"kind": "rune", "rune": Runes.roll_rune(effect, floor, rng)},
+		]
+	var spec: Dictionary = run_floors[floor - 1] if floor - 1 < run_floors.size() and floor > 0 else {}
+	var spec_type: String = str(spec.get("type", "combat"))
+	var kind: String = "boss" if spec_type == "boss" else ("elite" if spec_type == "elite" else "combat")
+	var table: Dictionary = DROP_RATES[kind]
+	if rng.next_float() >= float(table.get("chance", 0.5)):
+		return [{"kind": "none"}]
+	var floor_for_roll: int = floor + 5 if kind == "boss" else floor
+	var archetype: String = _encounter_archetype()
+	var count: int = int(Mulberry32.weighted_pick(ITEM_COUNT_WEIGHTS[kind], Callable(self, "_rand")))
+	var rewards: Array = []
+	for i in count:
+		var category: String = str(Mulberry32.weighted_pick(table.get("weights", {}), Callable(self, "_rand")))
+		if category == "card":
+			rewards.append({"kind": "ticket", "ticket": _reward_ticket_archetype()})
+		elif category == "rune":
+			var effect: String = str(Mulberry32.pick(Runes.RUNE_CATALOG.keys(), rng))
+			rewards.append({"kind": "rune", "rune": Runes.roll_rune(effect, floor_for_roll, rng)})
+		else:
+			var def_id: String = Equipment.pick_equipment_def_id(archetype, rng)
+			rewards.append({"kind": "equipment", "equipment": Equipment.roll_equipment(def_id, floor_for_roll, rng, "drop")})
+	return rewards
+
+
 ## extractToHub() / giveUp() / accept_shatter() 共通のラン状態リセット
 func reset_run() -> void:
 	floor = 0
 	run_floors = []
 	combat = null
 	reward = null
+	reward_shells = 0
 	event = null
 	rest_mode = ""
 	village = null

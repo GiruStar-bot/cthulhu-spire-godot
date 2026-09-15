@@ -40,6 +40,72 @@ const STARTER_CARDS := [
 	{"id": "sweep", "count": 2},
 ]
 
+## リリース前のデバッグ用。全カードを所持して編成検証できるようにする。
+const DEBUG_OWN_ALL_CARDS := true
+
+## packTickets.ts PACK_TICKET_ARCHETYPES / PACK_TICKET_LABELS
+const PACK_TICKET_ARCHETYPES := [
+	"fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold",
+]
+
+const PACK_TICKET_LABELS := {
+	"fanatic": "狂信",
+	"knight": "騎士",
+	"poison": "毒",
+	"outer": "外宇宙",
+	"elder": "旧神",
+	"deep": "深き者",
+	"offering": "供物",
+	"shadow": "影",
+	"greatold": "大いなるもの",
+	"all": "全",
+}
+
+## useCollectionStore.ts STARTER_DECKS（最初の一度きりの4流派）
+const STARTER_ARCHETYPES := ["fanatic", "knight", "poison", "deep"]
+
+const STARTER_DECKS := {
+	"fanatic": [
+		{"id": "strike", "count": 4},
+		{"id": "ward", "count": 2},
+		{"id": "study", "count": 2},
+		{"id": "whisper", "count": 2},
+		{"id": "precise", "count": 2},
+		{"id": "offering", "count": 4},
+		{"id": "rite", "count": 2},
+		{"id": "tome", "count": 1},
+		{"id": "thecall", "count": 1},
+	],
+	"knight": [
+		{"id": "ward", "count": 4},
+		{"id": "sigil", "count": 4},
+		{"id": "chant", "count": 4},
+		{"id": "ironwill", "count": 4},
+		{"id": "bash", "count": 2},
+		{"id": "laststand", "count": 2},
+	],
+	"poison": [
+		{"id": "strike", "count": 4},
+		{"id": "ward", "count": 2},
+		{"id": "study", "count": 2},
+		{"id": "whisper", "count": 2},
+		{"id": "precise", "count": 2},
+		{"id": "lash", "count": 2},
+		{"id": "corrosive_strike", "count": 4},
+		{"id": "pus_mist", "count": 2},
+	],
+	"deep": [
+		{"id": "strike", "count": 4},
+		{"id": "ward", "count": 2},
+		{"id": "study", "count": 2},
+		{"id": "whisper", "count": 2},
+		{"id": "sweep", "count": 4},
+		{"id": "adapted_scales", "count": 4},
+		{"id": "deep_breath", "count": 1},
+		{"id": "deep_ones_blessing", "count": 1},
+	],
+}
+
 
 ## useCollectionStore.ts の seedInventory()。CollectionDataには永続化がまだ無いため
 ## （フェーズB以降で対応）、起動の度に毎回これで初期化する。
@@ -53,6 +119,8 @@ func _ready() -> void:
 				"origin": "starter",
 			})
 	inventory.cards = cards
+	if DEBUG_OWN_ALL_CARDS:
+		_grant_all_cards_for_debug()
 
 	var runes: Array = []
 	for effect in Runes.RUNE_CATALOG.keys():
@@ -312,3 +380,55 @@ func consume_pack_ticket(ticket: String) -> bool:
 	if n <= 0: return false
 	pack_tickets[ticket] = n - 1
 	return true
+
+
+func add_pack_ticket(ticket: String) -> void:
+	pack_tickets[ticket] = int(pack_tickets.get(ticket, 0)) + 1
+
+
+static func pack_ticket_art(ticket: String) -> String:
+	return "res://art/pixel/tickets/ticket_%s.png" % ticket
+
+
+## useCollectionStore.ts の chooseStarterDeck()。
+## DEBUG_OWN_ALL_CARDS の間は所持カードを消さず、選択した4流派の構成だけデッキへ載せる。
+func choose_starter_deck(archetype: String) -> void:
+	if not STARTER_DECKS.has(archetype):
+		return
+	var list: Array = STARTER_DECKS[archetype]
+	var counts: Dictionary = {}
+	var starter_cards: Array = []
+	for entry in list:
+		var card_id: String = str(entry.get("id", ""))
+		var n: int = int(entry.get("count", 0))
+		if not Cards.CARDS.has(card_id) or n <= 0:
+			continue
+		counts[card_id] = n
+		for i in n:
+			starter_cards.append({
+				"instance_id": "ci_%s_%s" % [str(Time.get_ticks_usec()), str(randi())],
+				"base_card_id": card_id,
+				"origin": "starter",
+			})
+	if not DEBUG_OWN_ALL_CARDS:
+		inventory.cards = starter_cards
+	decks[DEFAULT_DECK_NAME] = counts
+	active_deck = DEFAULT_DECK_NAME
+
+
+func _grant_all_cards_for_debug() -> void:
+	var owned := {}
+	for c in inventory.cards:
+		owned[str(c.get("base_card_id", ""))] = true
+	for card_id in Cards.CARDS.keys():
+		var d: Dictionary = Cards.CARDS[card_id]
+		if d.get("type") == "status" or d.get("rarity") == "status":
+			continue
+		if owned.get(card_id, false):
+			continue
+		for i in COPY_LIMIT:
+			inventory.cards.append({
+				"instance_id": "ci_dbg_%s_%d" % [str(card_id), i],
+				"base_card_id": card_id,
+				"origin": "debug",
+			})
