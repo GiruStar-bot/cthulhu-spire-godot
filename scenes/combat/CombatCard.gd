@@ -1,6 +1,9 @@
 class_name CombatCard
 extends Button
 ## CardView.tsx の表示専用移植。ロジックは Combat.gd 側に残す。
+## プレイ入力は CombatView.tsx と同様に pointerdown 起点のドラッグで行う。
+
+signal drag_began(card_uid: String)
 
 ## CSSのborder-image-sliceを、96px幅へポイント縮小した値へ変換したNinePatch margin。
 ## common: 66→8 / uncommon: 130→16 / rare: 50→13
@@ -21,7 +24,9 @@ const TAG_TONES := {
 	"effect": Color("452267"),
 }
 const TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "異能"}
+const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 
+var card_uid: String = ""
 var _frame: NinePatchRect
 var _header: ColorRect
 var _art: TextureRect
@@ -37,6 +42,7 @@ var _built := false
 
 func _ready() -> void:
 	flat = true
+	focus_mode = Control.FOCUS_NONE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	pivot_offset = custom_minimum_size * 0.5
 	if not _built:
@@ -48,10 +54,10 @@ func _ready() -> void:
 func configure(card: Dictionary, definition: Dictionary, playable: bool, selected: bool) -> void:
 	if not _built:
 		_build()
-	var art_path := str(definition.get("art", ""))
-	if art_path != "" and ResourceLoader.exists(art_path):
-		_art.texture = load(art_path)
-	var ai_tag := str(definition.get("aiTag", ""))
+	card_uid = str(card.get("uid", ""))
+	var art_path: String = str(definition.get("art", ""))
+	_art.texture = _load_texture_safe(art_path)
+	var ai_tag: String = str(definition.get("aiTag", ""))
 	_header.color = TAG_TONES.get(ai_tag, Color("312d26"))
 	_type.text = str(TAG_LABELS.get(ai_tag, "秘術"))
 	_title.text = "%s%s" % [definition.get("name", "Unknown"), "+" if card.get("upgraded", false) else ""]
@@ -60,6 +66,7 @@ func configure(card: Dictionary, definition: Dictionary, playable: bool, selecte
 	_glow.visible = selected
 	disabled = not playable
 	modulate.a = 1.0 if playable else 0.56
+	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if playable else Control.CURSOR_ARROW
 	_apply_frame(definition)
 	if selected:
 		z_index = 30
@@ -68,6 +75,31 @@ func configure(card: Dictionary, definition: Dictionary, playable: bool, selecte
 	else:
 		z_index = 0
 		_idle_scale = Vector2.ONE
+
+
+func _gui_input(event: InputEvent) -> void:
+	if disabled:
+		return
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed and card_uid != "":
+			drag_began.emit(card_uid)
+			accept_event()
+	elif event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed and card_uid != "":
+			drag_began.emit(card_uid)
+			accept_event()
+
+
+func _load_texture_safe(path: String) -> Texture2D:
+	if path.is_empty() or not ResourceLoader.exists(path, "Texture2D"):
+		return load(FALLBACK_TEX) as Texture2D
+	var resource: Resource = ResourceLoader.load(path, "Texture2D")
+	if resource is Texture2D:
+		return resource as Texture2D
+	push_warning("Texture2Dとして読み込めませんでした: %s" % path)
+	return load(FALLBACK_TEX) as Texture2D
 
 
 func _build() -> void:
@@ -174,7 +206,7 @@ func _build() -> void:
 	_body.offset_bottom = -10
 	_body.add_theme_font_size_override("font_size", 8)
 	_body.add_theme_color_override("font_color", Color("e3d9c2"))
-	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_body.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	_body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_body)
@@ -196,7 +228,7 @@ func _build() -> void:
 
 
 func _apply_frame(definition: Dictionary) -> void:
-	var archetype := str(definition.get("archetype", ""))
+	var archetype: String = str(definition.get("archetype", ""))
 	var frame_data: Array = FRAME_BY_ARCHETYPE.get(archetype, [])
 	if frame_data.is_empty():
 		frame_data = FRAME_BY_RARITY.get(str(definition.get("rarity", "")), [])
@@ -209,13 +241,13 @@ func _apply_frame(definition: Dictionary) -> void:
 		fallback.border_width_top = 2
 		fallback.border_width_right = 2
 		fallback.border_width_bottom = 2
-		var tag := str(definition.get("aiTag", ""))
+		var tag: String = str(definition.get("aiTag", ""))
 		fallback.border_color = TAG_TONES.get(tag, Color("d7c69b"))
 		_fallback_outline.add_theme_stylebox_override("panel", fallback)
 		return
 	_frame.visible = true
 	_fallback_outline.visible = false
-	_frame.texture = load(str(frame_data[0]))
+	_frame.texture = _load_texture_safe(str(frame_data[0]))
 	var margin: int = int(frame_data[1])
 	_frame.patch_margin_left = margin
 	_frame.patch_margin_top = margin
