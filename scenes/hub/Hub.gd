@@ -38,6 +38,7 @@ extends Control
 @onready var sell_confirm_button: Button = $Root/Body/Content/SellPanel/SellFooterRow/SellConfirmButton
 
 @onready var deck_panel: VBoxContainer = $Root/Body/Content/DeckPanel
+@onready var starter_pick_panel: VBoxContainer = $Root/Body/Content/DeckPanel/StarterPickPanel
 
 @onready var deck_list_sub_panel: VBoxContainer = $Root/Body/Content/DeckPanel/DeckListSubPanel
 @onready var deck_list_create_button: Button = $Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListHeaderRow/DeckListCreateButton
@@ -71,22 +72,22 @@ extends Control
 @onready var deck_back_to_list_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckBackToListButton
 
 @onready var equipment_panel: VBoxContainer = $Root/Body/Content/EquipmentPanel
-@onready var equipped_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/EquippedListContainer
+@onready var equipped_list_container: HBoxContainer = $Root/Body/Content/EquipmentPanel/EquippedListContainer
 @onready var stats_label: Label = $Root/Body/Content/EquipmentPanel/StatsLabel
-@onready var equipment_sort_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterRow/EquipmentSortButton
-@onready var equipment_filter_reset_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterRow/EquipmentFilterResetButton
-@onready var equipment_filter_archetype_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterTriggerRow/ArchetypeButton
-@onready var equipment_filter_slot_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentFilterTriggerRow/SlotButton
-@onready var equipment_filter_archetype_popover: PanelContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypePopover
-@onready var equipment_filter_slot_popover: PanelContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterSlotPopover
-@onready var equipment_filter_archetype_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypePopover/EquipmentFilterArchetypeRow
-@onready var equipment_filter_slot_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentFilterSlotPopover/EquipmentFilterSlotRow
-@onready var inventory_label: Label = $Root/Body/Content/EquipmentPanel/InventoryLabel
-@onready var inventory_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/InventoryScroll/InventoryListContainer
-@onready var rune_label: Label = $Root/Body/Content/EquipmentPanel/RuneLabel
-@onready var rune_search_edit: LineEdit = $Root/Body/Content/EquipmentPanel/RuneSearchEdit
-@onready var rune_category_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/RuneCategoryRow
-@onready var rune_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/RuneScroll/RuneListContainer
+@onready var equipment_sort_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterRow/EquipmentSortButton
+@onready var equipment_filter_reset_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterRow/EquipmentFilterResetButton
+@onready var equipment_filter_archetype_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterTriggerRow/ArchetypeButton
+@onready var equipment_filter_slot_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterTriggerRow/SlotButton
+@onready var equipment_filter_archetype_popover: PanelContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterArchetypePopover
+@onready var equipment_filter_slot_popover: PanelContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterSlotPopover
+@onready var equipment_filter_archetype_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterArchetypePopover/EquipmentFilterArchetypeRow
+@onready var equipment_filter_slot_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterSlotPopover/EquipmentFilterSlotRow
+@onready var inventory_label: Label = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/InventoryLabel
+@onready var inventory_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/InventoryScroll/InventoryListContainer
+@onready var rune_label: Label = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneLabel
+@onready var rune_search_edit: LineEdit = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneSearchEdit
+@onready var rune_category_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneCategoryRow
+@onready var rune_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneScroll/RuneListContainer
 
 @onready var nav_buttons: Dictionary = {
 	"descend": $Root/Body/Nav/DescendButton,
@@ -1063,22 +1064,20 @@ func _on_sell_confirm_pressed() -> void:
 # ============================================================
 
 func _should_show_starter_pick() -> bool:
-	if GameState.floor > 0:
-		return false
-	if not GameState.starter_chosen:
-		return true
-	return CollectionData.deck_size(CollectionData.decks.get(CollectionData.active_deck, {})) <= 0
+	return GameState.floor <= 0 and not GameState.starter_chosen
 
 
 ## DeckHubScreen.tsx の mode: "list" | "edit" 相当のトップレベル切り替え。
 ## 未選択なら StarterDeckPickScreen 相当を先に出す。
 func _refresh_deck_tab() -> void:
-	if _should_show_starter_pick():
+	var show_pick: bool = _should_show_starter_pick()
+	if show_pick:
 		deck_list_sub_panel.visible = false
 		deck_edit_sub_panel.visible = false
+		starter_pick_panel.visible = true
 		_rebuild_starter_pick()
 		return
-	_clear_starter_pick()
+	_hide_starter_pick()
 	deck_list_sub_panel.visible = _deck_mode == "list"
 	deck_edit_sub_panel.visible = _deck_mode == "edit"
 	if _deck_mode == "list":
@@ -1089,37 +1088,47 @@ func _refresh_deck_tab() -> void:
 		_rebuild_card_list()
 
 
+func _hide_starter_pick() -> void:
+	if starter_pick_panel:
+		starter_pick_panel.visible = false
+	_clear_starter_pick()
+
+
 func _clear_starter_pick() -> void:
-	var existing := deck_panel.get_node_or_null("StarterPickRoot")
-	if existing:
-		existing.queue_free()
+	var leftover: Node = deck_panel.get_node_or_null("StarterPickRoot")
+	while leftover != null:
+		leftover.name = "StarterPickDead"
+		deck_panel.remove_child(leftover)
+		leftover.free()
+		leftover = deck_panel.get_node_or_null("StarterPickRoot")
+	if starter_pick_panel == null:
+		return
+	var kids: Array = starter_pick_panel.get_children()
+	for child in kids:
+		starter_pick_panel.remove_child(child)
+		child.free()
 
 
 func _rebuild_starter_pick() -> void:
 	_clear_starter_pick()
-	var root := VBoxContainer.new()
-	root.name = "StarterPickRoot"
-	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_theme_constant_override("separation", 12)
+	starter_pick_panel.visible = true
 	var header := Label.new()
 	header.text = "FIRST DESCENT\n最初のデッキを選べ"
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root.add_child(header)
+	starter_pick_panel.add_child(header)
 	var blurb := Label.new()
 	blurb.text = "4つの流派から1つを選ぶと、その色に組まれたデッキで探索を始められる。この選択は最初の一度きり。リリース前は全カードを所持したまま編成できる。"
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	root.add_child(blurb)
+	starter_pick_panel.add_child(blurb)
 	var row := HBoxContainer.new()
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 12)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	for archetype in CollectionData.STARTER_ARCHETYPES:
 		row.add_child(_make_starter_pick_card(str(archetype)))
-	root.add_child(row)
-	deck_panel.add_child(root)
-	deck_panel.move_child(root, 0)
+	starter_pick_panel.add_child(row)
 
 
 func _make_starter_pick_card(archetype: String) -> Control:
@@ -1161,6 +1170,7 @@ func _on_starter_deck_picked(archetype: String) -> void:
 	CollectionData.choose_starter_deck(archetype)
 	GameState.mark_starter_chosen()
 	_deck_mode = "list"
+	_hide_starter_pick()
 	_refresh_deck_tab()
 	_update_header()
 
@@ -1525,29 +1535,39 @@ func _rebuild_equipped_list() -> void:
 	var SLOT_LABEL := {"head": "頭", "chest": "胸", "arms": "腕", "legs": "脚", "feet": "足"}
 	for slot in Equipment.EQUIPMENT_SLOTS:
 		var inst = GameState.equipped.get(slot)
-		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(0, 58)
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_theme_constant_override("separation", 10)
+		var tile := VBoxContainer.new()
+		tile.custom_minimum_size = Vector2(88, 0)
+		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tile.add_theme_constant_override("separation", 3)
+		var slot_label := Label.new()
+		slot_label.text = str(SLOT_LABEL.get(slot, slot))
+		slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		slot_label.add_theme_font_size_override("font_size", 11)
+		tile.add_child(slot_label)
 		if inst != null:
 			var equipped_def := Equipment.get_equipment(str(inst.get("def_id", "")))
-			row.add_child(_make_art_thumbnail(str(equipped_def.get("art", "")), str(equipped_def.get("archetype", "")), "common", Vector2(50, 50)))
-		var label := Label.new()
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-		if inst != null:
-			label.text = "%s: %s（Tier%d）" % [SLOT_LABEL.get(slot, slot), Equipment.equipment_label(inst), int(inst.get("tier", 1))]
+			tile.add_child(_make_art_thumbnail(str(equipped_def.get("art", "")), str(equipped_def.get("archetype", "")), "common", Vector2(72, 72)))
+			var name_label := Label.new()
+			name_label.text = Equipment.equipment_label(inst)
+			name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+			name_label.add_theme_font_size_override("font_size", 11)
+			tile.add_child(name_label)
 		else:
-			label.text = "%s: （なし）" % SLOT_LABEL.get(slot, slot)
-		row.add_child(label)
+			var empty := Label.new()
+			empty.text = "空き"
+			empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			empty.custom_minimum_size = Vector2(0, 72)
+			empty.add_theme_font_size_override("font_size", 11)
+			tile.add_child(empty)
 		var unequip_btn := Button.new()
 		unequip_btn.text = "外す"
-		unequip_btn.custom_minimum_size = Vector2(72, 36)
-		unequip_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
+		unequip_btn.custom_minimum_size = Vector2(0, 28)
 		unequip_btn.disabled = inst == null
 		unequip_btn.pressed.connect(_on_unequip_pressed.bind(slot))
-		row.add_child(unequip_btn)
-		equipped_list_container.add_child(row)
+		tile.add_child(unequip_btn)
+		equipped_list_container.add_child(tile)
 
 
 func _refresh_stats_label() -> void:

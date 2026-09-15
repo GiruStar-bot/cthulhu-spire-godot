@@ -15,6 +15,8 @@ const CARD_SIZE := Vector2(128, 192)
 const PREVIEW_CARD_SIZE := Vector2(112, 160)
 const FRAME_PANEL := "res://art/ui/frame_panel.png"
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
+const ENEMY_PLATE_W := 176.0
+const ENEMY_PLATE_GAP := 8.0
 
 @onready var hud_panel: Panel = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
@@ -22,7 +24,7 @@ const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 @onready var log_label: Label = $LogPanel/LogScroll/LogLabel
 @onready var log_panel: Panel = $LogPanel
 @onready var message_label: Label = $MessageLabel
-@onready var enemy_row: HBoxContainer = $EnemyRow
+@onready var enemy_row: Control = $EnemyRow
 @onready var hand_row: Control = $HandRow
 @onready var hand_tray: Panel = $HandTray
 @onready var end_turn_button: Button = $EndTurnButton
@@ -56,9 +58,12 @@ func _ready() -> void:
 	_build_chrome()
 	if log_scroll:
 		log_scroll.resized.connect(_fit_log_label)
+	if enemy_row and not enemy_row.resized.is_connected(_layout_enemies):
+		enemy_row.resized.connect(_layout_enemies)
 	_begin_combat()
 	_refresh()
 	call_deferred("_fit_log_label")
+	call_deferred("_layout_enemies")
 
 
 func _input(event: InputEvent) -> void:
@@ -287,48 +292,52 @@ func _scroll_log_to_end() -> void:
 
 
 func _refresh_enemies() -> void:
-	for child in enemy_row.get_children():
-		child.queue_free()
+	var stale: Array = enemy_row.get_children()
+	for child in stale:
+		enemy_row.remove_child(child)
+		child.free()
 	_enemy_art_by_uid.clear()
 	_enemy_hit_by_uid.clear()
 	for e in state.get("enemies", []):
 		var dead: bool = int(e.hp) <= 0
 		var def: Dictionary = Enemies.get_enemy(str(e.defId))
 		var uid: String = str(e.uid)
-		var root := Control.new()
-		root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		root.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.set_meta("enemy_uid", uid)
-		root.set_meta("dead", dead)
+
+		var stage := Control.new()
+		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stage.clip_contents = false
+		stage.set_meta("enemy_uid", uid)
+		stage.set_meta("dead", dead)
 
 		var art := TextureRect.new()
-		art.set_anchors_preset(Control.PRESET_FULL_RECT)
-		art.anchor_top = 0.02
-		art.offset_bottom = -8
+		art.name = "Art"
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+		art.stretch_mode = TextureRect.STRETCH_SCALE
 		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		art.texture = _load_texture_safe(str(def.get("art", "")))
+		art.set_meta("dead", dead)
 		if dead:
 			art.modulate = Color(0.35, 0.35, 0.35, 0.0 if _death_fx_done.get(uid, false) else 0.45)
-		root.add_child(art)
-		art.resized.connect(_align_art_to_ground.bind(art))
-		call_deferred("_align_art_to_ground", art)
+		stage.add_child(art)
 
 		if dead and not _death_fx_done.get(uid, false):
 			_death_fx_done[uid] = true
-			call_deferred("_play_death_dust", root, art, uid)
+			call_deferred("_play_death_dust", stage, art, uid)
 
 		if not dead:
-			root.add_child(_make_enemy_plate(e, def))
+			var plate: VBoxContainer = _make_enemy_plate(e, def)
+			plate.name = "Plate"
+			plate.z_index = 12
+			stage.add_child(plate)
 			_death_fx_done.erase(uid)
 
-		enemy_row.add_child(root)
+		enemy_row.add_child(stage)
 		_enemy_art_by_uid[uid] = art
 		if not dead:
-			_enemy_hit_by_uid[uid] = root
+			_enemy_hit_by_uid[uid] = art
+
+	call_deferred("_layout_enemies")
 
 
 func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool) -> String:
@@ -579,15 +588,7 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary) -> VBoxContainer:
 	var plate := VBoxContainer.new()
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_theme_constant_override("separation", 4)
-	plate.set_anchors_preset(Control.PRESET_CENTER)
-	plate.anchor_left = 0.56
-	plate.anchor_right = 0.56
-	plate.anchor_top = 0.20
-	plate.anchor_bottom = 0.20
-	plate.offset_left = 8.0
-	plate.offset_right = 176.0
-	plate.offset_top = 0.0
-	plate.offset_bottom = 8.0
+	plate.custom_minimum_size = Vector2(ENEMY_PLATE_W, 0)
 	plate.add_child(_make_upcoming_cards(e))
 
 	var box := Panel.new()
@@ -853,31 +854,81 @@ func _open_pile(which: String) -> void:
 	overlay.add_child(close_btn)
 
 
-func _align_art_to_ground(art: TextureRect) -> void:
-	if art == null or not is_instance_valid(art) or art.texture == null:
+func _layout_enemies() -> void:
+	if enemy_row == null or not is_instance_valid(enemy_row):
 		return
-	if art.get_meta("aligning", false):
+	var area: Vector2 = enemy_row.size
+	if area.x < 16.0 or area.y < 16.0:
 		return
-	var parent := art.get_parent() as Control
-	if parent == null:
+	var stages: Array = []
+	for child in enemy_row.get_children():
+		if child is Control and not child.is_queued_for_deletion():
+			stages.append(child)
+	var n: int = stages.size()
+	if n <= 0:
 		return
-	var box: Vector2 = parent.size
+	for i in n:
+		_layout_enemy_stage(stages[i] as Control, i, n, area)
+
+
+func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) -> void:
+	var art: TextureRect = stage.get_node_or_null("Art") as TextureRect
+	var plate: Control = stage.get_node_or_null("Plate") as Control
+	var slot_w: float = area.x if count <= 1 else area.x / float(count)
+	var slot_x: float = 0.0 if count <= 1 else slot_w * float(index)
+	stage.position = Vector2(slot_x, 0.0)
+	stage.size = Vector2(slot_w, area.y)
+	if art == null or art.texture == null:
+		return
 	var tex_size: Vector2 = art.texture.get_size()
-	if tex_size.x <= 0.0 or tex_size.y <= 0.0 or box.x <= 0.0 or box.y <= 0.0:
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
 		return
-	var fitted: float = minf(box.x / tex_size.x, box.y / tex_size.y)
+
+	var plate_w: float = 0.0 if plate == null else ENEMY_PLATE_W
+	var gap: float = 0.0 if plate == null else ENEMY_PLATE_GAP
+	var art_box := Vector2(slot_w, area.y)
+	if count == 1:
+		## 原作 cutout は min(94vw, 43rem) 幅。高さはステージ全面（手札背面まで）。
+		art_box = Vector2(minf(area.x * 0.94, 688.0), area.y)
+	elif plate != null:
+		art_box = Vector2(maxf(64.0, slot_w - plate_w - gap), area.y)
+
+	var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
 	var drawn: Vector2 = tex_size * fitted
-	art.set_meta("aligning", true)
-	art.anchor_left = 0.5
-	art.anchor_right = 0.5
-	art.anchor_top = 1.0
-	art.anchor_bottom = 1.0
-	art.offset_left = -drawn.x * 0.5
-	art.offset_right = drawn.x * 0.5
-	art.offset_top = -drawn.y - 8.0
-	art.offset_bottom = -8.0
-	art.stretch_mode = TextureRect.STRETCH_SCALE
-	art.set_meta("aligning", false)
+	var art_pos := Vector2((slot_w - drawn.x) * 0.5, maxf(0.0, area.y - drawn.y))
+	if plate != null:
+		var group_w: float = drawn.x + gap + plate_w
+		var plate_h: float = maxf(220.0, plate.get_combined_minimum_size().y)
+		if count == 1:
+			art_pos.x = (slot_w - drawn.x) * 0.5
+			var plate_x: float = art_pos.x + drawn.x + gap
+			var overflow: float = plate_x + plate_w - slot_w
+			if overflow > 0.0:
+				art_pos.x -= overflow
+				plate_x -= overflow
+			if art_pos.x < 0.0:
+				art_pos.x = 0.0
+				plate_x = drawn.x + gap
+			_place_unanchored(plate, Vector2(plate_x, area.y * 0.14), Vector2(plate_w, plate_h))
+		else:
+			var group_x: float = maxf(0.0, (slot_w - group_w) * 0.5)
+			art_pos.x = group_x
+			_place_unanchored(plate, Vector2(group_x + drawn.x + gap, area.y * 0.14), Vector2(plate_w, plate_h))
+	_place_unanchored(art, art_pos, drawn)
+
+
+func _place_unanchored(node: Control, pos: Vector2, node_size: Vector2) -> void:
+	node.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	node.anchor_left = 0.0
+	node.anchor_top = 0.0
+	node.anchor_right = 0.0
+	node.anchor_bottom = 0.0
+	node.position = pos
+	node.size = node_size
+
+
+func _align_art_to_ground(_art: TextureRect) -> void:
+	_layout_enemies()
 
 
 func _play_death_dust(root: Control, art: TextureRect, uid: String) -> void:
