@@ -10,6 +10,8 @@ const INSPECTOR_IN_DUR := 0.22
 const INSPECTOR_OUT_DUR := 0.20
 const INSPECTOR_BTN_DUR := 0.14
 const INSPECTOR_GHOST_DUR := 0.16
+const PACK_REVEAL_SIZE := Vector2(148, 222)
+const PACK_IMAGE_SIZE := Vector2(220, 360)
 
 @onready var player_name_label: Label = $Root/Header/PlayerNameLabel
 @onready var info_label: Label = $Root/Header/InfoLabel
@@ -108,6 +110,8 @@ const INSPECTOR_GHOST_DUR := 0.16
 var _selected_rune_id: String = ""
 var _commerce_tab := ""
 var _last_pack_result: Array = []  ## store.ts の lastPackResult 相当（ShopPanel.tsx の通常パック結果表示）
+var _pack_reveal_busy: bool = false
+var _pack_overlay: Control = null
 
 # SellScreen.tsx 相当の状態
 var _sell_tab: String = "card"  ## "card" | "equipment" | "rune"
@@ -345,6 +349,8 @@ func _equipment_filterable_archetypes() -> Array:
 ## 挙動を、個別のvisible設定漏れが起きないよう一箇所にまとめて再現する。
 func _hide_all_content_panels() -> void:
 	_close_card_inspector()
+	if not _pack_reveal_busy:
+		_close_pack_reveal()
 	descend_panel.visible = false
 	deck_panel.visible = false
 	equipment_panel.visible = false
@@ -614,10 +620,13 @@ func _refresh_commerce() -> void:
 
 ## ShopPanel.tsx の buyCardPack ボタン相当
 func _on_buy_card_pack() -> void:
-	var result := GameState.buy_card_pack()
-	if not result.is_empty():
-		_last_pack_result = result
-	_refresh_commerce()
+	if _pack_reveal_busy:
+		return
+	var result: Array = GameState.buy_card_pack()
+	if result.is_empty():
+		return
+	_last_pack_result = []
+	_start_pack_reveal(NORMAL_PACK_ART, result)
 
 
 ## ShopPanel.tsx の clearPackResult() 相当
@@ -629,17 +638,134 @@ func _on_clear_pack_result() -> void:
 ## レアリティ62/28/10%＋未所持優遇）、後半2枚は weightedCard()（同じ重み付けの自由枠）で選ぶ。
 ## owner は実ソース同様 `character ?? starterPath(stats)`（ラン中でなければ暫定キャラで判定）。
 func _open_pack(archetype: String) -> void:
-	if not CollectionData.consume_pack_ticket(archetype): return
+	if _pack_reveal_busy:
+		return
+	if not CollectionData.consume_pack_ticket(archetype):
+		return
 	var owner: String = GameState.character if GameState.character != "" else GameState.starter_path(GameState.stats)
 	var rand := Callable(GameState, "_rand")
+	var revealed: Array = []
 	for i in range(2):
-		var forced := Cards.weighted_archetype_card(owner, archetype, rand)
-		CollectionData.add_loot_card(str(forced.get("defId", "")))
+		var forced: Dictionary = Cards.weighted_archetype_card(owner, archetype, rand)
+		var def_id: String = str(forced.get("defId", ""))
+		CollectionData.add_loot_card(def_id)
+		revealed.append(def_id)
 	for i in range(2):
-		var free := Cards.weighted_card(owner, rand)
-		CollectionData.add_loot_card(str(free.get("defId", "")))
-	_refresh_commerce()
+		var free_card: Dictionary = Cards.weighted_card(owner, rand)
+		var def_id: String = str(free_card.get("defId", ""))
+		CollectionData.add_loot_card(def_id)
+		revealed.append(def_id)
+	var art_path := "res://art/pixel/packs/pack_%s.png" % archetype
+	_start_pack_reveal(art_path, revealed)
 
+
+func _start_pack_reveal(pack_art: String, card_ids: Array) -> void:
+	if card_ids.is_empty():
+		_refresh_commerce()
+		return
+	_close_pack_reveal()
+	_pack_reveal_busy = true
+	var overlay := Control.new()
+	overlay.name = "PackRevealOverlay"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 90
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(overlay)
+	overlay.move_to_front()
+	_pack_overlay = overlay
+	var dim := ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0.02, 0.02, 0.03, 0.0)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(dim)
+	var dim_tw := dim.create_tween()
+	dim_tw.tween_property(dim, "color:a", 0.78, 0.2)
+	var pack := TextureRect.new()
+	pack.name = "PackImage"
+	pack.custom_minimum_size = PACK_IMAGE_SIZE
+	pack.size = PACK_IMAGE_SIZE
+	pack.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pack.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pack.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	pack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pack.texture = _load_texture_safe(pack_art)
+	if pack.texture == null:
+		pack.texture = _load_texture_safe(NORMAL_PACK_ART)
+	overlay.add_child(pack)
+	pack.pivot_offset = PACK_IMAGE_SIZE * 0.5
+	var view: Vector2 = get_viewport_rect().size
+	var pack_dest: Vector2 = view * 0.5 - PACK_IMAGE_SIZE * 0.5
+	pack.global_position = pack_dest
+	pack.scale = Vector2(0.42, 0.42)
+	pack.modulate = Color.WHITE
+	var tw := overlay.create_tween()
+	tw.tween_property(pack, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.5)
+	tw.tween_property(pack, "scale", Vector2(1.28, 1.28), 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(pack, "modulate", Color(1, 1, 1, 0), 0.16)
+	tw.tween_callback(_present_pack_cards.bind(card_ids))
+
+
+func _present_pack_cards(card_ids: Array) -> void:
+	if _pack_overlay == null or not is_instance_valid(_pack_overlay):
+		_pack_reveal_busy = false
+		return
+	var pack_img: Node = _pack_overlay.get_node_or_null("PackImage")
+	if pack_img != null:
+		pack_img.visible = false
+	var n: int = card_ids.size()
+	var gap: float = 16.0
+	var total_w: float = float(n) * PACK_REVEAL_SIZE.x + float(maxi(0, n - 1)) * gap
+	var view: Vector2 = get_viewport_rect().size
+	var origin := Vector2((view.x - total_w) * 0.5, view.y * 0.38 - PACK_REVEAL_SIZE.y * 0.5)
+	for i in n:
+		var def_id: String = str(card_ids[i])
+		var def: Dictionary = Cards.get_card(def_id)
+		var fake: Dictionary = {"uid": "", "defId": def_id}
+		var card: CombatCard = COMBAT_CARD.new()
+		card.custom_minimum_size = PACK_REVEAL_SIZE
+		card.size = PACK_REVEAL_SIZE
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.configure(fake, def, true, false, false)
+		_pack_overlay.add_child(card)
+		_mute_card_hover(card)
+		card.pivot_offset = PACK_REVEAL_SIZE * 0.5
+		card.global_position = origin + Vector2(float(i) * (PACK_REVEAL_SIZE.x + gap), 0.0)
+		card.scale = Vector2(0.04, 1.0)
+		var card_tw := card.create_tween()
+		card_tw.tween_interval(0.2 * float(i))
+		card_tw.tween_property(card, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var confirm_tw := _pack_overlay.create_tween()
+	confirm_tw.tween_interval(0.2 * float(n) + 0.12)
+	confirm_tw.tween_callback(_show_pack_confirm)
+
+
+func _show_pack_confirm() -> void:
+	if _pack_overlay == null or not is_instance_valid(_pack_overlay):
+		return
+	var confirm := Button.new()
+	confirm.text = "確認"
+	confirm.custom_minimum_size = Vector2(160, 44)
+	confirm.z_index = 2
+	_pack_overlay.add_child(confirm)
+	var view: Vector2 = get_viewport_rect().size
+	confirm.size = Vector2(160, 44)
+	confirm.position = Vector2(view.x * 0.5 - 80.0, view.y * 0.78)
+	confirm.pressed.connect(_on_pack_confirm)
+
+
+func _on_pack_confirm() -> void:
+	_close_pack_reveal()
+	_refresh_commerce()
+	_update_header()
+
+
+func _close_pack_reveal() -> void:
+	_pack_reveal_busy = false
+	if _pack_overlay != null and is_instance_valid(_pack_overlay):
+		remove_child(_pack_overlay)
+		_pack_overlay.free()
+	_pack_overlay = null
 func _equipped(gear: Dictionary) -> bool:
 	for item in GameState.equipped.values():
 		if item != null and item.get("uid","") == gear.get("uid",""): return true

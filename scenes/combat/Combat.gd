@@ -27,6 +27,10 @@ const ENEMY_BOSS_H := 688.0
 const ENEMY_GROUND_SINGLE := 0.20
 const ENEMY_GROUND_DUAL := 0.14
 const ENEMY_BOSS_HP := 150
+const ENEMY_DUAL_LEFT_PAD := 120.0
+const ENEMY_DUAL_SCALE := 0.80
+const ENEMY_DUAL_LEFT_T := 0.40
+const ENEMY_DUAL_RIGHT_T := 0.60
 
 @onready var hud_panel: Panel = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
@@ -1051,8 +1055,21 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		return
 	var art: TextureRect = stage.get_node_or_null("Art") as TextureRect
 	var plate: Control = stage.get_node_or_null("Plate") as Control
-	var slot_w: float = area.x if count <= 1 else area.x / float(count)
-	var slot_x: float = 0.0 if count <= 1 else slot_w * float(index)
+	var slot_w: float
+	var slot_x: float
+	if count <= 1:
+		slot_w = area.x
+		slot_x = 0.0
+	else:
+		var work_x: float = ENEMY_DUAL_LEFT_PAD
+		var work_w: float = maxf(64.0, area.x - work_x)
+		var center_t: float = ENEMY_DUAL_LEFT_T if index == 0 else ENEMY_DUAL_RIGHT_T
+		slot_w = work_w * 0.42
+		slot_x = work_x + work_w * center_t - slot_w * 0.5
+		if slot_x < work_x:
+			slot_x = work_x
+		if slot_x + slot_w > area.x:
+			slot_x = area.x - slot_w
 	stage.position = Vector2(slot_x, 0.0)
 	stage.size = Vector2(slot_w, area.y)
 	if art == null or art.texture == null:
@@ -1078,10 +1095,10 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 			max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H)
 	else:
 		var slot_art_w: float = slot_w - plate_w - gap
-		max_w = minf(maxf(64.0, slot_art_w), minf(view.x * 0.80, ENEMY_CUTOUT_W_DUAL))
-		max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H)
+		max_w = minf(maxf(64.0, slot_art_w), minf(view.x * 0.80, ENEMY_CUTOUT_W_DUAL)) * ENEMY_DUAL_SCALE
+		max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H) * ENEMY_DUAL_SCALE
 		if is_boss:
-			max_h = minf(view.y * 0.78, ENEMY_BOSS_H)
+			max_h = minf(view.y * 0.78, ENEMY_BOSS_H) * ENEMY_DUAL_SCALE
 	var art_box := Vector2(maxf(64.0, max_w), maxf(64.0, max_h))
 
 	var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
