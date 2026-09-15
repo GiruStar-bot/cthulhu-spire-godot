@@ -292,6 +292,19 @@ func _scroll_log_to_end() -> void:
 
 
 func _refresh_enemies() -> void:
+	var dust_queue: Array = []
+	for e in state.get("enemies", []):
+		var uid: String = str(e.uid)
+		var dead: bool = int(e.hp) <= 0
+		if not dead or _death_fx_done.get(uid, false):
+			continue
+		_death_fx_done[uid] = true
+		var old_art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+		if old_art != null and is_instance_valid(old_art) and old_art.texture != null:
+			var captured: Rect2 = old_art.get_global_rect()
+			if captured.size.x > 16.0 and captured.size.y > 16.0:
+				dust_queue.append({"tex": old_art.texture, "rect": captured})
+
 	var stale: Array = enemy_row.get_children()
 	for child in stale:
 		enemy_row.remove_child(child)
@@ -318,12 +331,8 @@ func _refresh_enemies() -> void:
 		art.texture = _load_texture_safe(str(def.get("art", "")))
 		art.set_meta("dead", dead)
 		if dead:
-			art.modulate = Color(0.35, 0.35, 0.35, 0.0 if _death_fx_done.get(uid, false) else 0.45)
+			art.modulate = Color(1, 1, 1, 0)
 		stage.add_child(art)
-
-		if dead and not _death_fx_done.get(uid, false):
-			_death_fx_done[uid] = true
-			call_deferred("_play_death_dust", stage, art, uid)
 
 		if not dead:
 			var plate: VBoxContainer = _make_enemy_plate(e, def)
@@ -337,7 +346,14 @@ func _refresh_enemies() -> void:
 		if not dead:
 			_enemy_hit_by_uid[uid] = art
 
-	call_deferred("_layout_enemies")
+	if enemy_row.size.x >= 16.0 and enemy_row.size.y >= 16.0:
+		_layout_enemies()
+	else:
+		call_deferred("_layout_enemies")
+	for spec in dust_queue:
+		var dust_tex: Texture2D = spec.get("tex") as Texture2D
+		var dust_rect: Rect2 = spec.get("rect")
+		_play_death_dust_at(dust_tex, dust_rect)
 
 
 func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool) -> String:
@@ -931,15 +947,11 @@ func _align_art_to_ground(_art: TextureRect) -> void:
 	_layout_enemies()
 
 
-func _play_death_dust(root: Control, art: TextureRect, uid: String) -> void:
-	if art == null or not is_instance_valid(art):
+func _play_death_dust_at(tex: Texture2D, rect: Rect2) -> void:
+	if tex == null or rect.size.x <= 8.0 or rect.size.y <= 8.0:
 		return
-	var rect: Rect2 = art.get_global_rect()
-	if rect.size.x <= 1.0 or rect.size.y <= 1.0:
-		if root != null and is_instance_valid(root):
-			rect = root.get_global_rect()
 	var ghost := TextureRect.new()
-	ghost.texture = art.texture
+	ghost.texture = tex
 	ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	ghost.stretch_mode = TextureRect.STRETCH_SCALE
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -947,30 +959,31 @@ func _play_death_dust(root: Control, art: TextureRect, uid: String) -> void:
 	floater_layer.add_child(ghost)
 	ghost.global_position = rect.position
 	ghost.size = rect.size
+	ghost.pivot_offset = ghost.size * 0.5
 	var dust := CPUParticles2D.new()
-	dust.amount = 64
-	dust.lifetime = 0.95
+	dust.amount = 72
+	dust.lifetime = 0.8
 	dust.one_shot = true
-	dust.explosiveness = 0.94
+	dust.explosiveness = 0.88
 	dust.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	dust.emission_rect_extents = Vector2(maxf(24.0, rect.size.x * 0.22), maxf(36.0, rect.size.y * 0.38))
+	dust.emission_rect_extents = Vector2(maxf(18.0, rect.size.x * 0.16), maxf(28.0, rect.size.y * 0.28))
 	dust.direction = Vector2(0, -1)
-	dust.spread = 180.0
-	dust.initial_velocity_min = 28.0
-	dust.initial_velocity_max = 150.0
-	dust.gravity = Vector2(0, 110)
-	dust.scale_amount_min = 1.1
-	dust.scale_amount_max = 3.6
-	dust.color = Color(0.78, 0.72, 0.58, 0.95)
+	dust.spread = 70.0
+	dust.initial_velocity_min = 24.0
+	dust.initial_velocity_max = 110.0
+	dust.gravity = Vector2(0, 160)
+	dust.scale_amount_min = 0.8
+	dust.scale_amount_max = 2.4
+	dust.color = Color(0.78, 0.72, 0.58, 0.92)
 	dust.z_index = 26
 	floater_layer.add_child(dust)
 	dust.global_position = rect.get_center()
 	dust.emitting = true
-	art.modulate.a = 0.0
 	var fade := ghost.create_tween()
-	fade.tween_property(ghost, "modulate:a", 0.0, 0.85)
+	fade.tween_property(ghost, "modulate:a", 0.0, 0.55)
+	fade.parallel().tween_property(ghost, "scale", Vector2(1.02, 0.86), 0.55)
 	fade.tween_callback(ghost.queue_free)
-	get_tree().create_timer(1.3).timeout.connect(func():
+	get_tree().create_timer(1.1).timeout.connect(func():
 		if is_instance_valid(dust):
 			dust.queue_free()
 	)

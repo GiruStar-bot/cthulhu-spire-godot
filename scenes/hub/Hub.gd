@@ -57,9 +57,9 @@ extends Control
 @onready var deck_search_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/DeckSearchEdit
 @onready var deck_sort_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/DeckSortOptionButton
 @onready var deck_filter_reset_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/DeckFilterResetButton
-@onready var deck_filter_archetype_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow/ArchetypeButton
-@onready var deck_filter_rarity_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow/RarityButton
-@onready var deck_filter_ai_tag_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow/AiTagButton
+@onready var deck_filter_archetype_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/ArchetypeButton
+@onready var deck_filter_rarity_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/RarityButton
+@onready var deck_filter_ai_tag_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/AiTagButton
 @onready var deck_filter_archetype_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterArchetypePopover
 @onready var deck_filter_rarity_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover
 @onready var deck_filter_ai_tag_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover
@@ -212,6 +212,7 @@ func _setup_deck_filters() -> void:
 	_build_toggle_row(deck_filter_ai_tag_row, DECK_FILTERABLE_AI_TAGS,
 		func(t): return str(AI_TAG_LABELS.get(t, t)),
 		_deck_filter_ai_tags, _on_deck_filter_ai_tag_toggled)
+	_float_deck_filter_popovers()
 
 
 ## 装備タブのジャンル/部位フィルター・tierソート・ルーン検索/カテゴリ行を一度だけ構築する。
@@ -255,9 +256,37 @@ func _build_toggle_row(container: Control, options: Array, option_label: Callabl
 		container.add_child(btn)
 
 
-func _toggle_deck_popover(target: Control) -> void:
+func _float_deck_filter_popovers() -> void:
+	var overlay: Control = deck_panel.get_parent() as Control
+	if overlay == null:
+		return
 	for panel in [deck_filter_archetype_popover, deck_filter_rarity_popover, deck_filter_ai_tag_popover]:
-		panel.visible = panel == target and not target.visible
+		if panel.get_parent() == overlay:
+			continue
+		panel.reparent(overlay, false)
+		panel.visible = false
+		panel.z_index = 40
+
+
+func _toggle_deck_popover(target: Control) -> void:
+	var opening: bool = not target.visible
+	for panel in [deck_filter_archetype_popover, deck_filter_rarity_popover, deck_filter_ai_tag_popover]:
+		panel.visible = false
+	if not opening:
+		return
+	var anchor: Control = deck_filter_archetype_button
+	if target == deck_filter_rarity_popover:
+		anchor = deck_filter_rarity_button
+	elif target == deck_filter_ai_tag_popover:
+		anchor = deck_filter_ai_tag_button
+	var min_size: Vector2 = target.get_combined_minimum_size()
+	target.size = Vector2(maxf(280.0, min_size.x), maxf(48.0, min_size.y))
+	var pos: Vector2 = anchor.global_position + Vector2(0.0, anchor.size.y + 4.0)
+	var view: Vector2 = get_viewport_rect().size
+	pos.x = clampf(pos.x, 8.0, maxf(8.0, view.x - target.size.x - 8.0))
+	pos.y = clampf(pos.y, 8.0, maxf(8.0, view.y - target.size.y - 8.0))
+	target.global_position = pos
+	target.visible = true
 
 
 func _toggle_equipment_popover(target: Control) -> void:
@@ -1064,7 +1093,21 @@ func _on_sell_confirm_pressed() -> void:
 # ============================================================
 
 func _should_show_starter_pick() -> bool:
-	return GameState.floor <= 0 and not GameState.starter_chosen
+	if GameState.floor > 0:
+		return false
+	if not GameState.starter_chosen:
+		return true
+	## CollectionData は未永続。起動のたびにデッキが空に戻るのに
+	## starter_chosen だけプロフィールに残ると、選択画面が二度と出ない。
+	return _all_decks_empty()
+
+
+func _all_decks_empty() -> bool:
+	for name in CollectionData.decks.keys():
+		var counts: Dictionary = CollectionData.decks.get(name, {})
+		if CollectionData.deck_size(counts) > 0:
+			return false
+	return true
 
 
 ## DeckHubScreen.tsx の mode: "list" | "edit" 相当のトップレベル切り替え。
@@ -1239,6 +1282,7 @@ func _refresh_deck_summary() -> void:
 		CollectionData.active_deck, n, CollectionData.DECK_LIMIT, CollectionData.MIN_RUN_DECK,
 	]
 	deck_error_label.text = CollectionData.loadout_error()
+	deck_error_label.visible = deck_error_label.text != ""
 
 
 ## DeckBuilderScreen.tsx の groupInventory()+検索+フィルター相当。
@@ -1372,35 +1416,77 @@ func _rebuild_deck_contents(deck: Dictionary) -> void:
 	)
 	if card_ids.is_empty():
 		var empty_label := Label.new()
-		empty_label.text = "カードを左のプールから追加してください。"
+		empty_label.text = "カードをクリックして編成"
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		deck_contents_container.add_child(empty_label)
+		call_deferred("_fit_deck_contents_width")
 		return
 	for card_id in card_ids:
-		var count := int(deck.get(card_id, 0))
+		var count: int = int(deck.get(card_id, 0))
 		if count <= 0:
 			continue
-		var def := Cards.get_card(str(card_id))
+		var def: Dictionary = Cards.get_card(str(card_id))
 		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(0, 38)
-		row.clip_contents = true
-		row.add_theme_constant_override("separation", 4)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.custom_minimum_size = Vector2(0, 44)
+		row.clip_contents = false
+		row.add_theme_constant_override("separation", 6)
 
-		var label := Label.new()
-		label.text = "%s  ×%d" % [str(def.get("name", card_id)), count]
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-		label.clip_text = true
-		row.add_child(label)
+		var thumb: Control = _make_art_thumbnail(
+			str(def.get("art", "")),
+			str(def.get("archetype", "")),
+			str(def.get("rarity", "common")),
+			Vector2(28, 40)
+		)
+		row.add_child(thumb)
+
+		var text_col := VBoxContainer.new()
+		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text_col.add_theme_constant_override("separation", 0)
+		var name_label := Label.new()
+		name_label.text = str(def.get("name", card_id))
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_label.clip_text = true
+		name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		name_label.add_theme_font_size_override("font_size", 12)
+		text_col.add_child(name_label)
+		var arch: String = str(def.get("archetype", ""))
+		if arch != "" and arch != "generic":
+			var arch_label := Label.new()
+			arch_label.text = str(Cards.ARCHETYPE_LABELS.get(arch, arch))
+			arch_label.add_theme_font_size_override("font_size", 10)
+			arch_label.add_theme_color_override("font_color", Color("d4a84b"))
+			text_col.add_child(arch_label)
+		row.add_child(text_col)
+
+		var count_label := Label.new()
+		count_label.text = "×%d" % count
+		count_label.custom_minimum_size = Vector2(36, 0)
+		count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(count_label)
 
 		var minus_btn := Button.new()
-		minus_btn.text = "−"
-		minus_btn.custom_minimum_size = Vector2(36, 32)
-		minus_btn.tooltip_text = "デッキから1枚外す"
+		minus_btn.text = "✕"
+		minus_btn.custom_minimum_size = Vector2(32, 32)
+		minus_btn.tooltip_text = "1枚減らす"
 		minus_btn.pressed.connect(_on_deck_remove_pressed.bind(str(card_id)))
 		row.add_child(minus_btn)
 		deck_contents_container.add_child(row)
+	call_deferred("_fit_deck_contents_width")
+
+
+func _fit_deck_contents_width() -> void:
+	if deck_contents_container == null or not is_instance_valid(deck_contents_container):
+		return
+	var scroll: ScrollContainer = deck_contents_container.get_parent() as ScrollContainer
+	if scroll == null:
+		return
+	var w: float = scroll.size.x
+	if w > 8.0:
+		deck_contents_container.custom_minimum_size.x = w
+		deck_contents_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 
 func _on_deck_add_pressed(card_id: String) -> void:
