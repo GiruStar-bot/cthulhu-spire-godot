@@ -51,23 +51,24 @@ extends Control
 @onready var deck_rename_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow/DeckRenameEdit
 @onready var confirm_rename_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow/ConfirmRenameButton
 @onready var cancel_rename_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow/CancelRenameButton
-@onready var deck_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckCountLabel
+@onready var deck_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckCountLabel
 @onready var deck_error_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckErrorLabel
-@onready var deck_search_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow/DeckSearchEdit
-@onready var deck_sort_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow/DeckSortOptionButton
-@onready var deck_filter_reset_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow/DeckFilterResetButton
-@onready var deck_filter_archetype_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow/ArchetypeButton
-@onready var deck_filter_rarity_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow/RarityButton
-@onready var deck_filter_ai_tag_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow/AiTagButton
-@onready var deck_filter_archetype_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterArchetypePopover
-@onready var deck_filter_rarity_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterRarityPopover
-@onready var deck_filter_ai_tag_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterAiTagPopover
-@onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterArchetypePopover/DeckFilterArchetypeRow
-@onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterRarityPopover/DeckFilterRarityRow
-@onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterAiTagPopover/DeckFilterAiTagRow
-@onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckResultCountLabel
-@onready var card_list_container: VBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/CardScroll/CardListContainer
-@onready var deck_back_to_list_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckBackToListButton
+@onready var deck_search_edit: LineEdit = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/DeckSearchEdit
+@onready var deck_sort_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/DeckSortOptionButton
+@onready var deck_filter_reset_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/DeckFilterResetButton
+@onready var deck_filter_archetype_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow/ArchetypeButton
+@onready var deck_filter_rarity_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow/RarityButton
+@onready var deck_filter_ai_tag_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow/AiTagButton
+@onready var deck_filter_archetype_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterArchetypePopover
+@onready var deck_filter_rarity_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover
+@onready var deck_filter_ai_tag_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover
+@onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterArchetypePopover/DeckFilterArchetypeRow
+@onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover/DeckFilterRarityRow
+@onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover/DeckFilterAiTagRow
+@onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckResultCountLabel
+@onready var card_list_container: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll/CardListContainer
+@onready var deck_contents_container: VBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckContentsScroll/DeckContentsContainer
+@onready var deck_back_to_list_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckBackToListButton
 
 @onready var equipment_panel: VBoxContainer = $Root/Body/Content/EquipmentPanel
 @onready var equipped_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/EquippedListContainer
@@ -602,7 +603,7 @@ func _commerce_button(label: String, action: Callable, disabled: bool = false, a
 	text_label.text = label
 	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
 	text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(text_label)
 	button.add_child(row)
@@ -618,6 +619,7 @@ func _commerce_card_result(definition: Dictionary, fallback_id: String) -> void:
 	label.text = "・%s" % str(definition.get("name", fallback_id))
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
 	row.add_child(label)
 	commerce_list.add_child(row)
 
@@ -654,11 +656,22 @@ func _make_pack_button(archetype: String, ticket_count: int) -> Button:
 
 ## カード/装備/チケット用の実画像サムネイル。
 ## TextureRectで art を表示し、CombatCard.gd と同一の NinePatchRect 枠を重ねる。
+func _load_texture_safe(path: String) -> Texture2D:
+	if path.is_empty() or not ResourceLoader.exists(path, "Texture2D"):
+		return null
+	var resource: Resource = ResourceLoader.load(path, "Texture2D")
+	if resource is Texture2D:
+		return resource as Texture2D
+	push_warning("Texture2Dとして読み込めませんでした: %s" % path)
+	return null
+
+
 func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, minimum_size: Vector2) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = minimum_size
 	holder.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.clip_contents = true
 
 	var backdrop := ColorRect.new()
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -676,9 +689,22 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 	thumbnail.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	thumbnail.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	thumbnail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if art_path != "" and ResourceLoader.exists(art_path):
-		thumbnail.texture = load(art_path)
+	var art_texture := _load_texture_safe(art_path)
+	# カタログに画像パスがあるが素材が未配置の場合も、セルを空白にしない。
+	if art_texture == null and art_path.begins_with("res://art/pixel/cards/"):
+		art_texture = _load_texture_safe(NORMAL_PACK_ART)
+	if art_texture != null:
+		thumbnail.texture = art_texture
 	holder.add_child(thumbnail)
+
+	if art_texture == null:
+		var missing_label := Label.new()
+		missing_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		missing_label.text = "NO ART"
+		missing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		missing_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		missing_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(missing_label)
 
 	var frame_data: Array = CARD_FRAME_BY_ARCHETYPE.get(archetype, CARD_FRAME_BY_RARITY.get(rarity, CARD_FRAME_BY_RARITY["common"]))
 	var frame := NinePatchRect.new()
@@ -686,8 +712,9 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 	frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var frame_path := str(frame_data[0])
-	if ResourceLoader.exists(frame_path):
-		frame.texture = load(frame_path)
+	var frame_texture := _load_texture_safe(frame_path)
+	if frame_texture != null:
+		frame.texture = frame_texture
 		var margin := int(frame_data[1])
 		frame.patch_margin_left = margin
 		frame.patch_margin_top = margin
@@ -837,13 +864,18 @@ func _refresh_sell_tab() -> void:
 			var cell := VBoxContainer.new()
 			cell.custom_minimum_size = Vector2(128, 180)
 			cell.add_theme_constant_override("separation", 4)
+			cell.clip_contents = true
 
 			## SellScreen.tsx の CardView onClick（クリックで最大/解除トグル）相当
 			var thumb_btn := Button.new()
 			thumb_btn.custom_minimum_size = Vector2(0, 82)
+			thumb_btn.clip_contents = true
 			thumb_btn.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
 			thumb_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, 0 if qty > 0 else sellable, sellable))
-			thumb_btn.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(0, 82)))
+			var art_path := str(def.get("art", ""))
+			var sell_art := _make_art_thumbnail(art_path, str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(0, 82))
+			sell_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			thumb_btn.add_child(sell_art)
 			var owned_badge := Label.new()
 			owned_badge.text = "x%d" % owned_n
 			owned_badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
@@ -854,7 +886,8 @@ func _refresh_sell_tab() -> void:
 			var name_label := Label.new()
 			name_label.text = str(def.get("name", base_card_id))
 			name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+			name_label.max_lines_visible = 2
 			cell.add_child(name_label)
 
 			var qty_row := HBoxContainer.new()
@@ -869,6 +902,7 @@ func _refresh_sell_tab() -> void:
 			qty_label.text = "%d/%d" % [qty, sellable]
 			qty_label.custom_minimum_size = Vector2(40, 0)
 			qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			qty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
 			qty_row.add_child(qty_label)
 			var plus_btn := Button.new()
 			plus_btn.text = "+"
@@ -880,6 +914,7 @@ func _refresh_sell_tab() -> void:
 			var price_label := Label.new()
 			price_label.text = "貝殻%d/枚" % unit_price
 			price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			price_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
 			cell.add_child(price_label)
 
 			sell_list_container.add_child(cell)
@@ -1151,44 +1186,113 @@ func _sort_deck_card_ids(ids: Array, owned: Dictionary) -> void:
 func _rebuild_card_list() -> void:
 	for child in card_list_container.get_children():
 		child.queue_free()
+	for child in deck_contents_container.get_children():
+		child.queue_free()
 	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
 	var owned: Dictionary = CollectionData.owned_card_counts()
 	var ids := _filtered_deck_card_ids(owned)
 	_sort_deck_card_ids(ids, owned)
 	deck_result_count_label.text = "%d/%d件" % [ids.size(), owned.size()]
+	_rebuild_deck_contents(deck)
+	if ids.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "条件に一致するカードがありません。"
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		card_list_container.add_child(empty_label)
+		return
+
 	for card_id in ids:
 		var def := Cards.get_card(str(card_id))
 		var name: String = def.get("name", str(card_id)) if not def.is_empty() else str(card_id)
 		var in_deck: int = CollectionData.copies_of_base(deck, str(card_id))
 		var owned_count: int = int(owned[card_id])
+		var deck_total := CollectionData.deck_size(deck)
 
+		var card_button := Button.new()
+		card_button.custom_minimum_size = Vector2(96, 148)
+		card_button.clip_contents = true
+		card_button.tooltip_text = "%s\n所持 %d / デッキ内 %d" % [name, owned_count, in_deck]
+		card_button.disabled = deck_total >= CollectionData.DECK_LIMIT or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count
+		card_button.pressed.connect(_on_deck_add_pressed.bind(str(card_id)))
+
+		var card_content := VBoxContainer.new()
+		card_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 5)
+		card_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_content.clip_contents = true
+		card_content.add_theme_constant_override("separation", 3)
+
+		var art := _make_art_thumbnail(
+			str(def.get("art", "")),
+			str(def.get("archetype", "")),
+			str(def.get("rarity", "common")),
+			Vector2(80, 110)
+		)
+		art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		var owned_badge := Label.new()
+		owned_badge.text = "所持%d" % owned_count
+		owned_badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE)
+		owned_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art.add_child(owned_badge)
+		if in_deck > 0:
+			var deck_badge := Label.new()
+			deck_badge.text = "編成%d" % in_deck
+			deck_badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
+			deck_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			art.add_child(deck_badge)
+		card_content.add_child(art)
+
+		var name_label := Label.new()
+		name_label.text = name
+		name_label.custom_minimum_size = Vector2(0, 28)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		name_label.max_lines_visible = 2
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_content.add_child(name_label)
+
+		card_button.add_child(card_content)
+		card_list_container.add_child(card_button)
+
+
+func _rebuild_deck_contents(deck: Dictionary) -> void:
+	var card_ids: Array = deck.keys()
+	card_ids.sort_custom(func(a, b):
+		var a_name := str(Cards.get_card(str(a)).get("name", a))
+		var b_name := str(Cards.get_card(str(b)).get("name", b))
+		return a_name < b_name
+	)
+	if card_ids.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "カードを左のプールから追加してください。"
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		deck_contents_container.add_child(empty_label)
+		return
+	for card_id in card_ids:
+		var count := int(deck.get(card_id, 0))
+		if count <= 0:
+			continue
+		var def := Cards.get_card(str(card_id))
 		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(0, 92)
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_theme_constant_override("separation", 12)
-		row.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(62, 82)))
+		row.custom_minimum_size = Vector2(0, 38)
+		row.clip_contents = true
+		row.add_theme_constant_override("separation", 4)
 
 		var label := Label.new()
-		label.text = "%s（所持%d / デッキ内%d）" % [name, owned_count, in_deck]
+		label.text = "%s  ×%d" % [str(def.get("name", card_id)), count]
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		label.clip_text = true
 		row.add_child(label)
 
 		var minus_btn := Button.new()
 		minus_btn.text = "−"
-		minus_btn.custom_minimum_size = Vector2(44, 44)
-		minus_btn.disabled = in_deck <= 0
+		minus_btn.custom_minimum_size = Vector2(36, 32)
+		minus_btn.tooltip_text = "デッキから1枚外す"
 		minus_btn.pressed.connect(_on_deck_remove_pressed.bind(str(card_id)))
 		row.add_child(minus_btn)
-
-		var plus_btn := Button.new()
-		plus_btn.text = "+"
-		plus_btn.custom_minimum_size = Vector2(44, 44)
-		var deck_total := CollectionData.deck_size(deck)
-		plus_btn.disabled = deck_total >= CollectionData.DECK_LIMIT or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count
-		plus_btn.pressed.connect(_on_deck_add_pressed.bind(str(card_id)))
-		row.add_child(plus_btn)
-
-		card_list_container.add_child(row)
+		deck_contents_container.add_child(row)
 
 
 func _on_deck_add_pressed(card_id: String) -> void:
@@ -1331,6 +1435,7 @@ func _rebuild_equipped_list() -> void:
 			row.add_child(_make_art_thumbnail(str(equipped_def.get("art", "")), str(equipped_def.get("archetype", "")), "common", Vector2(50, 50)))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
 		if inst != null:
 			label.text = "%s: %s（Tier%d）" % [SLOT_LABEL.get(slot, slot), Equipment.equipment_label(inst), int(inst.get("tier", 1))]
 		else:
@@ -1408,6 +1513,7 @@ func _rebuild_inventory_list() -> void:
 		header.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(62, 62)))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
 		label.text = "%s（%s, Tier%d, 威力%.2f）" % [
 			Equipment.equipment_label(inst), def.get("slot", ""), int(inst.get("tier", 1)), float(inst.get("power", 1.0)),
 		]
@@ -1425,6 +1531,7 @@ func _rebuild_inventory_list() -> void:
 			var rune_id = sockets[i]
 			var socket_label := Label.new()
 			socket_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			socket_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
 			if rune_id != null:
 				var rune: Dictionary = CollectionData.rune_registry.get(rune_id, {})
 				socket_label.text = "  ソケット%d: %s(%s)" % [i, rune.get("effect", "?"), str(rune.get("value", "?"))]
@@ -1473,6 +1580,7 @@ func _rebuild_rune_list() -> void:
 		var rune_id: String = str(rune.get("id", ""))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
 		var mark := "▶ " if rune_id == _selected_rune_id else ""
 		label.text = "%s%s（値%s）" % [mark, rune.get("effect", "?"), str(rune.get("value", "?"))]
 		row.add_child(label)

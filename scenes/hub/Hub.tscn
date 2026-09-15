@@ -217,7 +217,7 @@ layout_mode = 1
 anchors_preset = 4
 anchor_bottom = 1.0
 offset_top = 64.0
-offset_right = 206.0
+offset_right = 120.0
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleNav")
 
@@ -234,13 +234,14 @@ custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 18
+clip_contents = true
 
 [node name="PlayerNameLabel" type="Label" parent="Root/Header"]
 layout_mode = 2
-custom_minimum_size = Vector2(206, 0)
+custom_minimum_size = Vector2(120, 0)
 size_flags_horizontal = 0
 theme_override_colors/font_color = Color(0.95, 0.8, 0.48, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 14
 horizontal_alignment = 1
 vertical_alignment = 1
 text = "無名"
@@ -250,6 +251,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 horizontal_alignment = 1
 vertical_alignment = 1
+clip_text = true
 text = "最深 — · デッキ 0/20 · 貝殻 0"
 
 [node name="TopRightButton" type="Button" parent="Root/Header"]
@@ -264,43 +266,49 @@ size_flags_vertical = 3
 theme_override_constants/separation = 12
 
 [node name="Nav" type="VBoxContainer" parent="Root/Body"]
-custom_minimum_size = Vector2(206, 0)
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 6
 
 [node name="DescendButton" type="Button" parent="Root/Body/Nav"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 11
 toggle_mode = true
 text = "探索開始"
 
 [node name="DeckButton" type="Button" parent="Root/Body/Nav"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 11
 toggle_mode = true
 text = "デッキ編成"
 
 [node name="EquipmentButton" type="Button" parent="Root/Body/Nav"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 11
 toggle_mode = true
 text = "装備"
 
 [node name="SellButton" type="Button" parent="Root/Body/Nav"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 11
 toggle_mode = true
 text = "売却"
 
 [node name="ShopButton" type="Button" parent="Root/Body/Nav"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 11
 toggle_mode = true
 text = "ショップ"
 
 [node name="PacksButton" type="Button" parent="Root/Body/Nav"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 10
 toggle_mode = true
 text = "カードパック"
 
@@ -308,6 +316,7 @@ text = "カードパック"
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+clip_contents = true
 
 [node name="DescendPanel" type="HBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1
@@ -322,6 +331,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/separation = 16
+clip_contents = true
 
 [node name="DescendLeftColumn" type="VBoxContainer" parent="Root/Body/Content/DescendPanel"]
 layout_mode = 2
@@ -335,6 +345,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.84, 0.78, 0.67, 1)
 theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
+autowrap_mode = 2
 text = "探索準備\n最深到達: 未潜航 · 貝殻 0"
 
 [node name="PrimaryActionButton" type="Button" parent="Root/Body/Content/DescendPanel/DescendLeftColumn"]
@@ -392,6 +403,7 @@ text = "装備込みステータス"
 [node name="StatsLabel" type="Label" parent="Root/Body/Content/DescendPanel/PrepareEquipmentSummaryPanel/Margin/Content"]
 layout_mode = 2
 size_flags_vertical = 3
+autowrap_mode = 2
 text = "体力 50"
 
 [node name="PrepareDeckSelectPanel" type="PanelContainer" parent="Root/Body/Content/DescendPanel"]
@@ -426,6 +438,7 @@ theme_override_constants/separation = 4
 
 [node name="SelectedDeckLabel" type="Label" parent="Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content"]
 layout_mode = 2
+autowrap_mode = 2
 text = "選択中: デッキ1（0/10〜20）"
 
 [node name="PlaceholderPanel" type="Label" parent="Root/Body/Content"]
@@ -459,11 +472,13 @@ grow_vertical = 2
 visible = false
 theme = SubResource("ThemeRitual")
 theme_override_constants/separation = 10
+clip_contents = true
 
 [node name="CommerceTitle" type="Label" parent="Root/Body/Content/CommercePanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
 theme_override_font_sizes/font_size = 20
+autowrap_mode = 2
 text = "売却"
 
 [node name="CommerceList" type="VBoxContainer" parent="Root/Body/Content/CommercePanel"]
@@ -487,10 +502,12 @@ grow_vertical = 2
 visible = false
 theme = SubResource("ThemeRitual")
 theme_override_constants/separation = 8
+clip_contents = true
 
 [node name="SellTabRow" type="HBoxContainer" parent="Root/Body/Content/SellPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
+clip_contents = true
 
 [node name="SellCardTabButton" type="Button" parent="Root/Body/Content/SellPanel/SellTabRow"]
 layout_mode = 2
@@ -534,6 +551,7 @@ theme_override_constants/separation = 10
 [node name="SellTotalLabel" type="Label" parent="Root/Body/Content/SellPanel/SellFooterRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+autowrap_mode = 2
 text = "選択中 0点 · 獲得予定 貝殻0"
 
 [node name="SellConfirmButton" type="Button" parent="Root/Body/Content/SellPanel/SellFooterRow"]
@@ -553,11 +571,13 @@ grow_horizontal = 2
 grow_vertical = 2
 visible = false
 theme_override_constants/separation = 8
+clip_contents = true
 
 [node name="DeckListSubPanel" type="VBoxContainer" parent="Root/Body/Content/DeckPanel"]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 8
+clip_contents = true
 
 [node name="DeckListHeaderRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckListSubPanel"]
 layout_mode = 2
@@ -585,14 +605,17 @@ theme_override_constants/separation = 4
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 8
+clip_contents = true
 
 [node name="DeckEditHeaderRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
+clip_contents = true
 
 [node name="DeckEditTitleLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckEditHeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+autowrap_mode = 2
 text = "デッキ1"
 
 [node name="RenameDeckButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckEditHeaderRow"]
@@ -607,6 +630,7 @@ text = "削除"
 layout_mode = 2
 visible = false
 theme_override_constants/separation = 6
+clip_contents = true
 
 [node name="DeckRenameEdit" type="LineEdit" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckRenameRow"]
 layout_mode = 2
@@ -621,97 +645,161 @@ text = "決定"
 layout_mode = 2
 text = "取消"
 
-[node name="DeckCountLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
-layout_mode = 2
-text = "デッキ1: 0/20枚"
-
 [node name="DeckErrorLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.35, 0.32, 1)
+autowrap_mode = 2
 text = ""
 
-[node name="DeckSearchRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="DeckWorkspace" type="HSplitContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 720
+clip_contents = true
+
+[node name="CardPoolPanel" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.35
+clip_contents = true
+theme_override_styles/panel = SubResource("StyleInkLedger")
+
+[node name="CardPool" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel"]
 layout_mode = 2
 theme_override_constants/separation = 6
+clip_contents = true
 
-[node name="DeckSearchEdit" type="LineEdit" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow"]
+[node name="PoolTitle" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
+theme_override_font_sizes/font_size = 17
+text = "カードプール"
+
+[node name="DeckSearchRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
+layout_mode = 2
+theme_override_constants/separation = 6
+clip_contents = true
+
+[node name="DeckSearchEdit" type="LineEdit" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "カード名で検索..."
 
-[node name="DeckSortOptionButton" type="OptionButton" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow"]
+[node name="DeckSortOptionButton" type="OptionButton" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
 layout_mode = 2
 
-[node name="DeckFilterResetButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckSearchRow"]
+[node name="DeckFilterResetButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
 layout_mode = 2
 text = "条件をリセット"
 
-[node name="DeckFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="DeckFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/separation = 6
+clip_contents = true
 
-[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow"]
+[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow"]
 layout_mode = 2
 text = "ジャンル ▾"
 
-[node name="RarityButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow"]
+[node name="RarityButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow"]
 layout_mode = 2
 text = "レア度 ▾"
 
-[node name="AiTagButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterTriggerRow"]
+[node name="AiTagButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow"]
 layout_mode = 2
 text = "種別 ▾"
 
-[node name="DeckFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="DeckFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleRitualPanel")
+clip_contents = true
 
-[node name="DeckFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterArchetypePopover"]
+[node name="DeckFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterArchetypePopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 
-[node name="DeckFilterRarityPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="DeckFilterRarityPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleRitualPanel")
+clip_contents = true
 
-[node name="DeckFilterRarityRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterRarityPopover"]
+[node name="DeckFilterRarityRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 
-[node name="DeckFilterAiTagPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="DeckFilterAiTagPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleRitualPanel")
+clip_contents = true
 
-[node name="DeckFilterAiTagRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckFilterAiTagPopover"]
+[node name="DeckFilterAiTagRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 
-[node name="DeckResultCountLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="DeckResultCountLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+autowrap_mode = 2
 text = ""
 
-[node name="CardScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="CardScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
+clip_contents = true
 
-[node name="CardListContainer" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/CardScroll"]
+[node name="CardListContainer" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 10
+clip_contents = true
 
-[node name="DeckBackToListButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
+[node name="DeckContentsPanel" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace"]
+custom_minimum_size = Vector2(270, 0)
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.0
+clip_contents = true
+theme_override_styles/panel = SubResource("StyleRitualPanel")
+
+[node name="DeckContents" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+clip_contents = true
+
+[node name="DeckCountLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.8, 0.48, 1)
+theme_override_font_sizes/font_size = 17
+autowrap_mode = 2
+text = "デッキ1: 0/20枚"
+
+[node name="DeckContentsScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+clip_contents = true
+
+[node name="DeckContentsContainer" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckContentsScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+clip_contents = true
+
+[node name="DeckBackToListButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
 text = "記録して戻る"
 
 [node name="EquipmentPanel" type="VBoxContainer" parent="Root/Body/Content"]
@@ -727,6 +815,7 @@ grow_horizontal = 2
 grow_vertical = 2
 visible = false
 theme_override_constants/separation = 8
+clip_contents = true
 
 [node name="EquippedLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
