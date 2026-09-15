@@ -565,10 +565,10 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 22.0
-offset_top = 20.0
-offset_right = -22.0
-offset_bottom = -20.0
+offset_left = 10.0
+offset_top = 8.0
+offset_right = -10.0
+offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
 visible = false
@@ -615,7 +615,7 @@ theme_override_constants/separation = 4
 visible = false
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 8
+theme_override_constants/separation = 4
 clip_contents = true
 
 [node name="DeckEditHeaderRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel"]
@@ -677,13 +677,14 @@ theme_override_styles/panel = SubResource("StyleInkLedger")
 
 [node name="CardPool" type="VBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 4
 clip_contents = true
 
 [node name="PoolTitle" type="Label" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 13
 text = "カードプール"
 
 [node name="DeckSearchRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
@@ -696,30 +697,24 @@ layout_mode = 2
 size_flags_horizontal = 3
 placeholder_text = "カード名で検索..."
 
+[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
+layout_mode = 2
+text = "ジャンル ▾"
+
+[node name="RarityButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
+layout_mode = 2
+text = "レア度 ▾"
+
+[node name="AiTagButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
+layout_mode = 2
+text = "種別 ▾"
+
 [node name="DeckSortOptionButton" type="OptionButton" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
 layout_mode = 2
 
 [node name="DeckFilterResetButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
 layout_mode = 2
-text = "条件をリセット"
-
-[node name="DeckFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
-layout_mode = 2
-theme = SubResource("ThemeRitual")
-theme_override_constants/separation = 6
-clip_contents = true
-
-[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow"]
-layout_mode = 2
-text = "ジャンル ▾"
-
-[node name="RarityButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow"]
-layout_mode = 2
-text = "レア度 ▾"
-
-[node name="AiTagButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterTriggerRow"]
-layout_mode = 2
-text = "種別 ▾"
+text = "リセット"
 
 [node name="DeckFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
 visible = false
