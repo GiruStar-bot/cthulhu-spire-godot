@@ -130,6 +130,7 @@ offset_left = 12.0
 offset_top = 10.0
 offset_right = 268.0
 offset_bottom = 148.0
+z_index = 30
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxHud")
 
@@ -160,6 +161,7 @@ offset_top = 10.0
 offset_right = -12.0
 offset_bottom = 118.0
 grow_horizontal = 0
+z_index = 30
 mouse_filter = 2
 clip_contents = true
 theme_override_styles/panel = SubResource("StyleBoxLog")
@@ -196,13 +198,13 @@ anchor_bottom = 1.0
 offset_left = 8.0
 offset_top = 8.0
 offset_right = -8.0
-offset_bottom = -190.0
+offset_bottom = 0.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty")
 
-[node name="EnemyRow" type="HBoxContainer" parent="."]
+[node name="EnemyRow" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -210,11 +212,11 @@ anchor_bottom = 1.0
 offset_left = 8.0
 offset_top = 8.0
 offset_right = -8.0
-offset_bottom = -190.0
+offset_bottom = 0.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 36
-alignment = 1
+z_index = 1
+mouse_filter = 2
 
 [node name="MessagePlate" type="Panel" parent="."]
 layout_mode = 1
@@ -263,6 +265,7 @@ offset_right = -144.0
 offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 0
+z_index = 20
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty")
 
@@ -278,6 +281,7 @@ offset_right = -152.0
 offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 0
+z_index = 21
 
 [node name="FloaterLayer" type="Control" parent="."]
 layout_mode = 1
@@ -286,6 +290,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+z_index = 15
 mouse_filter = 2
 
 [node name="EndTurnButton" parent="." instance=ExtResource("4")]
@@ -301,6 +306,7 @@ offset_right = -18.0
 offset_bottom = -18.0
 grow_horizontal = 0
 grow_vertical = 0
+z_index = 22
 text = "ターン
 終了"
 

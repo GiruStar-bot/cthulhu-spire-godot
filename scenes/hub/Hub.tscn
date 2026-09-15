@@ -575,7 +575,15 @@ visible = false
 theme_override_constants/separation = 8
 clip_contents = true
 
+[node name="StarterPickPanel" type="VBoxContainer" parent="Root/Body/Content/DeckPanel"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+clip_contents = true
+
 [node name="DeckListSubPanel" type="VBoxContainer" parent="Root/Body/Content/DeckPanel"]
+visible = false
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 8
@@ -604,6 +612,7 @@ size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
 [node name="DeckEditSubPanel" type="VBoxContainer" parent="Root/Body/Content/DeckPanel"]
+visible = false
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 8
@@ -806,106 +815,131 @@ text = "記録して戻る"
 
 [node name="EquipmentPanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1
-anchors_preset = 9
+anchors_preset = 15
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
 offset_top = 12.0
-offset_right = 640.0
+offset_right = -16.0
 offset_bottom = -12.0
+grow_horizontal = 2
 grow_vertical = 2
 visible = false
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 clip_contents = true
 
 [node name="EquippedLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
 text = "装着中"
 
-[node name="EquippedListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="EquippedListContainer" type="HBoxContainer" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
-theme_override_constants/separation = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 8
+alignment = 1
 
 [node name="StatsLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
 layout_mode = 2
 autowrap_mode = 3
 text = "合計ステータス: -"
 
-[node name="EquipmentFilterRow" type="HBoxContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="EquipmentWorkspace" type="HBoxContainer" parent="Root/Body/Content/EquipmentPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="InventoryCol" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="EquipmentFilterRow" type="HBoxContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="EquipmentSortButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterRow"]
+[node name="EquipmentSortButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterRow"]
 layout_mode = 2
 text = "tier高い順"
 
-[node name="EquipmentFilterResetButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterRow"]
+[node name="EquipmentFilterResetButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterRow"]
 layout_mode = 2
 text = "条件をリセット"
 
-[node name="EquipmentFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="EquipmentFilterTriggerRow" type="HBoxContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/separation = 6
 
-[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterTriggerRow"]
+[node name="ArchetypeButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterTriggerRow"]
 layout_mode = 2
 text = "ジャンル ▾"
 
-[node name="SlotButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterTriggerRow"]
+[node name="SlotButton" type="Button" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterTriggerRow"]
 layout_mode = 2
 text = "部位 ▾"
 
-[node name="EquipmentFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="EquipmentFilterArchetypePopover" type="PanelContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleRitualPanel")
 
-[node name="EquipmentFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterArchetypePopover"]
+[node name="EquipmentFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterArchetypePopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 
-[node name="EquipmentFilterSlotPopover" type="PanelContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="EquipmentFilterSlotPopover" type="PanelContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol"]
 visible = false
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleRitualPanel")
 
-[node name="EquipmentFilterSlotRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentFilterSlotPopover"]
+[node name="EquipmentFilterSlotRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterSlotPopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 
-[node name="InventoryLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
+[node name="InventoryLabel" type="Label" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol"]
 layout_mode = 2
 text = "所持装備"
 
-[node name="InventoryScroll" type="ScrollContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="InventoryScroll" type="ScrollContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="InventoryListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel/InventoryScroll"]
+[node name="InventoryListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/InventoryScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="RuneLabel" type="Label" parent="Root/Body/Content/EquipmentPanel"]
+[node name="RuneCol" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace"]
 layout_mode = 2
+custom_minimum_size = Vector2(240, 0)
+size_flags_horizontal = 0
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="RuneLabel" type="Label" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol"]
+layout_mode = 2
+autowrap_mode = 3
 text = "所持ルーン（選択してから装備側の「ここに装着」を押す）"
 
-[node name="RuneSearchEdit" type="LineEdit" parent="Root/Body/Content/EquipmentPanel"]
+[node name="RuneSearchEdit" type="LineEdit" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol"]
 layout_mode = 2
 placeholder_text = "ルーン効果で検索..."
 
-[node name="RuneCategoryRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="RuneCategoryRow" type="HFlowContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol"]
 layout_mode = 2
 
-[node name="RuneScroll" type="ScrollContainer" parent="Root/Body/Content/EquipmentPanel"]
+[node name="RuneScroll" type="ScrollContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 120)
+size_flags_vertical = 3
 
-[node name="RuneListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel/RuneScroll"]
+[node name="RuneListContainer" type="VBoxContainer" parent="Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 2
