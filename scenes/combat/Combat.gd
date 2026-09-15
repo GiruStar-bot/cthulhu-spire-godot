@@ -2,7 +2,7 @@ extends Control
 
 ## CombatView.tsx の操作フローを再現する戦闘コントローラ。
 ## 手札はドラッグ&ドロップでプレイ（原作 resolveDrop / isAboveHand / pickFoe 相当）。
-## HUD/ログは薄いオーバーレイ。ドラッグ中の補助文言・ドロップ枠は出さない。
+## HUD/ログは薄いオーバーレイ。敵は全身を表示し、次に使うカードを見せる。
 ## ゲームロジック（_play_card / _end_turn 等）は変更しない。
 
 const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
@@ -11,8 +11,6 @@ const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
 const HAND_ABOVE_MARGIN := 20.0
 const CARD_SIZE := Vector2(128, 176)
-const INTENT_ATTACK := "res://art/pixel/runes/str.png"
-const INTENT_DEFEND := "res://art/pixel/runes/blk.png"
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 
 @onready var hud_label: Label = $HudPanel/HudLabel
@@ -251,42 +249,44 @@ func _refresh_enemies() -> void:
 	_enemy_hit_by_uid.clear()
 	for e in state.get("enemies", []):
 		var dead: bool = int(e.hp) <= 0
-		var def := Enemies.get_enemy(str(e.defId))
+		var def: Dictionary = Enemies.get_enemy(str(e.defId))
 		var uid: String = str(e.uid)
 		var root := Control.new()
-		root.custom_minimum_size = Vector2(236, 320)
+		root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.set_meta("enemy_uid", uid)
 		root.set_meta("dead", dead)
 
 		var col := VBoxContainer.new()
 		col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		col.alignment = BoxContainer.ALIGNMENT_END
-		col.add_theme_constant_override("separation", 4)
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_theme_constant_override("separation", 6)
 		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-		var intent: Dictionary = {}
-		if e.get("shownIntent") is Dictionary:
-			intent = e.get("shownIntent") as Dictionary
-		elif e.get("intent") is Dictionary:
-			intent = e.get("intent") as Dictionary
-		col.add_child(_make_intent_row(intent, dead))
-
 		var art := TextureRect.new()
-		art.custom_minimum_size = Vector2(220, 210)
+		art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		art.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		art.custom_minimum_size = Vector2(280, 240)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		art.texture = _load_texture_safe(str(def.get("art", "")))
 		if dead:
 			art.modulate = Color(0.35, 0.35, 0.35, 0.45)
 		col.add_child(art)
 
+		if not dead:
+			col.add_child(_make_upcoming_cards(e))
+
 		var name_label := Label.new()
 		name_label.text = str(def.get("name", e.defId))
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_label.add_theme_font_size_override("font_size", 12)
+		name_label.add_theme_font_size_override("font_size", 13)
 		name_label.add_theme_color_override("font_color", Color("e9dcc1") if not dead else Color(0.45, 0.42, 0.38))
+		name_label.add_theme_color_override("font_outline_color", Color(0.03, 0.02, 0.02, 0.92))
+		name_label.add_theme_constant_override("outline_size", 4)
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(name_label)
 
@@ -299,17 +299,31 @@ func _refresh_enemies() -> void:
 				block_txt = "  防 %d" % int(e.block)
 			hp_label.text = "HP %d/%d%s" % [int(e.hp), int(e.maxHp), block_txt]
 		hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hp_label.add_theme_font_size_override("font_size", 11)
+		hp_label.add_theme_font_size_override("font_size", 12)
 		hp_label.add_theme_color_override("font_color", Color("c4b79a"))
+		hp_label.add_theme_color_override("font_outline_color", Color(0.03, 0.02, 0.02, 0.92))
+		hp_label.add_theme_constant_override("outline_size", 3)
 		hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(hp_label)
+
+		if not dead:
+			var action_txt: String = _enemy_action_text(e)
+			if action_txt != "":
+				var action_label := Label.new()
+				action_label.text = action_txt
+				action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				action_label.add_theme_font_size_override("font_size", 11)
+				action_label.add_theme_color_override("font_color", Color("d4a84b"))
+				action_label.add_theme_color_override("font_outline_color", Color(0.03, 0.02, 0.02, 0.92))
+				action_label.add_theme_constant_override("outline_size", 3)
+				action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				col.add_child(action_label)
 
 		root.add_child(col)
 		enemy_row.add_child(root)
 		_enemy_art_by_uid[uid] = art
 		if not dead:
 			_enemy_hit_by_uid[uid] = root
-			_start_enemy_idle(art)
 
 
 func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool) -> String:
@@ -340,14 +354,40 @@ func _refresh_hand() -> void:
 		hand_row.add_child(btn)
 
 
-func _start_enemy_idle(art: TextureRect) -> void:
-	art.pivot_offset = art.custom_minimum_size * 0.5
-	var tween := art.create_tween().set_loops()
-	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(art, "scale", Vector2(1.03, 1.03), 1.25)
-	tween.parallel().tween_property(art, "position:y", -6.0, 1.25)
-	tween.tween_property(art, "scale", Vector2.ONE, 1.25)
-	tween.parallel().tween_property(art, "position:y", 0.0, 1.25)
+func _upcoming_card_ids(e: Dictionary) -> Array:
+	var shown: Variant = e.get("shownCardIds")
+	if shown is Array and (shown as Array).size() > 0:
+		return shown as Array
+	var ids: Variant = e.get("actionCardIds", [])
+	if ids is Array:
+		return ids as Array
+	return []
+
+
+func _enemy_action_text(e: Dictionary) -> String:
+	var ids: Array = _upcoming_card_ids(e)
+	if ids.size() == 0:
+		return "行動準備"
+	var names: PackedStringArray = PackedStringArray()
+	for id in ids:
+		names.append(str(Cards.get_card(str(id)).get("name", "")))
+	return "%sを使用" % "・".join(names)
+
+
+func _make_upcoming_cards(e: Dictionary) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for id in _upcoming_card_ids(e):
+		var definition: Dictionary = Cards.get_card(str(id))
+		var fake: Dictionary = {"uid": "", "defId": str(id)}
+		var preview: CombatCard = COMBAT_CARD.new()
+		preview.custom_minimum_size = Vector2(96, 132)
+		preview.size = Vector2(96, 132)
+		preview.configure(fake, definition, true, false, false)
+		row.add_child(preview)
+	return row
 
 
 func _show_new_floaters() -> void:
@@ -415,6 +455,7 @@ func _animate_enemy_hit(uid: String) -> void:
 	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
 	if art == null:
 		return
+	art.pivot_offset = art.size * 0.5
 	var tween := art.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(art, "modulate", Color(1.55, 1.25, 1.25, 1.0), 0.07)
 	tween.parallel().tween_property(art, "scale", Vector2(0.96, 1.06), 0.07)
@@ -525,64 +566,6 @@ func _pick_foe(pos: Vector2) -> String:
 		if node.get_global_rect().has_point(pos):
 			return str(uid)
 	return ""
-
-
-func _make_intent_row(intent: Dictionary, dead: bool) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 4)
-	row.custom_minimum_size = Vector2(0, 28)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if dead:
-		return row
-	var kind: String = str(intent.get("kind", "unknown"))
-	var damage: int = int(intent.get("damage", 0))
-	var block: int = int(intent.get("block", 0))
-	if kind == "attack" or damage > 0:
-		row.add_child(_intent_icon(INTENT_ATTACK))
-		if damage > 0:
-			row.add_child(_intent_value(str(damage), Color("ff6b61")))
-		var hits: int = int(intent.get("hits", 1))
-		if hits > 1:
-			row.add_child(_intent_value("x%d" % hits, Color("ff6b61")))
-	elif kind == "defend" or block > 0:
-		row.add_child(_intent_icon(INTENT_DEFEND))
-		if block > 0:
-			row.add_child(_intent_value(str(block), Color("75c7df")))
-	else:
-		var unknown := Label.new()
-		unknown.text = "?"
-		unknown.add_theme_font_size_override("font_size", 22)
-		unknown.add_theme_color_override("font_color", Color("d4a84b"))
-		unknown.add_theme_color_override("font_outline_color", Color(0.06, 0.04, 0.02, 0.95))
-		unknown.add_theme_constant_override("outline_size", 4)
-		unknown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		unknown.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(unknown)
-	return row
-
-
-func _intent_icon(path: String) -> TextureRect:
-	var icon := TextureRect.new()
-	icon.custom_minimum_size = Vector2(22, 22)
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.texture = _load_texture_safe(path)
-	return icon
-
-
-func _intent_value(text: String, tone: Color) -> Label:
-	var value := Label.new()
-	value.text = text
-	value.add_theme_font_size_override("font_size", 16)
-	value.add_theme_color_override("font_color", tone)
-	value.add_theme_color_override("font_outline_color", Color(0.04, 0.02, 0.02, 0.95))
-	value.add_theme_constant_override("outline_size", 4)
-	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	value.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return value
 
 
 func _load_texture_safe(path: String) -> Texture2D:

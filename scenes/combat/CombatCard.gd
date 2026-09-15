@@ -27,6 +27,7 @@ const TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "異能"
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 
 var card_uid: String = ""
+var _interactive: bool = true
 var _frame: NinePatchRect
 var _header: ColorRect
 var _art: TextureRect
@@ -51,9 +52,10 @@ func _ready() -> void:
 	mouse_exited.connect(_on_unhovered)
 
 
-func configure(card: Dictionary, definition: Dictionary, playable: bool, selected: bool) -> void:
+func configure(card: Dictionary, definition: Dictionary, playable: bool, selected: bool, interactive: bool = true) -> void:
 	if not _built:
 		_build()
+	_interactive = interactive
 	card_uid = str(card.get("uid", ""))
 	var art_path: String = str(definition.get("art", ""))
 	_art.texture = _load_texture_safe(art_path)
@@ -64,9 +66,16 @@ func configure(card: Dictionary, definition: Dictionary, playable: bool, selecte
 	_cost.text = "X" if definition.get("xCost", false) else ("—" if definition.get("unplayable", false) else str(Cards.card_cost(card)))
 	_body.text = str(definition.get("text", ""))
 	_glow.visible = selected
-	disabled = not playable
-	modulate.a = 1.0 if playable else 0.56
-	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if playable else Control.CURSOR_ARROW
+	if interactive:
+		disabled = not playable
+		modulate.a = 1.0 if playable else 0.56
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if playable else Control.CURSOR_ARROW
+	else:
+		disabled = false
+		modulate.a = 1.0
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mouse_default_cursor_shape = Control.CURSOR_ARROW
 	_apply_frame(definition)
 	if selected:
 		z_index = 30
@@ -78,7 +87,7 @@ func configure(card: Dictionary, definition: Dictionary, playable: bool, selecte
 
 
 func _gui_input(event: InputEvent) -> void:
-	if disabled:
+	if not _interactive or disabled:
 		return
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
@@ -256,7 +265,7 @@ func _apply_frame(definition: Dictionary) -> void:
 
 
 func _on_hovered() -> void:
-	if disabled:
+	if not _interactive or disabled:
 		return
 	z_index = 40
 	var tween := create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
