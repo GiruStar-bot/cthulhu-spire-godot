@@ -7,6 +7,8 @@ extends Control
 
 const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
+const DISSOLVE_SHADER := preload("res://scenes/combat/enemy_dissolve.gdshader")
+const DISSOLVE_NOISE := preload("res://art/pixel/ui/dissolve_noise.png")
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
@@ -51,7 +53,8 @@ var _hud_status: Label
 var _draw_btn: Button
 var _discard_btn: Button
 var _chrome_ready: bool = false
-var _death_fx_done := {}
+var _death_fx_done: Dictionary = {}
+var _hit_tweens: Dictionary = {}
 
 
 func _ready() -> void:
@@ -292,68 +295,186 @@ func _scroll_log_to_end() -> void:
 
 
 func _refresh_enemies() -> void:
-	var dust_queue: Array = []
+	var seen: Dictionary = {}
 	for e in state.get("enemies", []):
 		var uid: String = str(e.uid)
 		var dead: bool = int(e.hp) <= 0
-		if not dead or _death_fx_done.get(uid, false):
+		seen[uid] = true
+		if dead and str(_death_fx_done.get(uid, "")) == "gone":
+			var leftover: Control = _find_enemy_stage(uid)
+			if leftover != null:
+				leftover.queue_free()
+			_enemy_art_by_uid.erase(uid)
+			_enemy_hit_by_uid.erase(uid)
 			continue
-		_death_fx_done[uid] = true
-		var old_art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
-		if old_art != null and is_instance_valid(old_art) and old_art.texture != null:
-			var captured: Rect2 = old_art.get_global_rect()
-			if captured.size.x > 16.0 and captured.size.y > 16.0:
-				dust_queue.append({"tex": old_art.texture, "rect": captured})
-
-	var stale: Array = enemy_row.get_children()
-	for child in stale:
-		enemy_row.remove_child(child)
-		child.free()
-	_enemy_art_by_uid.clear()
-	_enemy_hit_by_uid.clear()
-	for e in state.get("enemies", []):
-		var dead: bool = int(e.hp) <= 0
-		var def: Dictionary = Enemies.get_enemy(str(e.defId))
-		var uid: String = str(e.uid)
-
-		var stage := Control.new()
-		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		stage.clip_contents = false
-		stage.set_meta("enemy_uid", uid)
-		stage.set_meta("dead", dead)
-
-		var art := TextureRect.new()
-		art.name = "Art"
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_SCALE
-		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		art.texture = _load_texture_safe(str(def.get("art", "")))
-		art.set_meta("dead", dead)
-		if dead:
-			art.modulate = Color(1, 1, 1, 0)
-		stage.add_child(art)
-
-		if not dead:
-			var plate: VBoxContainer = _make_enemy_plate(e, def)
-			plate.name = "Plate"
-			plate.z_index = 12
-			stage.add_child(plate)
-			_death_fx_done.erase(uid)
-
-		enemy_row.add_child(stage)
-		_enemy_art_by_uid[uid] = art
-		if not dead:
-			_enemy_hit_by_uid[uid] = art
-
+		if dead and str(_death_fx_done.get(uid, "")) == "playing":
+			if _find_enemy_stage(uid) == null:
+				continue
+		var stage: Control = _find_enemy_stage(uid)
+		if stage == null:
+			stage = _spawn_enemy_stage(e, dead)
+			enemy_row.add_child(stage)
+		if stage.get_meta("dissolving", false):
+			continue
+		_sync_enemy_stage(stage, e, dead)
+	for child in enemy_row.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		var uid: String = str(child.get_meta("enemy_uid", ""))
+		if uid != "" and not seen.has(uid):
+			child.queue_free()
+			_enemy_art_by_uid.erase(uid)
+			_enemy_hit_by_uid.erase(uid)
 	if enemy_row.size.x >= 16.0 and enemy_row.size.y >= 16.0:
 		_layout_enemies()
 	else:
 		call_deferred("_layout_enemies")
-	for spec in dust_queue:
-		var dust_tex: Texture2D = spec.get("tex") as Texture2D
-		var dust_rect: Rect2 = spec.get("rect")
-		_play_death_dust_at(dust_tex, dust_rect)
+
+
+func _find_enemy_stage(uid: String) -> Control:
+	for child in enemy_row.get_children():
+		if child.is_queued_for_deletion():
+			continue
+		if child is Control and str(child.get_meta("enemy_uid", "")) == uid:
+			return child as Control
+	return null
+
+
+func _spawn_enemy_stage(e: Dictionary, dead: bool) -> Control:
+	var def: Dictionary = Enemies.get_enemy(str(e.defId))
+	var uid: String = str(e.uid)
+	var stage := Control.new()
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.clip_contents = false
+	stage.set_meta("enemy_uid", uid)
+	stage.set_meta("dead", dead)
+	var art := TextureRect.new()
+	art.name = "Art"
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_SCALE
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.texture = _load_texture_safe(str(def.get("art", "")))
+	art.set_meta("dead", dead)
+	stage.add_child(art)
+	_enemy_art_by_uid[uid] = art
+	if not dead:
+		var plate: VBoxContainer = _make_enemy_plate(e, def)
+		plate.name = "Plate"
+		plate.z_index = 12
+		stage.add_child(plate)
+		_enemy_hit_by_uid[uid] = art
+	return stage
+
+
+func _sync_enemy_stage(stage: Control, e: Dictionary, dead: bool) -> void:
+	var uid: String = str(e.uid)
+	var def: Dictionary = Enemies.get_enemy(str(e.defId))
+	var art: TextureRect = stage.get_node_or_null("Art") as TextureRect
+	stage.set_meta("dead", dead)
+	if art != null:
+		art.set_meta("dead", dead)
+		_enemy_art_by_uid[uid] = art
+	if dead:
+		_enemy_hit_by_uid.erase(uid)
+		var plate: Node = stage.get_node_or_null("Plate")
+		if plate != null:
+			stage.remove_child(plate)
+			plate.free()
+		if not _death_fx_done.has(uid):
+			_death_fx_done[uid] = "playing"
+			_start_enemy_dissolve(stage, art)
+		return
+	_death_fx_done.erase(uid)
+	if art != null:
+		_enemy_hit_by_uid[uid] = art
+	var old_plate: Node = stage.get_node_or_null("Plate")
+	if old_plate != null:
+		stage.remove_child(old_plate)
+		old_plate.free()
+	var plate: VBoxContainer = _make_enemy_plate(e, def)
+	plate.name = "Plate"
+	plate.z_index = 12
+	stage.add_child(plate)
+
+
+func _start_enemy_dissolve(stage: Control, art: TextureRect) -> void:
+	if art == null or not is_instance_valid(art):
+		return
+	if art.get_meta("dissolving", false):
+		return
+	var uid: String = str(stage.get_meta("enemy_uid", ""))
+	_kill_hit_tween(uid)
+	art.modulate = Color.WHITE
+	art.self_modulate = Color.WHITE
+	art.scale = Vector2.ONE
+	art.pivot_offset = art.size * 0.5
+	var mat := ShaderMaterial.new()
+	mat.shader = DISSOLVE_SHADER
+	mat.set_shader_parameter("noise_tex", DISSOLVE_NOISE)
+	mat.set_shader_parameter("progress", 0.0)
+	art.material = mat
+	art.set_meta("dissolving", true)
+	stage.set_meta("dissolving", true)
+	var tween := stage.create_tween()
+	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(mat, "shader_parameter/progress", 1.0, 0.9)
+	tween.tween_interval(0.1)
+	tween.tween_callback(_finish_enemy_dissolve.bind(stage, uid))
+	_spawn_dust_motes(art)
+
+
+func _finish_enemy_dissolve(stage: Control, uid: String) -> void:
+	_death_fx_done[uid] = "gone"
+	_kill_hit_tween(uid)
+	if stage != null and is_instance_valid(stage):
+		stage.queue_free()
+	_enemy_art_by_uid.erase(uid)
+	_enemy_hit_by_uid.erase(uid)
+	call_deferred("_layout_enemies")
+
+
+func _spawn_dust_motes(art: TextureRect) -> void:
+	if art == null or not is_instance_valid(art):
+		return
+	if art.get_meta("dust_spawned", false):
+		return
+	var box: Vector2 = art.size
+	if box.x <= 1.0 or box.y <= 1.0:
+		return
+	art.set_meta("dust_spawned", true)
+	var n: int = 23 + randi() % 16
+	for i in n:
+		var mote := ColorRect.new()
+		var mote_size: float = 3.0 + randf() * 4.0
+		mote.size = Vector2(mote_size, mote_size)
+		mote.color = Color(0.36, 0.34, 0.30, 0.9)
+		mote.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mote.z_index = 20
+		mote.use_parent_material = false
+		var left_p: float = 0.40 + randf() * 0.20
+		var top_p: float = 0.50 + randf() * 0.30
+		mote.position = Vector2(box.x * left_p, box.y * top_p)
+		art.add_child(mote)
+		var angle: float = deg_to_rad((randf() - 0.5) * 140.0)
+		var dist: float = 40.0 + randf() * 60.0
+		var delay: float = randf() * 0.3
+		var dest: Vector2 = mote.position + Vector2.UP.rotated(angle) * dist
+		var tw := mote.create_tween()
+		tw.tween_interval(delay)
+		tw.tween_property(mote, "position", dest, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(mote, "modulate:a", 0.0, 0.9)
+		tw.tween_callback(mote.queue_free)
+
+
+func _kill_hit_tween(uid: String) -> void:
+	if uid == "" or not _hit_tweens.has(uid):
+		return
+	var tw: Tween = _hit_tweens.get(uid) as Tween
+	_hit_tweens.erase(uid)
+	if tw != null and tw.is_valid():
+		tw.kill()
+
 
 
 func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool) -> String:
@@ -484,15 +605,21 @@ func _floater_position(who: String) -> Vector2:
 
 
 func _animate_enemy_hit(uid: String) -> void:
-	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
-	if art == null:
+	if str(_death_fx_done.get(uid, "")) != "":
 		return
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art == null or not is_instance_valid(art):
+		return
+	if art.get_meta("dissolving", false):
+		return
+	_kill_hit_tween(uid)
 	art.pivot_offset = art.size * 0.5
 	var tween := art.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(art, "modulate", Color(1.55, 1.25, 1.25, 1.0), 0.07)
 	tween.parallel().tween_property(art, "scale", Vector2(0.96, 1.06), 0.07)
 	tween.tween_property(art, "modulate", Color.WHITE, 0.21)
 	tween.parallel().tween_property(art, "scale", Vector2.ONE, 0.21)
+	_hit_tweens[uid] = tween
 
 
 func _on_drag_began(card_uid: String) -> void:
@@ -888,6 +1015,8 @@ func _layout_enemies() -> void:
 
 
 func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) -> void:
+	if stage.get_meta("dissolving", false):
+		return
 	var art: TextureRect = stage.get_node_or_null("Art") as TextureRect
 	var plate: Control = stage.get_node_or_null("Plate") as Control
 	var slot_w: float = area.x if count <= 1 else area.x / float(count)
@@ -895,6 +1024,8 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	stage.position = Vector2(slot_x, 0.0)
 	stage.size = Vector2(slot_w, area.y)
 	if art == null or art.texture == null:
+		return
+	if art.get_meta("dissolving", false):
 		return
 	var tex_size: Vector2 = art.texture.get_size()
 	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
@@ -945,48 +1076,6 @@ func _place_unanchored(node: Control, pos: Vector2, node_size: Vector2) -> void:
 
 func _align_art_to_ground(_art: TextureRect) -> void:
 	_layout_enemies()
-
-
-func _play_death_dust_at(tex: Texture2D, rect: Rect2) -> void:
-	if tex == null or rect.size.x <= 8.0 or rect.size.y <= 8.0:
-		return
-	var ghost := TextureRect.new()
-	ghost.texture = tex
-	ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	ghost.stretch_mode = TextureRect.STRETCH_SCALE
-	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ghost.z_index = 25
-	floater_layer.add_child(ghost)
-	ghost.global_position = rect.position
-	ghost.size = rect.size
-	ghost.pivot_offset = ghost.size * 0.5
-	var dust := CPUParticles2D.new()
-	dust.amount = 72
-	dust.lifetime = 0.8
-	dust.one_shot = true
-	dust.explosiveness = 0.88
-	dust.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	dust.emission_rect_extents = Vector2(maxf(18.0, rect.size.x * 0.16), maxf(28.0, rect.size.y * 0.28))
-	dust.direction = Vector2(0, -1)
-	dust.spread = 70.0
-	dust.initial_velocity_min = 24.0
-	dust.initial_velocity_max = 110.0
-	dust.gravity = Vector2(0, 160)
-	dust.scale_amount_min = 0.8
-	dust.scale_amount_max = 2.4
-	dust.color = Color(0.78, 0.72, 0.58, 0.92)
-	dust.z_index = 26
-	floater_layer.add_child(dust)
-	dust.global_position = rect.get_center()
-	dust.emitting = true
-	var fade := ghost.create_tween()
-	fade.tween_property(ghost, "modulate:a", 0.0, 0.55)
-	fade.parallel().tween_property(ghost, "scale", Vector2(1.02, 0.86), 0.55)
-	fade.tween_callback(ghost.queue_free)
-	get_tree().create_timer(1.1).timeout.connect(func():
-		if is_instance_valid(dust):
-			dust.queue_free()
-	)
 
 
 func _load_texture_safe(path: String) -> Texture2D:
