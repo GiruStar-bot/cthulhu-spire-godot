@@ -2,6 +2,7 @@ extends Control
 
 ## CombatView.tsx の操作フローを再現する戦闘コントローラ。
 ## 手札はドラッグ&ドロップでプレイ（原作 resolveDrop / isAboveHand / pickFoe 相当）。
+## HUD/ログは薄いオーバーレイ。ドラッグ中の補助文言・ドロップ枠は出さない。
 ## ゲームロジック（_play_card / _end_turn 等）は変更しない。
 
 const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
@@ -15,11 +16,10 @@ const INTENT_DEFEND := "res://art/pixel/runes/blk.png"
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 
 @onready var hud_label: Label = $HudPanel/HudLabel
-@onready var hud_panel: Panel = $HudPanel
-@onready var log_label: Label = $LogPanel/LogLabel
+@onready var log_scroll: ScrollContainer = $LogPanel/LogScroll
+@onready var log_label: Label = $LogPanel/LogScroll/LogLabel
 @onready var message_label: Label = $MessageLabel
 @onready var enemy_row: HBoxContainer = $EnemyRow
-@onready var enemy_stage: Panel = $EnemyStage
 @onready var hand_row: HBoxContainer = $HandRow
 @onready var hand_tray: Panel = $HandTray
 @onready var end_turn_button: Button = $EndTurnButton
@@ -36,13 +36,9 @@ var _enemy_hit_by_uid := {}
 var _drag_uid: String = ""
 var _drag_ghost: CombatCard = null
 var _drag_source: CombatCard = null
-var _drag_hint := ""
-var _self_highlight: ColorRect = null
-var _stage_highlight: ColorRect = null
 
 
 func _ready() -> void:
-	_ensure_drop_hints()
 	_begin_combat()
 	_refresh()
 
@@ -203,14 +199,7 @@ func _refresh() -> void:
 
 
 func _refresh_hud() -> void:
-	var sealed = state.get("sealed")
-	var sealed_txt := ""
-	if sealed:
-		sealed_txt = "　封印:%s" % ("攻撃" if sealed == "attack" else "技能")
-	var powers_txt := ""
-	for p in state.get("powers", []):
-		powers_txt += "\n%s" % CombatLogic.POWER_TEXT.get(p, p)
-	hud_label.text = "HP %d/%d　SAN %d/%d\nエネルギー %d/%d　ブロック %d\n筋力 %d　弱体 %d　毒 %d%s%s" % [
+	var line1 := "HP %d/%d　SAN %d/%d　エネルギー %d/%d　ブロック %d" % [
 		int(player.hp),
 		int(player.maxHp),
 		int(player.sanity),
@@ -218,21 +207,41 @@ func _refresh_hud() -> void:
 		int(state.get("energy", 0)),
 		int(state.get("maxEnergy", 0)),
 		int(state.get("block", 0)),
-		int(state.get("strength", 0)),
-		int(state.get("weak", 0)),
-		int(state.get("poison", 0)),
-		sealed_txt,
-		powers_txt,
 	]
+	var bits: PackedStringArray = PackedStringArray()
+	var strength: int = int(state.get("strength", 0))
+	var weak: int = int(state.get("weak", 0))
+	var poison: int = int(state.get("poison", 0))
+	if strength > 0:
+		bits.append("筋力 %d" % strength)
+	if weak > 0:
+		bits.append("弱体 %d" % weak)
+	if poison > 0:
+		bits.append("毒 %d" % poison)
+	var sealed = state.get("sealed")
+	if sealed:
+		bits.append("封印:%s" % ("攻撃" if sealed == "attack" else "技能"))
+	for p in state.get("powers", []):
+		bits.append(str(CombatLogic.POWER_TEXT.get(p, p)))
+	if bits.is_empty():
+		hud_label.text = line1
+	else:
+		hud_label.text = "%s\n%s" % [line1, "　".join(bits)]
 
 
 func _refresh_log() -> void:
 	var log_lines: Array = state.get("log", [])
-	var start: int = maxi(0, log_lines.size() - 6)
 	var lines: PackedStringArray = PackedStringArray()
-	for i in range(start, log_lines.size()):
+	for i in log_lines.size():
 		lines.append(str(log_lines[i]))
 	log_label.text = "\n".join(lines)
+	call_deferred("_scroll_log_to_end")
+
+
+func _scroll_log_to_end() -> void:
+	if log_scroll == null or not is_instance_valid(log_scroll):
+		return
+	log_scroll.scroll_vertical = int(log_scroll.get_v_scroll_bar().max_value)
 
 
 func _refresh_enemies() -> void:
@@ -245,7 +254,7 @@ func _refresh_enemies() -> void:
 		var def := Enemies.get_enemy(str(e.defId))
 		var uid: String = str(e.uid)
 		var root := Control.new()
-		root.custom_minimum_size = Vector2(180, 248)
+		root.custom_minimum_size = Vector2(236, 320)
 		root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.set_meta("enemy_uid", uid)
 		root.set_meta("dead", dead)
@@ -264,7 +273,7 @@ func _refresh_enemies() -> void:
 		col.add_child(_make_intent_row(intent, dead))
 
 		var art := TextureRect.new()
-		art.custom_minimum_size = Vector2(160, 140)
+		art.custom_minimum_size = Vector2(220, 210)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -295,14 +304,7 @@ func _refresh_enemies() -> void:
 		hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(hp_label)
 
-		var glow := ColorRect.new()
-		glow.name = "DropGlow"
-		glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		glow.color = Color(0.94, 0.79, 0.38, 0.0)
-
 		root.add_child(col)
-		root.add_child(glow)
 		enemy_row.add_child(root)
 		_enemy_art_by_uid[uid] = art
 		if not dead:
@@ -463,7 +465,6 @@ func _sync_drag() -> void:
 	if _drag_ghost != null and is_instance_valid(_drag_ghost):
 		var mouse := get_global_mouse_position()
 		_drag_ghost.global_position = mouse - (_drag_ghost.size * 0.5)
-	_update_drag_feedback()
 
 
 func _finish_drag() -> void:
@@ -487,10 +488,6 @@ func _clear_drag() -> void:
 	_drag_ghost = null
 	_drag_source = null
 	_drag_uid = ""
-	if message_label.text == _drag_hint:
-		message_label.text = ""
-	_drag_hint = ""
-	_reset_drop_hints()
 
 
 func _resolve_drop(card_uid: String, pos: Vector2) -> Dictionary:
@@ -528,78 +525,6 @@ func _pick_foe(pos: Vector2) -> String:
 		if node.get_global_rect().has_point(pos):
 			return str(uid)
 	return ""
-
-
-func _update_drag_feedback() -> void:
-	if _drag_uid == "":
-		return
-	var pos := get_global_mouse_position()
-	var drop: Dictionary = _resolve_drop(_drag_uid, pos)
-	var ok: bool = drop.get("ok") and true
-	var target_id = drop.get("target_id")
-	if _drag_ghost != null and is_instance_valid(_drag_ghost):
-		_drag_ghost.modulate = Color(1.12, 1.06, 0.86, 1.0) if ok else Color.WHITE
-	var card = _find_hand(_drag_uid)
-	var is_enemy_target := false
-	if card != null:
-		var definition: Dictionary = Cards.get_card(str(card.defId))
-		is_enemy_target = str(definition.get("target", "none")) == "enemy"
-	if _stage_highlight != null:
-		_stage_highlight.color = Color(0.94, 0.79, 0.38, 0.10) if is_enemy_target else Color(0.94, 0.79, 0.38, 0.0)
-	if _self_highlight != null:
-		var self_lit: bool = ok and not is_enemy_target
-		_self_highlight.color = Color(0.46, 0.78, 0.87, 0.18) if self_lit else Color(0.46, 0.78, 0.87, 0.0)
-	for uid in _enemy_hit_by_uid:
-		var node: Control = _enemy_hit_by_uid[uid]
-		if node == null or not is_instance_valid(node):
-			continue
-		var glow := node.get_node_or_null("DropGlow")
-		if glow is ColorRect:
-			var hovered: bool = ok and target_id != null and str(target_id) == str(uid)
-			if hovered:
-				glow.color = Color(0.94, 0.79, 0.38, 0.28)
-			elif is_enemy_target:
-				glow.color = Color(0.94, 0.79, 0.38, 0.08)
-			else:
-				glow.color = Color(0.94, 0.79, 0.38, 0.0)
-	if ok:
-		_drag_hint = "ここで放つ"
-	else:
-		_drag_hint = "手札に戻すとキャンセル"
-	message_label.text = _drag_hint
-
-
-func _reset_drop_hints() -> void:
-	if _self_highlight != null:
-		_self_highlight.color = Color(0.46, 0.78, 0.87, 0.0)
-	if _stage_highlight != null:
-		_stage_highlight.color = Color(0.94, 0.79, 0.38, 0.0)
-	for uid in _enemy_hit_by_uid:
-		var node: Control = _enemy_hit_by_uid[uid]
-		if node == null or not is_instance_valid(node):
-			continue
-		var glow := node.get_node_or_null("DropGlow")
-		if glow is ColorRect:
-			glow.color = Color(0.94, 0.79, 0.38, 0.0)
-
-
-func _ensure_drop_hints() -> void:
-	if _self_highlight == null:
-		_self_highlight = ColorRect.new()
-		_self_highlight.name = "SelfDropHint"
-		_self_highlight.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_self_highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_self_highlight.color = Color(0.46, 0.78, 0.87, 0.0)
-		hud_panel.add_child(_self_highlight)
-		hud_panel.move_child(_self_highlight, 0)
-	if _stage_highlight == null:
-		_stage_highlight = ColorRect.new()
-		_stage_highlight.name = "EnemyDropHint"
-		_stage_highlight.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		_stage_highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_stage_highlight.color = Color(0.94, 0.79, 0.38, 0.0)
-		enemy_stage.add_child(_stage_highlight)
-		enemy_stage.move_child(_stage_highlight, 0)
 
 
 func _make_intent_row(intent: Dictionary, dead: bool) -> HBoxContainer:
