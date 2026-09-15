@@ -18,6 +18,20 @@ const ARCHETYPE_LABELS := {
 	"greatold": "旧支配者",
 }
 
+const ART_FALLBACK := {
+	"res://art/pixel/cards/ancient_wisdom.jpg": "res://art/pixel/cards/tome.jpg",
+	"res://art/pixel/cards/order_protection.jpg": "res://art/pixel/cards/ward.jpg",
+	"res://art/pixel/cards/calm_blessing.jpg": "res://art/pixel/cards/resolve.jpg",
+	"res://art/pixel/cards/sealing_moment.jpg": "res://art/pixel/cards/sigil.jpg",
+	"res://art/pixel/cards/wardlight_afterglow.jpg": "res://art/pixel/cards/eldersign.jpg",
+	"res://art/pixel/cards/venom_blade.jpg": "res://art/pixel/cards/corrosive_strike.jpg",
+	"res://art/pixel/cards/corroding_barrage.jpg": "res://art/pixel/cards/corrosive_strike.jpg",
+	"res://art/pixel/cards/toxic_mist.jpg": "res://art/pixel/cards/pus_mist.jpg",
+	"res://art/pixel/cards/pustule_armor.jpg": "res://art/pixel/cards/adapted_scales.jpg",
+	"res://art/pixel/cards/venom_potency.jpg": "res://art/pixel/cards/pus_mist.jpg",
+	"res://art/pixel/cards/self_poisoning.jpg": "res://art/pixel/cards/bloodpact.jpg",
+}
+
 const CARDS := {
 	"strike": {
 		"id": "strike",
@@ -3991,7 +4005,23 @@ static func get_card(id: String) -> Dictionary:
 	if not CARDS.has(id):
 		push_error("Unknown card %s" % id)
 		return {}
-	return CARDS[id]
+	var d: Dictionary = CARDS[id]
+	var art: String = str(d.get("art", ""))
+	var resolved: String = resolve_art(art)
+	if resolved != art:
+		var copy: Dictionary = d.duplicate()
+		copy["art"] = resolved
+		return copy
+	return d
+
+
+## 未収録のカードイラストを、同系統の既存 jpg へ逃がす。
+static func resolve_art(path: String) -> String:
+	if path.is_empty():
+		return path
+	if FileAccess.file_exists(path):
+		return path
+	return ART_FALLBACK.get(path, path)
 
 
 ## cards.ts frameClassForCard()

@@ -2,23 +2,28 @@ extends Control
 
 ## CombatView.tsx の操作フローを再現する戦闘コントローラ。
 ## 手札はドラッグ&ドロップでプレイ（原作 resolveDrop / isAboveHand / pickFoe 相当）。
-## HUD/ログは薄いオーバーレイ。敵は全身を表示し、次に使うカードを見せる。
+## HUD/ログは原作の石枠パネル。敵は全身＋右に使用カードとステータスパネル。
 ## ゲームロジック（_play_card / _end_turn 等）は変更しない。
 
 const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
+const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
 const HAND_ABOVE_MARGIN := 20.0
-const CARD_SIZE := Vector2(128, 176)
+const CARD_SIZE := Vector2(128, 192)
+const PREVIEW_CARD_SIZE := Vector2(112, 160)
+const FRAME_PANEL := "res://art/ui/frame_panel.png"
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 
+@onready var hud_panel: Panel = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
 @onready var log_scroll: ScrollContainer = $LogPanel/LogScroll
 @onready var log_label: Label = $LogPanel/LogScroll/LogLabel
+@onready var log_panel: Panel = $LogPanel
 @onready var message_label: Label = $MessageLabel
 @onready var enemy_row: HBoxContainer = $EnemyRow
-@onready var hand_row: HBoxContainer = $HandRow
+@onready var hand_row: Control = $HandRow
 @onready var hand_tray: Panel = $HandTray
 @onready var end_turn_button: Button = $EndTurnButton
 @onready var background_art: TextureRect = $BackgroundArt
@@ -34,9 +39,20 @@ var _enemy_hit_by_uid := {}
 var _drag_uid: String = ""
 var _drag_ghost: CombatCard = null
 var _drag_source: CombatCard = null
+var _hud_name: Label
+var _hud_floor: Label
+var _hp_fill: ColorRect
+var _hp_value: Label
+var _san_fill: ColorRect
+var _san_value: Label
+var _hud_status: Label
+var _draw_btn: Button
+var _discard_btn: Button
+var _chrome_ready: bool = false
 
 
 func _ready() -> void:
+	_build_chrome()
 	_begin_combat()
 	_refresh()
 
@@ -80,7 +96,7 @@ func _begin_combat() -> void:
 	GameState.extra_energy_next = 0
 	GameState.apply_player_hook(player)
 	_apply_biome_art(enemy_ids)
-	message_label.text = "%s　%s" % [Floors.layer_label(floor), Floors.floor_kind_label(kind, floor)]
+	message_label.text = ""
 
 
 func _apply_biome_art(enemy_ids: Array) -> void:
@@ -197,23 +213,26 @@ func _refresh() -> void:
 
 
 func _refresh_hud() -> void:
-	var line1 := "HP %d/%d　SAN %d/%d　エネルギー %d/%d　ブロック %d" % [
-		int(player.hp),
-		int(player.maxHp),
-		int(player.sanity),
-		int(player.maxSanity),
-		int(state.get("energy", 0)),
-		int(state.get("maxEnergy", 0)),
-		int(state.get("block", 0)),
-	]
+	if not _chrome_ready:
+		_build_chrome()
+	var pname: String = GameState.player_name
+	if pname == "":
+		pname = "無名"
+	_hud_name.text = pname
+	var current_floor: int = int(GameState.floor)
+	_hud_floor.text = "%s · %s" % [Floors.floor_band(current_floor), Floors.layer_label(current_floor)]
+	_set_bar(_hp_fill, _hp_value, int(player.hp), int(player.maxHp))
+	_set_bar(_san_fill, _san_value, int(player.sanity), int(player.maxSanity))
 	var bits: PackedStringArray = PackedStringArray()
+	bits.append("NRG %d/%d" % [int(state.get("energy", 0)), int(state.get("maxEnergy", 0))])
+	bits.append("防 %d" % int(state.get("block", 0)))
 	var strength: int = int(state.get("strength", 0))
 	var weak: int = int(state.get("weak", 0))
 	var poison: int = int(state.get("poison", 0))
 	if strength > 0:
-		bits.append("筋力 %d" % strength)
+		bits.append("筋 %d" % strength)
 	if weak > 0:
-		bits.append("弱体 %d" % weak)
+		bits.append("弱 %d" % weak)
 	if poison > 0:
 		bits.append("毒 %d" % poison)
 	var sealed = state.get("sealed")
@@ -221,18 +240,32 @@ func _refresh_hud() -> void:
 		bits.append("封印:%s" % ("攻撃" if sealed == "attack" else "技能"))
 	for p in state.get("powers", []):
 		bits.append(str(CombatLogic.POWER_TEXT.get(p, p)))
-	if bits.is_empty():
-		hud_label.text = line1
-	else:
-		hud_label.text = "%s\n%s" % [line1, "　".join(bits)]
+	_hud_status.text = "  ".join(bits)
+	if _draw_btn:
+		_draw_btn.text = "山札: %d" % int((state.get("draw", []) as Array).size())
+	if _discard_btn:
+		_discard_btn.text = "捨て札: %d" % int((state.get("discard", []) as Array).size())
+	hud_label.visible = false
+
+
+func _set_bar(fill: ColorRect, value_label: Label, current: int, maximum: int) -> void:
+	value_label.text = "%d/%d" % [current, maximum]
+	var ratio: float = 0.0
+	if maximum > 0:
+		ratio = clampf(float(current) / float(maximum), 0.0, 1.0)
+	fill.anchor_right = ratio
 
 
 func _refresh_log() -> void:
 	var log_lines: Array = state.get("log", [])
+	var recent: Array = log_lines.slice(maxi(0, log_lines.size() - 5), log_lines.size())
 	var lines: PackedStringArray = PackedStringArray()
-	for i in log_lines.size():
-		lines.append(str(log_lines[i]))
-	log_label.text = "\n".join(lines)
+	for i in recent.size():
+		lines.append(str(recent[i]))
+	if lines.is_empty():
+		log_label.text = "まだ記録がない。"
+	else:
+		log_label.text = "\n".join(lines)
 	call_deferred("_scroll_log_to_end")
 
 
@@ -258,16 +291,8 @@ func _refresh_enemies() -> void:
 		root.set_meta("enemy_uid", uid)
 		root.set_meta("dead", dead)
 
-		var col := VBoxContainer.new()
-		col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		col.alignment = BoxContainer.ALIGNMENT_CENTER
-		col.add_theme_constant_override("separation", 6)
-		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
 		var art := TextureRect.new()
-		art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		art.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		art.custom_minimum_size = Vector2(280, 240)
+		art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -275,51 +300,11 @@ func _refresh_enemies() -> void:
 		art.texture = _load_texture_safe(str(def.get("art", "")))
 		if dead:
 			art.modulate = Color(0.35, 0.35, 0.35, 0.45)
-		col.add_child(art)
+		root.add_child(art)
 
 		if not dead:
-			col.add_child(_make_upcoming_cards(e))
+			root.add_child(_make_enemy_plate(e, def))
 
-		var name_label := Label.new()
-		name_label.text = str(def.get("name", e.defId))
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_label.add_theme_font_size_override("font_size", 13)
-		name_label.add_theme_color_override("font_color", Color("e9dcc1") if not dead else Color(0.45, 0.42, 0.38))
-		name_label.add_theme_color_override("font_outline_color", Color(0.03, 0.02, 0.02, 0.92))
-		name_label.add_theme_constant_override("outline_size", 4)
-		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(name_label)
-
-		var hp_label := Label.new()
-		if dead:
-			hp_label.text = "撃破"
-		else:
-			var block_txt := ""
-			if int(e.get("block", 0)) > 0:
-				block_txt = "  防 %d" % int(e.block)
-			hp_label.text = "HP %d/%d%s" % [int(e.hp), int(e.maxHp), block_txt]
-		hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hp_label.add_theme_font_size_override("font_size", 12)
-		hp_label.add_theme_color_override("font_color", Color("c4b79a"))
-		hp_label.add_theme_color_override("font_outline_color", Color(0.03, 0.02, 0.02, 0.92))
-		hp_label.add_theme_constant_override("outline_size", 3)
-		hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(hp_label)
-
-		if not dead:
-			var action_txt: String = _enemy_action_text(e)
-			if action_txt != "":
-				var action_label := Label.new()
-				action_label.text = action_txt
-				action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				action_label.add_theme_font_size_override("font_size", 11)
-				action_label.add_theme_color_override("font_color", Color("d4a84b"))
-				action_label.add_theme_color_override("font_outline_color", Color(0.03, 0.02, 0.02, 0.92))
-				action_label.add_theme_constant_override("outline_size", 3)
-				action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				col.add_child(action_label)
-
-		root.add_child(col)
 		enemy_row.add_child(root)
 		_enemy_art_by_uid[uid] = art
 		if not dead:
@@ -345,13 +330,15 @@ func _refresh_hand() -> void:
 		child.queue_free()
 	var player_turn: bool = state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving
 	for card in state.get("hand", []):
-		var d := Cards.get_card(str(card.defId))
+		var d: Dictionary = Cards.get_card(str(card.defId))
 		var playable: bool = player_turn and CombatLogic.can_play(state, card)
 		var btn: CombatCard = COMBAT_CARD.new()
 		btn.custom_minimum_size = CARD_SIZE
+		btn.size = CARD_SIZE
 		btn.configure(card, d, playable, str(card.uid) == targeting_uid)
 		btn.drag_began.connect(_on_drag_began)
 		hand_row.add_child(btn)
+	call_deferred("_layout_fan")
 
 
 func _upcoming_card_ids(e: Dictionary) -> Array:
@@ -383,8 +370,8 @@ func _make_upcoming_cards(e: Dictionary) -> HBoxContainer:
 		var definition: Dictionary = Cards.get_card(str(id))
 		var fake: Dictionary = {"uid": "", "defId": str(id)}
 		var preview: CombatCard = COMBAT_CARD.new()
-		preview.custom_minimum_size = Vector2(96, 132)
-		preview.size = Vector2(96, 132)
+		preview.custom_minimum_size = PREVIEW_CARD_SIZE
+		preview.size = PREVIEW_CARD_SIZE
 		preview.configure(fake, definition, true, false, false)
 		row.add_child(preview)
 	return row
@@ -568,10 +555,289 @@ func _pick_foe(pos: Vector2) -> String:
 	return ""
 
 
+func _make_enemy_plate(e: Dictionary, def: Dictionary) -> VBoxContainer:
+	var plate := VBoxContainer.new()
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_theme_constant_override("separation", 4)
+	plate.set_anchors_preset(Control.PRESET_CENTER)
+	plate.anchor_left = 0.56
+	plate.anchor_right = 0.56
+	plate.anchor_top = 0.20
+	plate.anchor_bottom = 0.20
+	plate.offset_left = 8.0
+	plate.offset_right = 176.0
+	plate.offset_top = 0.0
+	plate.offset_bottom = 8.0
+	plate.add_child(_make_upcoming_cards(e))
+
+	var box := Panel.new()
+	box.custom_minimum_size = Vector2(160, 72)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.055, 0.05, 0.045, 0.94)
+	style.border_color = Color(0.42, 0.36, 0.26, 1)
+	style.set_border_width_all(2)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	box.add_theme_stylebox_override("panel", style)
+
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 8
+	col.offset_right = -8
+	col.offset_top = 6
+	col.offset_bottom = -6
+	col.add_theme_constant_override("separation", 2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var name_label := Label.new()
+	name_label.text = str(def.get("name", e.defId))
+	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_color_override("font_color", Color.WHITE)
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(name_label)
+
+	var action_label := Label.new()
+	action_label.text = _enemy_action_text(e)
+	action_label.add_theme_font_size_override("font_size", 11)
+	action_label.add_theme_color_override("font_color", Color("d4a84b"))
+	action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(action_label)
+
+	var track := ColorRect.new()
+	track.custom_minimum_size = Vector2(0, 6)
+	track.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	track.color = Color("161512")
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill := ColorRect.new()
+	var ratio: float = 0.0
+	if int(e.maxHp) > 0:
+		ratio = clampf(float(e.hp) / float(e.maxHp), 0.0, 1.0)
+	fill.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	fill.anchor_right = ratio
+	fill.color = Color("8b1e1e")
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.add_child(fill)
+	col.add_child(track)
+
+	var hp_label := Label.new()
+	var block_txt := ""
+	if int(e.get("block", 0)) > 0:
+		block_txt = " · 防 %d" % int(e.block)
+	hp_label.text = "%d/%d%s" % [int(e.hp), int(e.maxHp), block_txt]
+	hp_label.add_theme_font_size_override("font_size", 10)
+	hp_label.add_theme_color_override("font_color", Color("b8ad96"))
+	hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(hp_label)
+
+	var status_bits: PackedStringArray = PackedStringArray()
+	if int(e.get("strength", 0)) > 0:
+		status_bits.append("筋 %d" % int(e.strength))
+	if int(e.get("weak", 0)) > 0:
+		status_bits.append("弱 %d" % int(e.weak))
+	if int(e.get("poison", 0)) > 0:
+		status_bits.append("毒 %d" % int(e.poison))
+	if status_bits.size() > 0:
+		var status_label := Label.new()
+		status_label.text = "  ".join(status_bits)
+		status_label.add_theme_font_size_override("font_size", 10)
+		status_label.add_theme_color_override("font_color", Color("d4a84b"))
+		status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(status_label)
+
+	box.add_child(col)
+	plate.add_child(box)
+	return plate
+
+
+func _layout_fan() -> void:
+	var n: int = hand_row.get_child_count()
+	if n == 0:
+		return
+	var origin := Vector2(hand_row.size.x * 0.5, hand_row.size.y - 4.0)
+	var overlap: float = 0.0
+	if n > 1:
+		if n <= 4:
+			overlap = -8.0
+		elif n <= 6:
+			overlap = -24.0
+		elif n <= 8:
+			overlap = -40.0
+		elif n <= 10:
+			overlap = -56.0
+		else:
+			overlap = -68.0
+	var step_angle: float = 0.0 if n <= 1 else minf(5.0, 24.0 / float(maxi(1, n - 1)))
+	for i in n:
+		var card: Control = hand_row.get_child(i) as Control
+		var offset: float = float(i) - float(n - 1) / 2.0
+		var rot: float = offset * step_angle
+		var extra_y: float = absf(offset) * (5.0 if n >= 9 else 7.0)
+		var x: float = offset * (CARD_SIZE.x + overlap)
+		card.pivot_offset = Vector2(CARD_SIZE.x * 0.5, CARD_SIZE.y)
+		card.position = Vector2(origin.x + x - CARD_SIZE.x * 0.5, origin.y - CARD_SIZE.y + extra_y)
+		card.rotation_degrees = rot
+		card.z_index = i
+
+
+func _build_chrome() -> void:
+	if _chrome_ready:
+		return
+	_chrome_ready = true
+	_decorate_panel(hud_panel)
+	_decorate_panel(log_panel)
+	hud_label.visible = false
+
+	_hud_name = _make_hud_label(Color.WHITE, 13)
+	_hud_name.position = Vector2(14, 12)
+	_hud_name.size = Vector2(120, 18)
+	hud_panel.add_child(_hud_name)
+
+	_hud_floor = _make_hud_label(Color("9a917f"), 11)
+	_hud_floor.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_hud_floor.position = Vector2(120, 12)
+	_hud_floor.size = Vector2(122, 18)
+	hud_panel.add_child(_hud_floor)
+
+	var hp_cap := _make_hud_label(Color("9a917f"), 10)
+	hp_cap.text = "HP"
+	hp_cap.position = Vector2(14, 34)
+	hp_cap.size = Vector2(28, 14)
+	hud_panel.add_child(hp_cap)
+	_hp_value = _make_hud_label(Color.WHITE, 10)
+	_hp_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_hp_value.position = Vector2(150, 34)
+	_hp_value.size = Vector2(90, 14)
+	hud_panel.add_child(_hp_value)
+	_hp_fill = _make_bar(hud_panel, Vector2(14, 48), Vector2(226, 8), Color("8b1e1e"))
+
+	var san_cap := _make_hud_label(Color("9a917f"), 10)
+	san_cap.text = "SAN"
+	san_cap.position = Vector2(14, 60)
+	san_cap.size = Vector2(36, 14)
+	hud_panel.add_child(san_cap)
+	_san_value = _make_hud_label(Color.WHITE, 10)
+	_san_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_san_value.position = Vector2(150, 60)
+	_san_value.size = Vector2(90, 14)
+	hud_panel.add_child(_san_value)
+	_san_fill = _make_bar(hud_panel, Vector2(14, 74), Vector2(226, 8), Color("3aa39a"))
+
+	_hud_status = _make_hud_label(Color.WHITE, 11)
+	_hud_status.position = Vector2(14, 88)
+	_hud_status.size = Vector2(226, 32)
+	_hud_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hud_panel.add_child(_hud_status)
+
+	_draw_btn = PIXEL_BUTTON.instantiate() as Button
+	_draw_btn.text = "山札: 0"
+	_draw_btn.position = Vector2(12, 158)
+	_draw_btn.size = Vector2(110, 36)
+	_draw_btn.pressed.connect(func(): _open_pile("draw"))
+	add_child(_draw_btn)
+
+	_discard_btn = PIXEL_BUTTON.instantiate() as Button
+	_discard_btn.text = "捨て札: 0"
+	_discard_btn.position = Vector2(130, 158)
+	_discard_btn.size = Vector2(120, 36)
+	_discard_btn.pressed.connect(func(): _open_pile("discard"))
+	add_child(_discard_btn)
+
+
+func _decorate_panel(panel: Panel) -> void:
+	var frame := NinePatchRect.new()
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.texture = load(FRAME_PANEL) as Texture2D
+	frame.draw_center = false
+	frame.patch_margin_left = 10
+	frame.patch_margin_top = 10
+	frame.patch_margin_right = 10
+	frame.patch_margin_bottom = 10
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(frame)
+	panel.move_child(frame, 0)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.07, 0.065, 0.055, 0.92)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", style)
+
+
+func _make_hud_label(tone: Color, font_px: int) -> Label:
+	var label := Label.new()
+	label.add_theme_font_size_override("font_size", font_px)
+	label.add_theme_color_override("font_color", tone)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
+
+
+func _make_bar(parent: Control, pos: Vector2, bar_size: Vector2, fill_color: Color) -> ColorRect:
+	var track := ColorRect.new()
+	track.position = pos
+	track.size = bar_size
+	track.color = Color("161512")
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(track)
+	var fill := ColorRect.new()
+	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fill.color = fill_color
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.add_child(fill)
+	return fill
+
+
+func _open_pile(which: String) -> void:
+	if state.is_empty():
+		return
+	var cards: Array = state.get(which, [])
+	var overlay := ColorRect.new()
+	overlay.color = Color(0.02, 0.02, 0.02, 0.85)
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 80
+	overlay.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed:
+			overlay.queue_free()
+	)
+	add_child(overlay)
+	var title := Label.new()
+	title.text = ("山札 %d枚" if which == "draw" else "捨て札 %d枚") % cards.size()
+	title.position = Vector2(24, 20)
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	overlay.add_child(title)
+	var wrap := HFlowContainer.new()
+	wrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrap.offset_left = 24
+	wrap.offset_top = 56
+	wrap.offset_right = -24
+	wrap.offset_bottom = -64
+	wrap.add_theme_constant_override("h_separation", 8)
+	wrap.add_theme_constant_override("v_separation", 8)
+	overlay.add_child(wrap)
+	for card in cards:
+		var d: Dictionary = Cards.get_card(str(card.defId))
+		var preview: CombatCard = COMBAT_CARD.new()
+		preview.custom_minimum_size = CARD_SIZE
+		preview.size = CARD_SIZE
+		preview.configure(card, d, true, false, false)
+		wrap.add_child(preview)
+	var close_btn: Button = PIXEL_BUTTON.instantiate() as Button
+	close_btn.text = "閉じる"
+	close_btn.position = Vector2(24, size.y - 56)
+	close_btn.size = Vector2(120, 40)
+	close_btn.pressed.connect(overlay.queue_free)
+	overlay.add_child(close_btn)
+
+
 func _load_texture_safe(path: String) -> Texture2D:
-	if path.is_empty() or not ResourceLoader.exists(path, "Texture2D"):
+	var resolved: String = Cards.resolve_art(path)
+	if resolved.is_empty() or not FileAccess.file_exists(resolved):
 		return load(FALLBACK_TEX) as Texture2D
-	var resource: Resource = ResourceLoader.load(path, "Texture2D")
+	var resource: Resource = ResourceLoader.load(resolved, "Texture2D")
 	if resource is Texture2D:
 		return resource as Texture2D
 	push_warning("Texture2Dとして読み込めませんでした: %s" % path)

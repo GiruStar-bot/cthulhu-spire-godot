@@ -39,6 +39,21 @@ static func generate_run_table(rng: Mulberry32, max_floor: int = DEMO_MAX_FLOOR)
 	return out
 
 
+## floors.ts の floorBand()
+static func floor_band(current_floor: int) -> String:
+	if current_floor >= 100:
+		return "最深"
+	if current_floor >= 80:
+		return "緑の広間"
+	if current_floor >= 60:
+		return "曲がる石"
+	if current_floor >= 40:
+		return "ムーの残骸"
+	if current_floor >= 20:
+		return "沈んだ街"
+	return "礁の層"
+
+
 ## floors.ts の layerLabel()
 static func layer_label(floor: int) -> String:
 	return "第%d層" % floor
