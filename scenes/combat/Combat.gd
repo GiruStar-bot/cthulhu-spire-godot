@@ -19,6 +19,14 @@ const FRAME_PANEL := "res://art/ui/frame_panel.png"
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 176.0
 const ENEMY_PLATE_GAP := 8.0
+const ENEMY_CUTOUT_W := 688.0
+const ENEMY_CUTOUT_H := 608.0
+const ENEMY_CUTOUT_W_DUAL := 640.0
+const ENEMY_BOSS_W := 816.0
+const ENEMY_BOSS_H := 688.0
+const ENEMY_GROUND_SINGLE := 0.20
+const ENEMY_GROUND_DUAL := 0.14
+const ENEMY_BOSS_HP := 150
 
 @onready var hud_panel: Panel = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
@@ -63,6 +71,8 @@ func _ready() -> void:
 		log_scroll.resized.connect(_fit_log_label)
 	if enemy_row and not enemy_row.resized.is_connected(_layout_enemies):
 		enemy_row.resized.connect(_layout_enemies)
+	if hand_row and not hand_row.resized.is_connected(_layout_fan):
+		hand_row.resized.connect(_layout_fan)
 	_begin_combat()
 	_refresh()
 	call_deferred("_fit_log_label")
@@ -348,6 +358,8 @@ func _spawn_enemy_stage(e: Dictionary, dead: bool) -> Control:
 	stage.clip_contents = false
 	stage.set_meta("enemy_uid", uid)
 	stage.set_meta("dead", dead)
+	stage.set_meta("max_hp", int(e.maxHp))
+	stage.set_meta("boss", int(e.maxHp) >= ENEMY_BOSS_HP)
 	var art := TextureRect.new()
 	art.name = "Art"
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -372,6 +384,8 @@ func _sync_enemy_stage(stage: Control, e: Dictionary, dead: bool) -> void:
 	var def: Dictionary = Enemies.get_enemy(str(e.defId))
 	var art: TextureRect = stage.get_node_or_null("Art") as TextureRect
 	stage.set_meta("dead", dead)
+	stage.set_meta("max_hp", int(e.maxHp))
+	stage.set_meta("boss", int(e.maxHp) >= ENEMY_BOSS_HP)
 	if art != null:
 		art.set_meta("dead", dead)
 		_enemy_art_by_uid[uid] = art
@@ -492,18 +506,24 @@ func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool
 func _refresh_hand() -> void:
 	if _drag_uid != "":
 		return
-	for child in hand_row.get_children():
-		child.queue_free()
+	var stale: Array = hand_row.get_children()
+	for child in stale:
+		hand_row.remove_child(child)
+		child.free()
 	var player_turn: bool = state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving
 	for card in state.get("hand", []):
 		var d: Dictionary = Cards.get_card(str(card.defId))
 		var playable: bool = player_turn and CombatLogic.can_play(state, card)
 		var btn: CombatCard = COMBAT_CARD.new()
+		btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		btn.custom_minimum_size = CARD_SIZE
 		btn.size = CARD_SIZE
 		btn.configure(card, d, playable, str(card.uid) == targeting_uid)
 		btn.drag_began.connect(_on_drag_began)
 		hand_row.add_child(btn)
+	_layout_fan()
 	call_deferred("_layout_fan")
 
 
@@ -817,10 +837,19 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary) -> VBoxContainer:
 
 
 func _layout_fan() -> void:
-	var n: int = hand_row.get_child_count()
+	if hand_row == null or not is_instance_valid(hand_row):
+		return
+	var cards: Array = []
+	for child in hand_row.get_children():
+		if child is Control and not child.is_queued_for_deletion():
+			cards.append(child)
+	var n: int = cards.size()
 	if n == 0:
 		return
-	var origin := Vector2(hand_row.size.x * 0.5, hand_row.size.y - 4.0)
+	var area: Vector2 = hand_row.size
+	if area.x < 8.0 or area.y < 8.0:
+		return
+	var origin := Vector2(area.x * 0.5, area.y - 4.0)
 	var overlap: float = 0.0
 	if n > 1:
 		if n <= 4:
@@ -834,12 +863,15 @@ func _layout_fan() -> void:
 		else:
 			overlap = -68.0
 	var step_angle: float = 0.0 if n <= 1 else minf(5.0, 24.0 / float(maxi(1, n - 1)))
+	var spacing: float = CARD_SIZE.x + overlap
 	for i in n:
-		var card: Control = hand_row.get_child(i) as Control
+		var card: Control = cards[i] as Control
 		var offset: float = float(i) - float(n - 1) / 2.0
 		var rot: float = offset * step_angle
 		var extra_y: float = absf(offset) * (5.0 if n >= 9 else 7.0)
-		var x: float = offset * (CARD_SIZE.x + overlap)
+		var x: float = offset * spacing
+		card.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		card.size = CARD_SIZE
 		card.pivot_offset = Vector2(CARD_SIZE.x * 0.5, CARD_SIZE.y)
 		card.position = Vector2(origin.x + x - CARD_SIZE.x * 0.5, origin.y - CARD_SIZE.y + extra_y)
 		card.rotation_degrees = rot
@@ -1033,16 +1065,30 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 
 	var plate_w: float = 0.0 if plate == null else ENEMY_PLATE_W
 	var gap: float = 0.0 if plate == null else ENEMY_PLATE_GAP
-	var art_box := Vector2(slot_w, area.y)
+	var view: Vector2 = get_viewport_rect().size
+	var is_boss: bool = stage.get_meta("boss", false) and true
+	var max_w: float
+	var max_h: float
 	if count == 1:
-		## 原作 cutout は min(94vw, 43rem) 幅。高さはステージ全面（手札背面まで）。
-		art_box = Vector2(minf(area.x * 0.94, 688.0), area.y)
-	elif plate != null:
-		art_box = Vector2(maxf(64.0, slot_w - plate_w - gap), area.y)
+		if is_boss:
+			max_w = minf(view.x, ENEMY_BOSS_W)
+			max_h = minf(view.y * 0.78, ENEMY_BOSS_H)
+		else:
+			max_w = minf(view.x * 0.94, ENEMY_CUTOUT_W)
+			max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H)
+	else:
+		var slot_art_w: float = slot_w - plate_w - gap
+		max_w = minf(maxf(64.0, slot_art_w), minf(view.x * 0.80, ENEMY_CUTOUT_W_DUAL))
+		max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H)
+		if is_boss:
+			max_h = minf(view.y * 0.78, ENEMY_BOSS_H)
+	var art_box := Vector2(maxf(64.0, max_w), maxf(64.0, max_h))
 
 	var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
 	var drawn: Vector2 = tex_size * fitted
-	var art_pos := Vector2((slot_w - drawn.x) * 0.5, maxf(0.0, area.y - drawn.y))
+	var ground_ratio: float = ENEMY_GROUND_DUAL if count >= 2 else ENEMY_GROUND_SINGLE
+	var ground_y: float = area.y * (1.0 - ground_ratio)
+	var art_pos := Vector2((slot_w - drawn.x) * 0.5, ground_y - drawn.y)
 	if plate != null:
 		var group_w: float = drawn.x + gap + plate_w
 		var plate_h: float = maxf(220.0, plate.get_combined_minimum_size().y)
