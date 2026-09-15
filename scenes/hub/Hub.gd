@@ -603,7 +603,7 @@ func _commerce_button(label: String, action: Callable, disabled: bool = false, a
 	text_label.text = label
 	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+	text_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(text_label)
 	button.add_child(row)
@@ -619,7 +619,7 @@ func _commerce_card_result(definition: Dictionary, fallback_id: String) -> void:
 	label.text = "・%s" % str(definition.get("name", fallback_id))
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+	label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	row.add_child(label)
 	commerce_list.add_child(row)
 
@@ -886,7 +886,7 @@ func _refresh_sell_tab() -> void:
 			var name_label := Label.new()
 			name_label.text = str(def.get("name", base_card_id))
 			name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+			name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 			name_label.max_lines_visible = 2
 			cell.add_child(name_label)
 
@@ -902,7 +902,7 @@ func _refresh_sell_tab() -> void:
 			qty_label.text = "%d/%d" % [qty, sellable]
 			qty_label.custom_minimum_size = Vector2(40, 0)
 			qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			qty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+			qty_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 			qty_row.add_child(qty_label)
 			var plus_btn := Button.new()
 			plus_btn.text = "+"
@@ -914,7 +914,7 @@ func _refresh_sell_tab() -> void:
 			var price_label := Label.new()
 			price_label.text = "貝殻%d/枚" % unit_price
 			price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			price_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+			price_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 			cell.add_child(price_label)
 
 			sell_list_container.add_child(cell)
@@ -1197,7 +1197,7 @@ func _rebuild_card_list() -> void:
 	if ids.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "条件に一致するカードがありません。"
-		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		card_list_container.add_child(empty_label)
 		return
 
@@ -1246,7 +1246,7 @@ func _rebuild_card_list() -> void:
 		name_label.custom_minimum_size = Vector2(0, 28)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		name_label.max_lines_visible = 2
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card_content.add_child(name_label)
@@ -1265,7 +1265,7 @@ func _rebuild_deck_contents(deck: Dictionary) -> void:
 	if card_ids.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = "カードを左のプールから追加してください。"
-		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		deck_contents_container.add_child(empty_label)
 		return
 	for card_id in card_ids:
@@ -1282,7 +1282,7 @@ func _rebuild_deck_contents(deck: Dictionary) -> void:
 		label.text = "%s  ×%d" % [str(def.get("name", card_id)), count]
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		label.clip_text = true
 		row.add_child(label)
 
@@ -1435,7 +1435,7 @@ func _rebuild_equipped_list() -> void:
 			row.add_child(_make_art_thumbnail(str(equipped_def.get("art", "")), str(equipped_def.get("archetype", "")), "common", Vector2(50, 50)))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		if inst != null:
 			label.text = "%s: %s（Tier%d）" % [SLOT_LABEL.get(slot, slot), Equipment.equipment_label(inst), int(inst.get("tier", 1))]
 		else:
@@ -1513,7 +1513,7 @@ func _rebuild_inventory_list() -> void:
 		header.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(62, 62)))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		label.text = "%s（%s, Tier%d, 威力%.2f）" % [
 			Equipment.equipment_label(inst), def.get("slot", ""), int(inst.get("tier", 1)), float(inst.get("power", 1.0)),
 		]
@@ -1531,7 +1531,7 @@ func _rebuild_inventory_list() -> void:
 			var rune_id = sockets[i]
 			var socket_label := Label.new()
 			socket_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			socket_label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+			socket_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 			if rune_id != null:
 				var rune: Dictionary = CollectionData.rune_registry.get(rune_id, {})
 				socket_label.text = "  ソケット%d: %s(%s)" % [i, rune.get("effect", "?"), str(rune.get("value", "?"))]
@@ -1580,7 +1580,7 @@ func _rebuild_rune_list() -> void:
 		var rune_id: String = str(rune.get("id", ""))
 		var label := Label.new()
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_ARBITRARY
+		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 		var mark := "▶ " if rune_id == _selected_rune_id else ""
 		label.text = "%s%s（値%s）" % [mark, rune.get("effect", "?"), str(rune.get("value", "?"))]
 		row.add_child(label)
