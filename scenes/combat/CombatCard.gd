@@ -71,7 +71,10 @@ func configure(card: Dictionary, definition: Dictionary, playable: bool, selecte
 	var ai_tag: String = str(definition.get("aiTag", ""))
 	_header.color = TAG_TONES.get(ai_tag, Color("312d26"))
 	var arch: String = str(definition.get("archetype", ""))
-	_type.text = str(Cards.ARCHETYPE_LABELS.get(arch, ""))
+	var type_label: String = str(Cards.ARCHETYPE_LABELS.get(arch, ""))
+	if Cards.has_tag(definition, "cat"):
+		type_label = "猫" if type_label == "" else "%s·猫" % type_label
+	_type.text = type_label
 	_type.visible = _type.text != ""
 	_title.text = "%s%s" % [definition.get("name", "Unknown"), "+" if card.get("upgraded", false) else ""]
 	_cost.text = "X" if definition.get("xCost", false) else ("—" if definition.get("unplayable", false) else str(Cards.card_cost(card)))

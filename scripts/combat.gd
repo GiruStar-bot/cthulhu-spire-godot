@@ -167,6 +167,54 @@ static func _insert_into_draw(c: Dictionary, card: Dictionary, rand: Callable) -
 	c.draw.insert(idx, card)
 
 
+static func _double_effect_numbers(effects: Array) -> Array:
+	var out: Array = []
+	for item in effects:
+		if typeof(item) != TYPE_DICTIONARY:
+			out.append(item)
+			continue
+		var copy: Dictionary = item.duplicate(true)
+		if copy.has("n"):
+			copy.n = int(copy.n) * 2
+		if copy.has("block"):
+			copy.block = int(copy.block) * 2
+		if copy.has("strength"):
+			copy.strength = int(copy.strength) * 2
+		if copy.has("then"):
+			copy.then = _double_effect_numbers(copy.then)
+		out.append(copy)
+	return out
+
+
+static func _seek_tagged(c: Dictionary, tag: String, need: int, rand: Callable) -> int:
+	var moved: int = 0
+	moved += _pull_tagged_from(c, "draw", tag, need - moved, rand)
+	if moved < need:
+		moved += _pull_tagged_from(c, "discard", tag, need - moved, rand)
+	return moved
+
+
+static func _pull_tagged_from(c: Dictionary, pile_key: String, tag: String, need: int, rand: Callable) -> int:
+	if need <= 0:
+		return 0
+	var pile: Array = c[pile_key]
+	var hits: Array = []
+	var rest: Array = []
+	for card_inst in pile:
+		if Cards.has_tag(Cards.get_card(str(card_inst.defId)), tag):
+			hits.append(card_inst)
+		else:
+			rest.append(card_inst)
+	hits = Mulberry32.shuffle(hits, rand)
+	var take: int = mini(need, hits.size())
+	for i in take:
+		c.hand.append(hits[i])
+	var leftover: Array = hits.slice(take)
+	leftover.append_array(rest)
+	c[pile_key] = leftover
+	return take
+
+
 ## combat.ts computeDeckSynergy()
 static func compute_deck_synergy(deck: Array):
 	var counts := {}
@@ -233,6 +281,9 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		"thornsVulnerable": 0,
 		"xSpent": 0,
 		"forceEnd": false,
+		"bastBlessing": 0,
+		"bastBlock": 0,
+		"bastStr": 0,
 		"turn": 1,
 		"phase": "player",
 		"result": "ongoing",
@@ -297,7 +348,12 @@ static func _living_target(c: Dictionary, target_id):
 
 
 static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, target_id, rand: Callable, card = null) -> void:
-	for e in effects:
+	var work: Array = effects
+	if card != null:
+		var cdef: Dictionary = Cards.get_card(str(card.defId))
+		if Cards.has_tag(cdef, "cat") and "goddessContract" in c.powers:
+			work = _double_effect_numbers(effects)
+	for e in work:
 		var t: String = str(e.get("t", ""))
 		match t:
 			"damage":
@@ -509,6 +565,34 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				if ts:
 					ts.sealed = e.value
 					c.log.append("%sの%sを封じた。" % [Enemies.get_enemy(str(ts.defId)).name, "攻撃" if e.value == "attack" else "技能"])
+			"clearStatus":
+				c.poison = 0
+				c.weak = 0
+				c.vulnerable = 0
+				c.cold = 0
+				c.log.append("状態異常が回復した。")
+			"addToDraw":
+				var add_n: int = int(e.get("n", 1))
+				var add_id: String = str(e.get("id", ""))
+				for _i in add_n:
+					_insert_into_draw(c, Cards.make_card(add_id), rand)
+				c.log.append("%sを%d枚デッキに加えた。" % [Cards.get_card(add_id).get("name", add_id), add_n])
+			"addToHand":
+				var hand_n: int = int(e.get("n", 1))
+				var hand_id: String = str(e.get("id", ""))
+				for _j in hand_n:
+					c.hand.append(Cards.make_card(hand_id))
+				c.log.append("%sを%d枚手札に加えた。" % [Cards.get_card(hand_id).get("name", hand_id), hand_n])
+			"seekTagged":
+				var tag: String = str(e.get("tag", "cat"))
+				var need: int = int(e.n)
+				var moved: int = _seek_tagged(c, tag, need, rand)
+				c.log.append("デッキから「%s」を%d枚加えた。" % [tag, moved])
+			"bastBlessing":
+				c.bastBlessing = 1
+				c.bastBlock = Cards.scale_n(int(e.get("block", 5)), card)
+				c.bastStr = Cards.scale_n(int(e.get("strength", 1)), card)
+				c.log.append("このターン、猫を使うたびブロック%d、筋力%dを得る。" % [int(c.bastBlock), int(c.bastStr)])
 
 
 ## combat.ts changeSanity()
@@ -591,6 +675,13 @@ static func play_card(c: Dictionary, player: Dictionary, card_uid: String, targe
 	_run_effects(evaled.effects, c, player, target_id, rand, card)
 	if d.get("type") == "attack" and "resolve" in c.powers:
 		c.block = int(c.block) + 3
+	if int(c.get("bastBlessing", 0)) > 0 and Cards.has_tag(d, "cat"):
+		var bb: int = int(c.get("bastBlock", 5))
+		var bs: int = int(c.get("bastStr", 1))
+		c.block = int(c.block) + bb
+		c.strength = int(c.strength) + bs
+		c.floaters.append(_floater("+%d" % bb, "block", "player"))
+		c.log.append("女神の加護: ブロック%d、筋力%d。" % [bb, bs])
 	_finish_play(c, card, true if d.get("exhaust") else false)
 	_check_over(c, player)
 	var sfx: Array = ["attack"] if d.get("type") == "attack" else ["skill"]
@@ -704,6 +795,7 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 	if c.phase != "player" or c.result != "ongoing":
 		return sfx
 	c.phase = "enemy"
+	c.bastBlessing = 0
 	var kept: Array = []
 	var hand: Array = c.hand.duplicate()
 	c.hand = []
@@ -902,4 +994,5 @@ const POWER_TEXT := {
 	"resolve": "攻撃を出すとブロックを得る",
 	"echo": "ターン開始時、ランダムな敵にダメージ",
 	"bloodOath": "正気を失うと筋力を得る",
+	"goddessContract": "「猫」の効果の数字が2倍になる",
 }

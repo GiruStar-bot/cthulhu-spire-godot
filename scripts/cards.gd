@@ -24,6 +24,15 @@ const ART_FALLBACK := {
 	"res://art/pixel/cards/calm_blessing.jpg": "res://art/pixel/cards/resolve.jpg",
 	"res://art/pixel/cards/sealing_moment.jpg": "res://art/pixel/cards/sigil.jpg",
 	"res://art/pixel/cards/wardlight_afterglow.jpg": "res://art/pixel/cards/eldersign.jpg",
+	"res://art/pixel/cards/dream_mending.jpg": "res://art/pixel/cards/resolve.jpg",
+	"res://art/pixel/cards/far_guidance.jpg": "res://art/pixel/cards/tome.jpg",
+	"res://art/pixel/cards/light_pillar.jpg": "res://art/pixel/cards/eldersign.jpg",
+	"res://art/pixel/cards/trident.jpg": "res://art/pixel/cards/bash.jpg",
+	"res://art/pixel/cards/cats_paw.jpg": "res://art/pixel/cards/strike.jpg",
+	"res://art/pixel/cards/cat_fork.jpg": "res://art/pixel/cards/study.jpg",
+	"res://art/pixel/cards/goddess_blessing.jpg": "res://art/pixel/cards/ward.jpg",
+	"res://art/pixel/cards/goddess_offering.jpg": "res://art/pixel/cards/offering.jpg",
+	"res://art/pixel/cards/goddess_contract.jpg": "res://art/pixel/cards/sigil.jpg",
 	"res://art/pixel/cards/venom_blade.jpg": "res://art/pixel/cards/corrosive_strike.jpg",
 	"res://art/pixel/cards/corroding_barrage.jpg": "res://art/pixel/cards/corrosive_strike.jpg",
 	"res://art/pixel/cards/toxic_mist.jpg": "res://art/pixel/cards/pus_mist.jpg",
@@ -531,7 +540,6 @@ const CARDS := {
 		"name": "残響",
 		"type": "power",
 		"aiTag": "effect",
-		"archetype": "elder",
 		"cost": 1,
 		"rarity": "uncommon",
 		"owner": "cultist",
@@ -601,7 +609,6 @@ const CARDS := {
 		"name": "血の誓い",
 		"type": "power",
 		"aiTag": "effect",
-		"archetype": "elder",
 		"cost": 1,
 		"rarity": "uncommon",
 		"owner": "shared",
@@ -748,15 +755,221 @@ const CARDS := {
 			},
 		],
 	},
-	"ancient_wisdom": {
-		"id": "ancient_wisdom",
-		"name": "古の叡智",
+	"dream_mending": {
+		"id": "dream_mending",
+		"name": "夢の癒し",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "elder",
+		"cost": 3,
+		"rarity": "rare",
+		"owner": "shared",
+		"text": "体力20回復。状態異常を回復する。正気を4回復。",
+		"upgradedText": "体力20回復。状態異常を回復する。正気を4回復。",
+		"flavor": "バステトは、まだ眠る者を守る。",
+		"art": "res://art/pixel/cards/resolve.jpg",
+		"target": "none",
+		"effects": [
+			{"t": "heal", "n": 20},
+			{"t": "clearStatus"},
+			{"t": "sanity", "n": 4},
+		],
+		"upgradedEffects": [
+			{"t": "heal", "n": 20},
+			{"t": "clearStatus"},
+			{"t": "sanity", "n": 4},
+		],
+	},
+	"far_guidance": {
+		"id": "far_guidance",
+		"name": "彼方の導き",
 		"type": "skill",
 		"aiTag": "effect",
 		"archetype": "elder",
 		"cost": 1,
 		"rarity": "common",
 		"owner": "shared",
+		"text": "2枚引く。正気を2回復。",
+		"upgradedText": "2枚引く。正気を2回復。",
+		"flavor": "夢の岸から、白い手が伸びる。",
+		"art": "res://art/pixel/cards/tome.jpg",
+		"target": "none",
+		"effects": [
+			{"t": "draw", "n": 2},
+			{"t": "sanity", "n": 2},
+		],
+		"upgradedEffects": [
+			{"t": "draw", "n": 2},
+			{"t": "sanity", "n": 2},
+		],
+	},
+	"light_pillar": {
+		"id": "light_pillar",
+		"name": "光の柱",
+		"type": "attack",
+		"aiTag": "attack",
+		"archetype": "elder",
+		"cost": 2,
+		"rarity": "uncommon",
+		"owner": "shared",
+		"text": "敵全体に13ダメージ。",
+		"upgradedText": "敵全体に13ダメージ。",
+		"flavor": "ウルは、夜を貫く。",
+		"art": "res://art/pixel/cards/eldersign.jpg",
+		"target": "all",
+		"effects": [
+			{"t": "damageAll", "n": 13},
+		],
+		"upgradedEffects": [
+			{"t": "damageAll", "n": 13},
+		],
+	},
+	"trident": {
+		"id": "trident",
+		"name": "三叉の矛",
+		"type": "attack",
+		"aiTag": "attack",
+		"archetype": "elder",
+		"cost": 2,
+		"rarity": "rare",
+		"owner": "shared",
+		"text": "敵単体に22ダメージ。",
+		"upgradedText": "敵単体に22ダメージ。",
+		"flavor": "川の神の、忘れられた武具。",
+		"art": "res://art/pixel/cards/bash.jpg",
+		"target": "enemy",
+		"effects": [
+			{"t": "damage", "n": 22},
+		],
+		"upgradedEffects": [
+			{"t": "damage", "n": 22},
+		],
+	},
+	"cats_paw": {
+		"id": "cats_paw",
+		"name": "ねこの手",
+		"type": "attack",
+		"aiTag": "attack",
+		"archetype": "elder",
+		"tags": ["cat"],
+		"cost": 0,
+		"rarity": "common",
+		"owner": "shared",
+		"text": "敵単体に5ダメージ。",
+		"upgradedText": "敵単体に5ダメージ。",
+		"flavor": "柔らかい。しかし、爪がある。",
+		"art": "res://art/pixel/cards/strike.jpg",
+		"target": "enemy",
+		"effects": [
+			{"t": "damage", "n": 5},
+		],
+		"upgradedEffects": [
+			{"t": "damage", "n": 5},
+		],
+	},
+	"cat_fork": {
+		"id": "cat_fork",
+		"name": "猫叉",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "elder",
+		"tags": ["cat"],
+		"cost": 1,
+		"rarity": "uncommon",
+		"owner": "shared",
+		"text": "デッキから「猫」をランダムに3枚手札に加える。",
+		"upgradedText": "デッキから「猫」をランダムに3枚手札に加える。",
+		"flavor": "三つの影が、同時に跳ねる。",
+		"art": "res://art/pixel/cards/study.jpg",
+		"target": "none",
+		"effects": [
+			{"t": "seekTagged", "tag": "cat", "n": 3},
+		],
+		"upgradedEffects": [
+			{"t": "seekTagged", "tag": "cat", "n": 3},
+		],
+	},
+	"goddess_blessing": {
+		"id": "goddess_blessing",
+		"name": "女神の加護",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "elder",
+		"tags": ["cat"],
+		"cost": 1,
+		"rarity": "uncommon",
+		"owner": "shared",
+		"text": "このターン、「猫」を使用するたび、ブロック5と筋力1を得る。",
+		"upgradedText": "このターン、「猫」を使用するたび、ブロック5と筋力1を得る。",
+		"flavor": "猫神は、眷属を数える。",
+		"art": "res://art/pixel/cards/ward.jpg",
+		"target": "none",
+		"effects": [
+			{"t": "bastBlessing", "block": 5, "strength": 1},
+		],
+		"upgradedEffects": [
+			{"t": "bastBlessing", "block": 5, "strength": 1},
+		],
+	},
+	"goddess_offering": {
+		"id": "goddess_offering",
+		"name": "女神への供物",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "elder",
+		"tags": ["cat"],
+		"cost": 1,
+		"rarity": "rare",
+		"owner": "shared",
+		"text": "体力を半分失う。「女神契約」をデッキに加える。破棄。",
+		"upgradedText": "体力を半分失う。「女神契約」をデッキに加える。破棄。",
+		"flavor": "血を半分。契約は、残る。",
+		"art": "res://art/pixel/cards/offering.jpg",
+		"target": "none",
+		"exhaust": true,
+		"effects": [
+			{"t": "hpCostHalf"},
+			{"t": "addToDraw", "id": "goddess_contract", "n": 1},
+		],
+		"upgradedEffects": [
+			{"t": "hpCostHalf"},
+			{"t": "addToDraw", "id": "goddess_contract", "n": 1},
+		],
+	},
+	"goddess_contract": {
+		"id": "goddess_contract",
+		"name": "女神契約",
+		"type": "power",
+		"aiTag": "effect",
+		"archetype": "elder",
+		"tags": ["cat"],
+		"cost": 0,
+		"rarity": "rare",
+		"owner": "shared",
+		"unobtainable": true,
+		"text": "「猫」の効果の数字を2倍にする。「ねこの手」を4枚手札に加える。",
+		"upgradedText": "「猫」の効果の数字を2倍にする。「ねこの手」を4枚手札に加える。",
+		"flavor": "名前を呼ばれた。従うほかない。",
+		"art": "res://art/pixel/cards/sigil.jpg",
+		"target": "none",
+		"effects": [
+			{"t": "gainPower", "id": "goddessContract"},
+			{"t": "addToHand", "id": "cats_paw", "n": 4},
+		],
+		"upgradedEffects": [
+			{"t": "gainPower", "id": "goddessContract"},
+			{"t": "addToHand", "id": "cats_paw", "n": 4},
+		],
+	},
+	"ancient_wisdom": {
+		"id": "ancient_wisdom",
+		"name": "古の叡智",
+		"type": "skill",
+		"aiTag": "effect",
+		"cost": 1,
+		"rarity": "common",
+		"owner": "shared",
+		"retired": true,
 		"text": "2枚引く。",
 		"upgradedText": "3枚引く。",
 		"flavor": "読み解ける者にしか、価値の無い書物。",
@@ -780,10 +993,10 @@ const CARDS := {
 		"name": "秩序の守り",
 		"type": "skill",
 		"aiTag": "defense",
-		"archetype": "elder",
 		"cost": 1,
 		"rarity": "uncommon",
 		"owner": "shared",
+		"retired": true,
 		"text": "ブロック6を得る。毒を治療する。",
 		"upgradedText": "ブロック9を得る。毒を治療する。",
 		"flavor": "秩序は、混沌を体外へ押し出す。",
@@ -813,10 +1026,10 @@ const CARDS := {
 		"name": "静穏の加護",
 		"type": "skill",
 		"aiTag": "defense",
-		"archetype": "elder",
 		"cost": 1,
 		"rarity": "uncommon",
 		"owner": "shared",
+		"retired": true,
 		"text": "3回復。ブロック5を得る。",
 		"upgradedText": "5回復。ブロック7を得る。",
 		"flavor": "古き神々は、時に慈悲深い。",
@@ -848,10 +1061,10 @@ const CARDS := {
 		"name": "封印の刻",
 		"type": "skill",
 		"aiTag": "effect",
-		"archetype": "elder",
 		"cost": 1,
 		"rarity": "rare",
 		"owner": "shared",
+		"retired": true,
 		"text": "相手の技能を封じる。",
 		"upgradedText": "相手の技能を封じる。ブロック5を得る。",
 		"flavor": "言葉は、発せられる前に凍りつく。",
@@ -879,10 +1092,10 @@ const CARDS := {
 		"name": "護符の残光",
 		"type": "skill",
 		"aiTag": "defense",
-		"archetype": "elder",
 		"cost": 1,
 		"rarity": "common",
 		"owner": "shared",
+		"retired": true,
 		"text": "ブロック10を得る。",
 		"upgradedText": "ブロック14を得る。",
 		"flavor": "光が消えても、守りはまだそこにある。",
@@ -1974,7 +2187,6 @@ const CARDS := {
 		"name": "存在確率の拡散",
 		"type": "power",
 		"aiTag": "effect",
-		"archetype": "elder",
 		"cost": 3,
 		"rarity": "rare",
 		"owner": "shared",
@@ -4015,6 +4227,11 @@ static func get_card(id: String) -> Dictionary:
 	return d
 
 
+static func has_tag(def: Dictionary, tag: String) -> bool:
+	var tags = def.get("tags", [])
+	return tags is Array and tags.has(tag)
+
+
 ## 未収録のカードイラストを、同系統の既存 jpg へ逃がす。
 static func resolve_art(path: String) -> String:
 	if path.is_empty():
@@ -4147,6 +4364,8 @@ static func reward_pool(owner: String) -> Array:
 			continue
 		if c.get("grimoire") or c.get("shop") or c.get("enemyOnly"):
 			continue
+		if c.get("retired") or c.get("unobtainable"):
+			continue
 		if c.get("owner") == "shared" or c.get("owner") == owner:
 			out.append(c)
 	return out
@@ -4162,6 +4381,8 @@ static func archetype_card_pool(owner: String, archetype: String) -> Array:
 		if c.get("rarity") == "starter" or c.get("rarity") == "status":
 			continue
 		if c.get("grimoire") or c.get("enemyOnly"):
+			continue
+		if c.get("retired") or c.get("unobtainable"):
 			continue
 		if c.get("owner") == "shared" or c.get("owner") == owner:
 			out.append(c)
