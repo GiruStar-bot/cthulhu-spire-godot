@@ -405,7 +405,7 @@ func _on_close() -> void:
 func _clear_row() -> void:
 	for child in _row.get_children():
 		_row.remove_child(child)
-		child.free()
+		child.queue_free()
 	_slots.clear()
 
 

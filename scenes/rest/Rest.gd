@@ -405,7 +405,7 @@ func _free_children(node: Node) -> void:
 	var kids: Array = node.get_children()
 	for child in kids:
 		node.remove_child(child)
-		child.free()
+		child.queue_free()
 
 
 func _load_texture_safe(path: String) -> Texture2D:

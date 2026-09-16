@@ -588,7 +588,9 @@ func _on_top_right_button_pressed() -> void:
 
 
 func _refresh_commerce() -> void:
-	for child in commerce_list.get_children(): child.free()
+	for child in commerce_list.get_children():
+		commerce_list.remove_child(child)
+		child.queue_free()
 	if _commerce_tab == "shop":
 		## ShopPanel.tsx 相当：通常パック（buyCardPack()）購入のみ。
 		## 以前ここにあったSHOP_CARDS（鉄剣等）販売は鍛冶屋（Rest.gd）側の実装であり、
@@ -1302,14 +1304,14 @@ func _clear_starter_pick() -> void:
 	while leftover != null:
 		leftover.name = "StarterPickDead"
 		deck_panel.remove_child(leftover)
-		leftover.free()
+		leftover.queue_free()
 		leftover = deck_panel.get_node_or_null("StarterPickRoot")
 	if starter_pick_panel == null:
 		return
 	var kids: Array = starter_pick_panel.get_children()
 	for child in kids:
 		starter_pick_panel.remove_child(child)
-		child.free()
+		child.queue_free()
 
 
 func _rebuild_starter_pick() -> void:
@@ -1611,7 +1613,7 @@ func _free_children(node: Node) -> void:
 	var kids: Array = node.get_children()
 	for child in kids:
 		node.remove_child(child)
-		child.free()
+		child.queue_free()
 
 
 func _on_deck_add_pressed(card_id: String) -> void:
@@ -1831,7 +1833,7 @@ func _close_card_inspector() -> void:
 	_inspector_dim = null
 	if _inspector_layer != null and is_instance_valid(_inspector_layer):
 		remove_child(_inspector_layer)
-		_inspector_layer.free()
+		_inspector_layer.queue_free()
 	_inspector_layer = null
 
 

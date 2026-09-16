@@ -401,7 +401,7 @@ func _sync_enemy_stage(stage: Control, e: Dictionary, dead: bool, dual: bool = f
 		var plate: Node = stage.get_node_or_null("Plate")
 		if plate != null:
 			stage.remove_child(plate)
-			plate.free()
+			plate.queue_free()
 		if not _death_fx_done.has(uid):
 			_death_fx_done[uid] = "playing"
 			_start_enemy_dissolve(stage, art)
@@ -412,7 +412,7 @@ func _sync_enemy_stage(stage: Control, e: Dictionary, dead: bool, dual: bool = f
 	var old_plate: Node = stage.get_node_or_null("Plate")
 	if old_plate != null:
 		stage.remove_child(old_plate)
-		old_plate.free()
+		old_plate.queue_free()
 	var plate: VBoxContainer = _make_enemy_plate(e, def, dual)
 	plate.name = "Plate"
 	plate.z_index = 12
@@ -516,7 +516,7 @@ func _refresh_hand() -> void:
 	var stale: Array = hand_row.get_children()
 	for child in stale:
 		hand_row.remove_child(child)
-		child.free()
+		child.queue_free()
 	var player_turn: bool = state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving
 	for card in state.get("hand", []):
 		var d: Dictionary = Cards.get_card(str(card.defId))
