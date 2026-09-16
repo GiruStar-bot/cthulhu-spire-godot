@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bvpma065jk42d"
-valid=false
+uid="uid://dpkreleayillw"
+path="res://.godot/imported/frame_card_uncommon_9.png-ef2f0c42779740879b73c7b574190306.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
-source_file="res://art/pixel/packs/pack_knight.png"
+source_file="res://art/pixel/ui/frame_card_uncommon_9.png"
+dest_files=["res://.godot/imported/frame_card_uncommon_9.png-ef2f0c42779740879b73c7b574190306.ctex"]
 
 [params]
 

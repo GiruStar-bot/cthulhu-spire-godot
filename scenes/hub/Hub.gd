@@ -655,7 +655,7 @@ func _open_pack(archetype: String) -> void:
 		var def_id: String = str(free_card.get("defId", ""))
 		CollectionData.add_loot_card(def_id)
 		revealed.append(def_id)
-	var art_path := "res://art/pixel/packs/pack_%s.png" % archetype
+	var art_path := "res://art/pixel/packs/pack_%s.jpg" % archetype
 	_start_pack_reveal(art_path, revealed)
 
 
@@ -828,7 +828,7 @@ func _make_pack_button(archetype: String, ticket_count: int) -> Button:
 	pack_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	pack_art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	pack_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var art_path := "res://art/pixel/packs/pack_%s.png" % archetype
+	var art_path := "res://art/pixel/packs/pack_%s.jpg" % archetype
 	if ResourceLoader.exists(art_path):
 		pack_art.texture = load(art_path)
 	content.add_child(pack_art)
@@ -1342,7 +1342,7 @@ func _make_starter_pick_card(archetype: String) -> Control:
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
 	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var art_path := "res://art/pixel/packs/pack_%s.png" % archetype
+	var art_path := "res://art/pixel/packs/pack_%s.jpg" % archetype
 	if ResourceLoader.exists(art_path):
 		art.texture = load(art_path)
 	card.add_child(art)

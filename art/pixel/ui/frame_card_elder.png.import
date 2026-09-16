@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://pjh504tm2p25"
-valid=false
+uid="uid://brrfcrh6ki7um"
+path="res://.godot/imported/frame_card_elder.png-e8b66988072fd3f0a9853b0c4bb0ee46.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
-source_file="res://art/pixel/packs/pack_outer.png"
+source_file="res://art/pixel/ui/frame_card_elder.png"
+dest_files=["res://.godot/imported/frame_card_elder.png-e8b66988072fd3f0a9853b0c4bb0ee46.ctex"]
 
 [params]
 

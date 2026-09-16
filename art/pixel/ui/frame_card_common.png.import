@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cmg2afbq448dd"
-valid=false
+uid="uid://btlk7ueehjxri"
+path="res://.godot/imported/frame_card_common.png-b51944b9c8d67a37126f1bbf303b6b2c.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
-source_file="res://art/pixel/packs/pack_shadow.png"
+source_file="res://art/pixel/ui/frame_card_common.png"
+dest_files=["res://.godot/imported/frame_card_common.png-b51944b9c8d67a37126f1bbf303b6b2c.ctex"]
 
 [params]
 
