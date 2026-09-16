@@ -15,9 +15,11 @@ const RESULT_LOSE_DELAY := 0.56
 const HAND_ABOVE_MARGIN := 20.0
 const CARD_SIZE := Vector2(128, 192)
 const PREVIEW_CARD_SIZE := Vector2(112, 160)
+const PREVIEW_CARD_SIZE_DUAL := Vector2(76, 114)
 const FRAME_PANEL := "res://art/ui/frame_panel.png"
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 176.0
+const ENEMY_PLATE_W_DUAL := 148.0
 const ENEMY_PLATE_GAP := 8.0
 const ENEMY_CUTOUT_W := 688.0
 const ENEMY_CUTOUT_H := 608.0
@@ -27,10 +29,6 @@ const ENEMY_BOSS_H := 688.0
 const ENEMY_GROUND_SINGLE := 0.20
 const ENEMY_GROUND_DUAL := 0.14
 const ENEMY_BOSS_HP := 150
-const ENEMY_DUAL_LEFT_PAD := 120.0
-const ENEMY_DUAL_SCALE := 0.80
-const ENEMY_DUAL_LEFT_T := 0.40
-const ENEMY_DUAL_RIGHT_T := 0.60
 
 @onready var hud_panel: Panel = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
@@ -309,6 +307,11 @@ func _scroll_log_to_end() -> void:
 
 
 func _refresh_enemies() -> void:
+	var living: int = 0
+	for e in state.get("enemies", []):
+		if int(e.hp) > 0:
+			living += 1
+	var dual: bool = living >= 2
 	var seen: Dictionary = {}
 	for e in state.get("enemies", []):
 		var uid: String = str(e.uid)
@@ -326,11 +329,11 @@ func _refresh_enemies() -> void:
 				continue
 		var stage: Control = _find_enemy_stage(uid)
 		if stage == null:
-			stage = _spawn_enemy_stage(e, dead)
+			stage = _spawn_enemy_stage(e, dead, dual)
 			enemy_row.add_child(stage)
 		if stage.get_meta("dissolving", false):
 			continue
-		_sync_enemy_stage(stage, e, dead)
+		_sync_enemy_stage(stage, e, dead, dual)
 	for child in enemy_row.get_children():
 		if child.is_queued_for_deletion():
 			continue
@@ -354,7 +357,7 @@ func _find_enemy_stage(uid: String) -> Control:
 	return null
 
 
-func _spawn_enemy_stage(e: Dictionary, dead: bool) -> Control:
+func _spawn_enemy_stage(e: Dictionary, dead: bool, dual: bool = false) -> Control:
 	var def: Dictionary = Enemies.get_enemy(str(e.defId))
 	var uid: String = str(e.uid)
 	var stage := Control.new()
@@ -375,7 +378,7 @@ func _spawn_enemy_stage(e: Dictionary, dead: bool) -> Control:
 	stage.add_child(art)
 	_enemy_art_by_uid[uid] = art
 	if not dead:
-		var plate: VBoxContainer = _make_enemy_plate(e, def)
+		var plate: VBoxContainer = _make_enemy_plate(e, def, dual)
 		plate.name = "Plate"
 		plate.z_index = 12
 		stage.add_child(plate)
@@ -383,7 +386,7 @@ func _spawn_enemy_stage(e: Dictionary, dead: bool) -> Control:
 	return stage
 
 
-func _sync_enemy_stage(stage: Control, e: Dictionary, dead: bool) -> void:
+func _sync_enemy_stage(stage: Control, e: Dictionary, dead: bool, dual: bool = false) -> void:
 	var uid: String = str(e.uid)
 	var def: Dictionary = Enemies.get_enemy(str(e.defId))
 	var art: TextureRect = stage.get_node_or_null("Art") as TextureRect
@@ -410,7 +413,7 @@ func _sync_enemy_stage(stage: Control, e: Dictionary, dead: bool) -> void:
 	if old_plate != null:
 		stage.remove_child(old_plate)
 		old_plate.free()
-	var plate: VBoxContainer = _make_enemy_plate(e, def)
+	var plate: VBoxContainer = _make_enemy_plate(e, def, dual)
 	plate.name = "Plate"
 	plate.z_index = 12
 	stage.add_child(plate)
@@ -551,17 +554,18 @@ func _enemy_action_text(e: Dictionary) -> String:
 	return "%sを使用" % "・".join(names)
 
 
-func _make_upcoming_cards(e: Dictionary) -> HBoxContainer:
+func _make_upcoming_cards(e: Dictionary, compact: bool = false) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 6 if compact else 8)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var card_size: Vector2 = PREVIEW_CARD_SIZE_DUAL if compact else PREVIEW_CARD_SIZE
 	for id in _upcoming_card_ids(e):
 		var definition: Dictionary = Cards.get_card(str(id))
 		var fake: Dictionary = {"uid": "", "defId": str(id)}
 		var preview: CombatCard = COMBAT_CARD.new()
-		preview.custom_minimum_size = PREVIEW_CARD_SIZE
-		preview.size = PREVIEW_CARD_SIZE
+		preview.custom_minimum_size = card_size
+		preview.size = card_size
 		preview.configure(fake, definition, true, false, false)
 		row.add_child(preview)
 	return row
@@ -751,24 +755,25 @@ func _pick_foe(pos: Vector2) -> String:
 	return ""
 
 
-func _make_enemy_plate(e: Dictionary, def: Dictionary) -> VBoxContainer:
+func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) -> VBoxContainer:
 	var plate := VBoxContainer.new()
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_theme_constant_override("separation", 4)
-	plate.custom_minimum_size = Vector2(ENEMY_PLATE_W, 0)
-	plate.add_child(_make_upcoming_cards(e))
+	plate.add_theme_constant_override("separation", 3 if compact else 4)
+	var plate_w: float = ENEMY_PLATE_W_DUAL if compact else ENEMY_PLATE_W
+	plate.custom_minimum_size = Vector2(plate_w, 0)
+	plate.add_child(_make_upcoming_cards(e, compact))
 
 	var box := Panel.new()
-	box.custom_minimum_size = Vector2(160, 72)
+	box.custom_minimum_size = Vector2(plate_w, 64 if compact else 72)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.055, 0.05, 0.045, 0.94)
 	style.border_color = Color(0.42, 0.36, 0.26, 1)
 	style.set_border_width_all(2)
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
+	style.content_margin_left = 8 if not compact else 6
+	style.content_margin_right = 8 if not compact else 6
+	style.content_margin_top = 6 if not compact else 4
+	style.content_margin_bottom = 6 if not compact else 4
 	box.add_theme_stylebox_override("panel", style)
 
 	var col := VBoxContainer.new()
@@ -782,7 +787,7 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary) -> VBoxContainer:
 
 	var name_label := Label.new()
 	name_label.text = str(def.get("name", e.defId))
-	name_label.add_theme_font_size_override("font_size", 13)
+	name_label.add_theme_font_size_override("font_size", 12 if compact else 13)
 	name_label.add_theme_color_override("font_color", Color.WHITE)
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_label)
@@ -1061,15 +1066,9 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		slot_w = area.x
 		slot_x = 0.0
 	else:
-		var work_x: float = ENEMY_DUAL_LEFT_PAD
-		var work_w: float = maxf(64.0, area.x - work_x)
-		var center_t: float = ENEMY_DUAL_LEFT_T if index == 0 else ENEMY_DUAL_RIGHT_T
-		slot_w = work_w * 0.42
-		slot_x = work_x + work_w * center_t - slot_w * 0.5
-		if slot_x < work_x:
-			slot_x = work_x
-		if slot_x + slot_w > area.x:
-			slot_x = area.x - slot_w
+		## 原作 dual は各 figure が min(80vw, 40rem)。スロットを半分より広く取り、絵を優先して重ねる。
+		slot_w = area.x * 0.56
+		slot_x = 0.0 if index == 0 else area.x - slot_w
 	stage.position = Vector2(slot_x, 0.0)
 	stage.size = Vector2(slot_w, area.y)
 	if art == null or art.texture == null:
@@ -1080,8 +1079,6 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
 		return
 
-	var plate_w: float = 0.0 if plate == null else ENEMY_PLATE_W
-	var gap: float = 0.0 if plate == null else ENEMY_PLATE_GAP
 	var view: Vector2 = get_viewport_rect().size
 	var is_boss: bool = stage.get_meta("boss", false) and true
 	var max_w: float
@@ -1094,11 +1091,10 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 			max_w = minf(view.x * 0.94, ENEMY_CUTOUT_W)
 			max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H)
 	else:
-		var slot_art_w: float = slot_w - plate_w - gap
-		max_w = minf(maxf(64.0, slot_art_w), minf(view.x * 0.80, ENEMY_CUTOUT_W_DUAL)) * ENEMY_DUAL_SCALE
-		max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H) * ENEMY_DUAL_SCALE
+		max_w = minf(slot_w * 0.98, minf(view.x * 0.80, ENEMY_CUTOUT_W_DUAL))
+		max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H)
 		if is_boss:
-			max_h = minf(view.y * 0.78, ENEMY_BOSS_H) * ENEMY_DUAL_SCALE
+			max_h = minf(view.y * 0.78, ENEMY_BOSS_H)
 	var art_box := Vector2(maxf(64.0, max_w), maxf(64.0, max_h))
 
 	var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
@@ -1107,9 +1103,10 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	var ground_y: float = area.y * (1.0 - ground_ratio)
 	var art_pos := Vector2((slot_w - drawn.x) * 0.5, ground_y - drawn.y)
 	if plate != null:
-		var group_w: float = drawn.x + gap + plate_w
-		var plate_h: float = maxf(220.0, plate.get_combined_minimum_size().y)
+		var plate_w: float = ENEMY_PLATE_W_DUAL if count >= 2 else ENEMY_PLATE_W
+		var plate_h: float = maxf(140.0 if count >= 2 else 220.0, plate.get_combined_minimum_size().y)
 		if count == 1:
+			var gap: float = ENEMY_PLATE_GAP
 			art_pos.x = (slot_w - drawn.x) * 0.5
 			var plate_x: float = art_pos.x + drawn.x + gap
 			var overflow: float = plate_x + plate_w - slot_w
@@ -1121,9 +1118,17 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 				plate_x = drawn.x + gap
 			_place_unanchored(plate, Vector2(plate_x, area.y * 0.14), Vector2(plate_w, plate_h))
 		else:
-			var group_x: float = maxf(0.0, (slot_w - group_w) * 0.5)
-			art_pos.x = group_x
-			_place_unanchored(plate, Vector2(group_x + drawn.x + gap, area.y * 0.14), Vector2(plate_w, plate_h))
+			## 原作 .enemy-vitals は figure 上に重ねる。絵の幅を奪わない。
+			art_pos.x = (slot_w - drawn.x) * 0.5
+			var plate_x: float = art_pos.x + drawn.x * 0.52
+			if index == 1:
+				plate_x = art_pos.x + drawn.x * 0.48 - plate_w
+			if plate_x < 4.0:
+				plate_x = 4.0
+			if plate_x + plate_w > slot_w - 4.0:
+				plate_x = slot_w - plate_w - 4.0
+			var plate_y: float = maxf(8.0, area.y * 0.16)
+			_place_unanchored(plate, Vector2(plate_x, plate_y), Vector2(plate_w, plate_h))
 	_place_unanchored(art, art_pos, drawn)
 
 
