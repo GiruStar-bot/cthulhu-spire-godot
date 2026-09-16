@@ -14,6 +14,12 @@ const MYTHOS_ARCHETYPES := ["greatold", "elder", "outer"]
 const FLIP_HALF_S := 0.22
 const DEAL_S := 0.20
 const RARE_POP_S := 0.50
+const RARE_LIGHT := Color(1.0, 0.92, 0.62, 1.0)
+const MYTHOS_LIGHT := {
+	"greatold": Color(0.063, 0.725, 0.506, 1.0),
+	"elder": Color(0.980, 0.863, 0.510, 1.0),
+	"outer": Color(0.627, 0.314, 0.902, 1.0),
+}
 
 var _card_ids: Array = []
 var _pack_art: String = ""
@@ -227,12 +233,21 @@ func _make_slot(index: int, def_id: String) -> Dictionary:
 	root.pivot_offset = CARD_SIZE * 0.5
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.gui_input.connect(_on_slot_input.bind(index))
-	var glow := ColorRect.new()
+	var glow := TextureRect.new()
 	glow.name = "Glow"
-	glow.position = Vector2(-18, -18)
-	glow.size = CARD_SIZE + Vector2(36, 36)
-	glow.color = Color(0.9, 0.75, 0.35, 0.0)
+	glow.position = Vector2(-28, -28)
+	glow.size = CARD_SIZE + Vector2(56, 56)
+	glow.pivot_offset = glow.size * 0.5
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_SCALE
+	glow.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.texture = _make_radial_glow_texture()
+	var add_mat := CanvasItemMaterial.new()
+	add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	glow.material = add_mat
+	glow.modulate = Color(1, 1, 1, 0)
+	glow.show_behind_parent = true
 	root.add_child(glow)
 	var back := TextureRect.new()
 	back.name = "Back"
@@ -334,25 +349,48 @@ func _after_flip(index: int) -> void:
 	var is_rare: bool = rarity == "rare"
 	var is_mythos: bool = MYTHOS_ARCHETYPES.has(arch)
 	if is_rare or is_mythos:
-		_play_rarity_fx(slot, is_rare)
+		_play_rarity_fx(slot, is_rare, arch)
 	_check_done()
 
 
-func _play_rarity_fx(slot: Dictionary, highest: bool) -> void:
-	var glow: ColorRect = slot["glow"]
+func _make_radial_glow_texture() -> GradientTexture2D:
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.28, 0.62, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1, 1, 1, 0.95),
+		Color(1, 1, 1, 0.42),
+		Color(1, 1, 1, 0.12),
+		Color(1, 1, 1, 0.0),
+	])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 256
+	tex.height = 256
+	return tex
+
+
+func _play_rarity_fx(slot: Dictionary, is_rare: bool, arch: String) -> void:
+	var glow: TextureRect = slot["glow"]
 	var root: Control = slot["root"]
-	if highest:
-		glow.color = Color(0.93, 0.78, 0.38, 0.0)
-	else:
-		glow.color = Color(0.48, 0.70, 0.86, 0.0)
-	var peak: float = 0.46 if highest else 0.30
+	var light: Color = RARE_LIGHT
+	if MYTHOS_LIGHT.has(arch):
+		light = MYTHOS_LIGHT[arch]
+	glow.modulate = Color(light.r, light.g, light.b, 0.0)
+	glow.scale = Vector2(0.82, 0.82)
+	var peak: float = 0.95 if is_rare else 0.72
 	var glow_tw := glow.create_tween()
-	glow_tw.tween_property(glow, "color:a", peak, 0.40).set_trans(Tween.TRANS_SINE)
-	glow_tw.tween_property(glow, "color:a", peak * 0.55, 0.70).set_trans(Tween.TRANS_SINE)
-	if highest:
-		var pop := root.create_tween()
-		pop.tween_property(root, "scale", Vector2(1.14, 1.14), RARE_POP_S * 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		pop.tween_property(root, "scale", Vector2.ONE, RARE_POP_S * 0.65).set_trans(Tween.TRANS_SINE)
+	glow_tw.tween_property(glow, "modulate:a", peak, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	glow_tw.parallel().tween_property(glow, "scale", Vector2(1.28, 1.28), 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	glow_tw.tween_property(glow, "modulate:a", 0.18 if is_rare else 0.0, 0.55).set_trans(Tween.TRANS_SINE)
+	glow_tw.parallel().tween_property(glow, "scale", Vector2(1.08, 1.08), 0.55)
+	if is_rare:
+		glow_tw.tween_property(glow, "modulate:a", 0.0, 0.90).set_trans(Tween.TRANS_SINE)
+	var pop := root.create_tween()
+	pop.tween_property(root, "scale", Vector2(1.16, 1.16), RARE_POP_S * 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pop.tween_property(root, "scale", Vector2.ONE, RARE_POP_S * 0.65).set_trans(Tween.TRANS_SINE)
 
 
 func _check_done() -> void:
@@ -386,7 +424,7 @@ func _skip_all() -> void:
 		root.modulate.a = 1.0
 		(slot["back"] as CanvasItem).visible = false
 		(slot["front"] as CanvasItem).visible = true
-		(slot["glow"] as ColorRect).color.a = 0.0
+		(slot["glow"] as CanvasItem).modulate.a = 0.0
 		_flipped[i] = true
 	_layout_row()
 	_phase = "done"

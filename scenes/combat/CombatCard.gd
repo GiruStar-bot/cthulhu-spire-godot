@@ -16,6 +16,12 @@ const FRAME_BY_ARCHETYPE := {
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 12],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
 }
+## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
+const MYTHOS_GLOW_COLOR := {
+	"greatold": Color(0.063, 0.725, 0.506, 1.0),
+	"elder": Color(0.980, 0.863, 0.510, 1.0),
+	"outer": Color(0.627, 0.314, 0.902, 1.0),
+}
 const TAG_TONES := {
 	"attack": Color("6b1f22"),
 	"defense": Color("183c66"),
@@ -34,6 +40,9 @@ var _type: Label
 var _cost: Label
 var _body: Label
 var _glow: ColorRect
+var _mythos_halo: TextureRect
+var _mythos_frame_glow: NinePatchRect
+var _mythos_tween: Tween
 var _fallback_outline: Panel
 var _idle_scale := Vector2.ONE
 var _built := false
@@ -229,6 +238,42 @@ func _build() -> void:
 	_glow.visible = false
 	add_child(_glow)
 
+	var add_mat := CanvasItemMaterial.new()
+	add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_mythos_halo = TextureRect.new()
+	_mythos_halo.name = "MythosHalo"
+	_mythos_halo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_mythos_halo.offset_left = -22
+	_mythos_halo.offset_top = -22
+	_mythos_halo.offset_right = 22
+	_mythos_halo.offset_bottom = 22
+	_mythos_halo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_mythos_halo.stretch_mode = TextureRect.STRETCH_SCALE
+	_mythos_halo.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_mythos_halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mythos_halo.material = add_mat
+	_mythos_halo.texture = _make_radial_glow_texture()
+	_mythos_halo.show_behind_parent = true
+	_mythos_halo.visible = false
+	add_child(_mythos_halo)
+
+	_mythos_frame_glow = NinePatchRect.new()
+	_mythos_frame_glow.name = "MythosFrameGlow"
+	_mythos_frame_glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_mythos_frame_glow.offset_left = -5
+	_mythos_frame_glow.offset_top = -5
+	_mythos_frame_glow.offset_right = 5
+	_mythos_frame_glow.offset_bottom = 5
+	_mythos_frame_glow.draw_center = false
+	_mythos_frame_glow.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+	_mythos_frame_glow.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+	_mythos_frame_glow.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_mythos_frame_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mythos_frame_glow.material = add_mat
+	_mythos_frame_glow.show_behind_parent = true
+	_mythos_frame_glow.visible = false
+	add_child(_mythos_frame_glow)
+
 	_frame = NinePatchRect.new()
 	_frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_frame.draw_center = false
@@ -255,6 +300,7 @@ func _apply_frame(definition: Dictionary) -> void:
 		fallback.border_color = TAG_TONES.get(tag, Color("d7c69b"))
 		_fallback_outline.add_theme_stylebox_override("panel", fallback)
 		_apply_inner_margin()
+		_apply_mythos_glow("")
 		return
 	_frame.visible = true
 	_fallback_outline.visible = false
@@ -265,6 +311,63 @@ func _apply_frame(definition: Dictionary) -> void:
 	_frame.patch_margin_right = _frame_margin
 	_frame.patch_margin_bottom = _frame_margin
 	_apply_inner_margin()
+	_apply_mythos_glow(archetype)
+
+
+func _make_radial_glow_texture() -> GradientTexture2D:
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.42, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1, 1, 1, 0.55),
+		Color(1, 1, 1, 0.16),
+		Color(1, 1, 1, 0.0),
+	])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 256
+	tex.height = 256
+	return tex
+
+
+func _apply_mythos_glow(archetype: String) -> void:
+	if _mythos_tween != null and is_instance_valid(_mythos_tween):
+		_mythos_tween.kill()
+	_mythos_tween = null
+	var is_mythos: bool = MYTHOS_GLOW_COLOR.has(archetype)
+	if _mythos_halo != null:
+		_mythos_halo.visible = is_mythos
+	if _mythos_frame_glow != null:
+		_mythos_frame_glow.visible = is_mythos
+	if not is_mythos:
+		return
+	var col: Color = MYTHOS_GLOW_COLOR[archetype]
+	_mythos_halo.modulate = col
+	_mythos_frame_glow.modulate = col
+	_mythos_frame_glow.texture = _frame.texture
+	_mythos_frame_glow.patch_margin_left = _frame_margin
+	_mythos_frame_glow.patch_margin_top = _frame_margin
+	_mythos_frame_glow.patch_margin_right = _frame_margin
+	_mythos_frame_glow.patch_margin_bottom = _frame_margin
+	_set_mythos_intensity(0.5)
+	_mythos_tween = create_tween().set_loops()
+	_mythos_tween.tween_method(_set_mythos_intensity, 0.5, 0.9, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_mythos_tween.tween_method(_set_mythos_intensity, 0.9, 0.5, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _set_mythos_intensity(v: float) -> void:
+	if _mythos_halo != null:
+		_mythos_halo.modulate.a = v * 0.38
+	if _mythos_frame_glow != null:
+		_mythos_frame_glow.modulate.a = v
+
+
+func _exit_tree() -> void:
+	if _mythos_tween != null and is_instance_valid(_mythos_tween):
+		_mythos_tween.kill()
+	_mythos_tween = null
 
 
 func _apply_inner_margin() -> void:
