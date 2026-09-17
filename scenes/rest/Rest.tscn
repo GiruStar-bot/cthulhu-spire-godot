@@ -588,10 +588,16 @@ theme_override_font_sizes/font_size = 13
 autowrap_mode = 3
 text = ""
 
-[node name="SubActions" type="VBoxContainer" parent="SubLayer/SubPanel"]
+[node name="SubScroll" type="ScrollContainer" parent="SubLayer/SubPanel"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 6
+horizontal_scroll_mode = 0
+
+[node name="SubActions" type="HFlowContainer" parent="SubLayer/SubPanel/SubScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
 
 [node name="SubBackButton" parent="SubLayer" instance=ExtResource("9")]
 layout_mode = 1

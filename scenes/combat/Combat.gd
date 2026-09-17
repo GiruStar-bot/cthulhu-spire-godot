@@ -108,8 +108,9 @@ func _begin_combat() -> void:
 	if enemy_ids.is_empty():
 		enemy_ids = CombatLogic.encounter_ids(kind, floor, rand, GameState.encounter_bias)
 	var deck: Array = []
+	GameState.prune_run_deck()
 	for card in GameState.deck:
-		var def := Cards.get_card(str(card.get("defId", "")))
+		var def: Dictionary = Cards.get_card(str(card.get("defId", "")))
 		if def.get("type") != "status":
 			deck.append(card)
 	if deck.is_empty():
@@ -207,7 +208,7 @@ func _check_result() -> void:
 		return
 	resolving = true
 	end_turn_button.disabled = true
-	_sync_run_deck()
+	GameState.prune_run_deck()
 	if result == "win":
 		AudioManager.play_sfx("win")
 		message_label.text = "回廊は、しばらく静かだ。"
@@ -219,20 +220,6 @@ func _check_result() -> void:
 		AudioManager.play_sfx("lose")
 		message_label.text = "肉体が、折れた。" if int(player.hp) <= 0 else "正気が、0になった。"
 		get_tree().create_timer(RESULT_LOSE_DELAY).timeout.connect(func(): GameState.lose_combat(get_tree()))
-
-
-## store.ts presentCombat の deck 再構成。戦闘中に加えたカード（女神契約など）をランデッキへ戻す。
-func _sync_run_deck() -> void:
-	if state.is_empty():
-		return
-	var merged: Array = []
-	for pile_name in ["hand", "draw", "discard", "exhaust"]:
-		for card in state.get(pile_name, []):
-			var def: Dictionary = Cards.get_card(str(card.get("defId", "")))
-			if def.get("type") == "status":
-				continue
-			merged.append(card)
-	GameState.deck = merged
 
 
 func _refresh() -> void:

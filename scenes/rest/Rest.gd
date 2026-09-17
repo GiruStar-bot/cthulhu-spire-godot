@@ -4,9 +4,11 @@ extends Control
 ## 宿泊・購入・強化の数値ロジックは既存関数をそのまま使う。
 
 const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
+const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const BUILDING_HOVER_LIFT := 12.0
 const BUILDING_HOVER_DUR := 0.16
+const FORGE_CARD_SIZE := Vector2(132, 198)
 
 @onready var hub_layer: Control = $HubLayer
 @onready var hub_vitals: Label = $HubLayer/HubHud/HubVitals
@@ -34,7 +36,7 @@ const BUILDING_HOVER_DUR := 0.16
 @onready var sub_layer: Control = $SubLayer
 @onready var sub_title: Label = $SubLayer/SubPanel/SubTitle
 @onready var sub_info: Label = $SubLayer/SubPanel/SubInfo
-@onready var sub_actions: VBoxContainer = $SubLayer/SubPanel/SubActions
+@onready var sub_actions: HFlowContainer = $SubLayer/SubPanel/SubScroll/SubActions
 
 var _tavern_rest_y: float = 0.0
 var _smith_rest_y: float = 0.0
@@ -304,22 +306,65 @@ func _make_shop_equip(def: Dictionary, label: String, price_text: String, disabl
 
 
 func _refresh_sub_room(mode: String) -> void:
+	GameState.prune_run_deck()
 	_free_children(sub_actions)
 	if mode == "upgrade":
 		var taboo: bool = _is_taboo_smith()
 		sub_title.text = "焼く（強化・禁忌）" if taboo else "焼く（強化）"
-		sub_info.text = "貝殻0で一度だけ強化する（倍率2倍）。" if taboo else "貝殻5で一度だけ強化する（倍率1.5倍）。"
-		for card in GameState.deck:
-			if not card.get("upgraded", false):
-				_add_action("強化: " + str(Cards.get_card(card.defId).get("name", card.defId)), _forge.bind(str(card.uid)))
+		sub_info.text = "貝殻0で一度だけ強化する（倍率2倍）。カードを選ぶ。" if taboo else "貝殻5で一度だけ強化する（倍率1.5倍）。カードを選ぶ。"
+		_fill_run_deck_cards(true)
 	elif mode == "deck":
-		sub_title.text = "デッキ編集"
-		sub_info.text = "拠点のデッキ編成タブを利用する。"
-		_add_action("拠点へ戻る", func(): GameState.goto_scene(get_tree(), "hub"))
+		sub_title.text = "潜航デッキ"
+		sub_info.text = "この沈降で使うデッキ。戦闘中に増えたカードは残らない。"
+		_fill_run_deck_cards(false)
 	elif mode == "sell":
 		sub_title.text = "売却"
-		sub_info.text = "拠点の売却タブを利用する。"
-		_add_action("拠点へ戻る", func(): GameState.goto_scene(get_tree(), "hub"))
+		sub_info.text = "探索中は売却できない。拠点の売却で手放す。"
+
+
+func _fill_run_deck_cards(forging: bool) -> void:
+	var taboo: bool = _is_taboo_smith()
+	var cost: int = 0 if taboo else 5
+	for card in GameState.deck:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		var uid: String = str(card.get("uid", ""))
+		var def_id: String = str(card.get("defId", ""))
+		var def: Dictionary = Cards.get_card(def_id)
+		if def.is_empty():
+			continue
+		var already: bool = card.get("upgraded", false) or float(card.get("forge", 0.0)) > 0.0
+		var playable: bool = forging and not already and (cost <= 0 or GameState.shells >= cost)
+		var view: CombatCard = COMBAT_CARD.new()
+		view.custom_minimum_size = FORGE_CARD_SIZE
+		view.size = FORGE_CARD_SIZE
+		view.configure(card, def, playable, false, forging and not already)
+		if forging and not already and playable:
+			view.pressed.connect(_forge.bind(uid))
+		elif forging and already:
+			view.modulate = Color(0.72, 0.72, 0.72, 1.0)
+			view.disabled = true
+			var stamp := Label.new()
+			stamp.text = "強化済"
+			stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			stamp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			stamp.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+			stamp.offset_top = -28.0
+			stamp.add_theme_font_size_override("font_size", 12)
+			stamp.add_theme_color_override("font_color", Color(0.96, 0.82, 0.42, 1))
+			stamp.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.02, 0.9))
+			stamp.add_theme_constant_override("outline_size", 4)
+			stamp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			view.add_child(stamp)
+		elif forging and not playable:
+			view.modulate = Color(0.62, 0.62, 0.62, 1.0)
+			view.disabled = true
+		sub_actions.add_child(view)
+	if sub_actions.get_child_count() == 0:
+		var empty := Label.new()
+		empty.text = "デッキにカードがない。"
+		empty.add_theme_color_override("font_color", Color(0.78, 0.72, 0.60, 1))
+		sub_actions.add_child(empty)
 
 
 func _stay(cost: int) -> void:

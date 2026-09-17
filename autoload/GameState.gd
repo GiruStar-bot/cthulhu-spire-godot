@@ -699,6 +699,45 @@ func loadout_deck() -> Array:
 	return out
 
 
+## 戦闘中に手札へ生えたカード（猫など）はランデッキへ残さない。
+## 強化（upgraded/forge）は探索開始デッキの実体に載っているので、そちらを優先して残す。
+func prune_run_deck() -> void:
+	var caps: Dictionary = {}
+	for card in loadout_deck():
+		var def_id: String = str(card.get("defId", ""))
+		caps[def_id] = int(caps.get(def_id, 0)) + 1
+	var grouped: Dictionary = {}
+	for card in deck:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		if card.get("combatSpawn", false):
+			continue
+		var def_id: String = str(card.get("defId", ""))
+		var def: Dictionary = Cards.get_card(def_id)
+		if str(def.get("type", "")) == "status":
+			continue
+		if not grouped.has(def_id):
+			grouped[def_id] = []
+		var copies: Array = grouped[def_id]
+		copies.append(card)
+		grouped[def_id] = copies
+	var kept: Array = []
+	for def_id in grouped.keys():
+		var copies: Array = grouped[def_id]
+		copies.sort_custom(_prefer_upgraded_copy)
+		var cap: int = int(caps.get(def_id, 0))
+		var n: int = mini(copies.size(), cap)
+		for i in n:
+			kept.append(copies[i])
+	deck = kept
+
+
+func _prefer_upgraded_copy(a: Dictionary, b: Dictionary) -> bool:
+	var a_score: int = (2 if a.get("upgraded", false) else 0) + (1 if float(a.get("forge", 0.0)) > 0.0 else 0)
+	var b_score: int = (2 if b.get("upgraded", false) else 0) + (1 if float(b.get("forge", 0.0)) > 0.0 else 0)
+	return a_score > b_score
+
+
 ## store.ts hookFrom() 相当。CombatLogic が HP/SAN を直接書き換える。
 func player_hook() -> Dictionary:
 	return {

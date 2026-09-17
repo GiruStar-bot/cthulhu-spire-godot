@@ -162,6 +162,12 @@ static func _add_to_discard(c: Dictionary, card: Dictionary) -> void:
 	c.discard.append(card)
 
 
+static func _spawn_combat_card(def_id: String) -> Dictionary:
+	var spawned: Dictionary = Cards.make_card(def_id)
+	spawned["combatSpawn"] = true
+	return spawned
+
+
 static func _insert_into_draw(c: Dictionary, card: Dictionary, rand: Callable) -> void:
 	var idx := int(floor(rand.call() * float(c.draw.size() + 1)))
 	c.draw.insert(idx, card)
@@ -330,7 +336,7 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 	var outer_bonus: int = int(c.synergy.tier) if c.synergy and str(c.synergy.archetype) == "outer" else 0
 	draw_cards(c, _base_draw_count(c) + outer_bonus, rand, player)
 	if int(player.sanity) <= 0:
-		_add_to_discard(c, Cards.make_card("dread"))
+		_add_to_discard(c, _spawn_combat_card("dread"))
 		c.log.append("恐怖がデッキに沈む。")
 	return c
 
@@ -453,7 +459,7 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 					c.powers.append(e.id)
 			"addDread":
 				for i in int(e.n):
-					_insert_into_draw(c, Cards.make_card("dread"), rand)
+					_insert_into_draw(c, _spawn_combat_card("dread"), rand)
 				c.log.append("恐怖を%d枚差し込んだ。" % int(e.n))
 			"ifIntentAttack":
 				var ti = _living_target(c, target_id)
@@ -479,7 +485,7 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				player.hp = mini(int(player.hp), int(player.maxHp))
 				c.floaters.append(_floater("最大-%d" % int(e.n), "dmg", "player"))
 			"addCurse":
-				_add_to_discard(c, Cards.make_card(str(e.id)))
+				_add_to_discard(c, _spawn_combat_card(str(e.id)))
 			"nextAttackMul":
 				c.nextAttackMul = float(c.nextAttackMul) * float(e.n)
 			"phaseDelay":
@@ -574,13 +580,13 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				var add_n: int = int(e.get("n", 1))
 				var add_id: String = str(e.get("id", ""))
 				for _i in add_n:
-					_insert_into_draw(c, Cards.make_card(add_id), rand)
+					_insert_into_draw(c, _spawn_combat_card(add_id), rand)
 				c.log.append("%sを%d枚デッキに加えた。" % [Cards.get_card(add_id).get("name", add_id), add_n])
 			"addToHand":
 				var hand_n: int = int(e.get("n", 1))
 				var hand_id: String = str(e.get("id", ""))
 				for _j in hand_n:
-					c.hand.append(Cards.make_card(hand_id))
+					c.hand.append(_spawn_combat_card(hand_id))
 				c.log.append("%sを%d枚手札に加えた。" % [Cards.get_card(hand_id).get("name", hand_id), hand_n])
 			"seekTagged":
 				var tag: String = str(e.get("tag", "cat"))
@@ -605,8 +611,8 @@ static func change_sanity(player: Dictionary, c: Dictionary, delta: int) -> void
 		if "bloodOath" in c.powers:
 			c.strength = int(c.strength) + 2
 		if before > 0 and int(player.sanity) == 0:
-			_add_to_discard(c, Cards.make_card("dread"))
-			_add_to_discard(c, Cards.make_card("dread"))
+			_add_to_discard(c, _spawn_combat_card("dread"))
+			_add_to_discard(c, _spawn_combat_card("dread"))
 			c.log.append("正気が砕ける。恐怖がデッキを満たす。")
 
 
@@ -760,7 +766,7 @@ static func _apply_enemy_intent(intent: Dictionary, e: Dictionary, c: Dictionary
 		c.log.append("%sに正気を%d奪われた。" % [Enemies.get_enemy(str(e.defId)).name, reduced])
 	if intent.get("dread"):
 		for i in int(intent.dread):
-			_insert_into_draw(c, Cards.make_card("dread"), rand)
+			_insert_into_draw(c, _spawn_combat_card("dread"), rand)
 		c.log.append("%sが恐怖を注ぎ込む。" % Enemies.get_enemy(str(e.defId)).name)
 	if intent.get("seal"):
 		c.sealed = intent.seal
