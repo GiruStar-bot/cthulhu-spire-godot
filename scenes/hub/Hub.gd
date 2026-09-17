@@ -108,6 +108,7 @@ const PACK_ART_SIZE := Vector2(160, 240)
 	"packs": $Root/Body/Nav/PacksButton,
 }
 @onready var body_nav: VBoxContainer = $Root/Body/Nav
+@onready var nav_frame: Panel = $NavFrame
 
 var _selected_rune_id: String = ""
 var _commerce_tab := ""
@@ -216,10 +217,23 @@ func _ready() -> void:
 	sell_equipment_tab_button.visible = false
 	sell_rune_tab_button.visible = false
 	prepare_equipment_summary_panel.visible = false
+	prepare_deck_select_panel.visible = false
+	body_nav.size_flags_vertical = 0
 	_select_tab("descend")
 	_update_header()
+	call_deferred("_fit_nav_chrome")
 	if GameState.toast != "":
 		GameState.toast = ""
+
+
+func _fit_nav_chrome() -> void:
+	if nav_frame == null or body_nav == null:
+		return
+	var min_size: Vector2 = body_nav.get_combined_minimum_size()
+	nav_frame.offset_top = 36.0
+	nav_frame.offset_right = 120.0
+	nav_frame.offset_bottom = 36.0 + min_size.y
+	nav_frame.visible = body_nav.visible
 
 
 ## デッキ編成タブの検索欄・ソートドロップダウン・フィルタートグル行を一度だけ構築する。
@@ -369,6 +383,10 @@ func _select_tab(tab_name: String) -> void:
 	_hide_all_content_panels()
 	if body_nav != null:
 		body_nav.visible = tab_name != "packs"
+	if nav_frame != null:
+		nav_frame.visible = tab_name != "packs"
+		if nav_frame.visible:
+			call_deferred("_fit_nav_chrome")
 	match tab_name:
 		"descend":
 			descend_panel.visible = true
@@ -455,9 +473,12 @@ func _update_descend_panel() -> void:
 		## PrepareView.tsx 相当。canStart は実ソースでは
 		## `playerName.trim().length > 0 && !loadoutError()` だが、名前入力UIは未実装のため
 		## デッキ枚数チェック（loadoutError()）のみを反映する。
-		descend_status_label.text = "探索準備\n最深到達: %s · 貝殻 %d" % [
+		descend_status_label.text = "探索準備\n最深到達: %s · 貝殻 %d\n使用デッキ: %s（%d/%d）" % [
 			Floors.layer_label(GameState.best_floor) if GameState.best_floor > 0 else "未潜航",
 			GameState.shells,
+			CollectionData.active_deck,
+			_deck_count(),
+			CollectionData.DECK_LIMIT,
 		]
 		if _should_show_starter_pick():
 			primary_action_button.text = "最初のデッキを選ぶ"
@@ -469,8 +490,7 @@ func _update_descend_panel() -> void:
 		stat_panel.visible = true
 		_refresh_stat_panel()
 		prepare_equipment_summary_panel.visible = false
-		prepare_deck_select_panel.visible = true
-		_rebuild_prepare_deck_list()
+		prepare_deck_select_panel.visible = false
 
 
 func _rebuild_prepare_deck_list() -> void:

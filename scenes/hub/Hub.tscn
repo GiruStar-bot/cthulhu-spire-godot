@@ -214,11 +214,10 @@ theme_override_styles/panel = SubResource("StyleHeader")
 
 [node name="NavFrame" type="Panel" parent="."]
 layout_mode = 1
-anchors_preset = 4
-anchor_bottom = 1.0
+anchors_preset = 0
 offset_top = 36.0
 offset_right = 120.0
-grow_vertical = 2
+offset_bottom = 258.0
 theme_override_styles/panel = SubResource("StyleNav")
 
 [node name="Root" type="VBoxContainer" parent="."]
@@ -270,6 +269,7 @@ theme_override_constants/separation = 12
 [node name="Nav" type="VBoxContainer" parent="Root/Body"]
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
+size_flags_vertical = 0
 theme_override_constants/separation = 6
 
 [node name="DescendButton" type="Button" parent="Root/Body/Nav"]
@@ -287,6 +287,7 @@ toggle_mode = true
 text = "デッキ編成"
 
 [node name="EquipmentButton" type="Button" parent="Root/Body/Nav"]
+visible = false
 layout_mode = 2
 custom_minimum_size = Vector2(0, 38)
 theme_override_font_sizes/font_size = 11
@@ -411,7 +412,7 @@ text = "体力 50"
 [node name="PrepareDeckSelectPanel" type="PanelContainer" parent="Root/Body/Content/DescendPanel"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 3
+size_flags_vertical = 0
 custom_minimum_size = Vector2(300, 0)
 visible = false
 theme_override_styles/panel = SubResource("StyleInkLedger")
