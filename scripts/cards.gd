@@ -767,7 +767,7 @@ const CARDS := {
 		"text": "体力20回復。状態異常を回復する。正気を4回復。",
 		"upgradedText": "体力20回復。状態異常を回復する。正気を4回復。",
 		"flavor": "バステトは、まだ眠る者を守る。",
-		"art": "res://art/pixel/cards/resolve.jpg",
+		"art": "res://art/pixel/cards/dream_mending.jpg",
 		"target": "none",
 		"effects": [
 			{"t": "heal", "n": 20},
@@ -792,7 +792,7 @@ const CARDS := {
 		"text": "2枚引く。正気を2回復。",
 		"upgradedText": "2枚引く。正気を2回復。",
 		"flavor": "夢の岸から、白い手が伸びる。",
-		"art": "res://art/pixel/cards/tome.jpg",
+		"art": "res://art/pixel/cards/far_guidance.jpg",
 		"target": "none",
 		"effects": [
 			{"t": "draw", "n": 2},
@@ -815,7 +815,7 @@ const CARDS := {
 		"text": "敵全体に13ダメージ。",
 		"upgradedText": "敵全体に13ダメージ。",
 		"flavor": "ウルは、夜を貫く。",
-		"art": "res://art/pixel/cards/eldersign.jpg",
+		"art": "res://art/pixel/cards/light_pillar.jpg",
 		"target": "all",
 		"effects": [
 			{"t": "damageAll", "n": 13},
@@ -836,7 +836,7 @@ const CARDS := {
 		"text": "敵単体に22ダメージ。",
 		"upgradedText": "敵単体に22ダメージ。",
 		"flavor": "川の神の、忘れられた武具。",
-		"art": "res://art/pixel/cards/bash.jpg",
+		"art": "res://art/pixel/cards/trident.jpg",
 		"target": "enemy",
 		"effects": [
 			{"t": "damage", "n": 22},
@@ -858,7 +858,7 @@ const CARDS := {
 		"text": "敵単体に5ダメージ。",
 		"upgradedText": "敵単体に5ダメージ。",
 		"flavor": "柔らかい。しかし、爪がある。",
-		"art": "res://art/pixel/cards/strike.jpg",
+		"art": "res://art/pixel/cards/cats_paw.jpg",
 		"target": "enemy",
 		"effects": [
 			{"t": "damage", "n": 5},
@@ -880,7 +880,7 @@ const CARDS := {
 		"text": "デッキから「猫」をランダムに3枚手札に加える。",
 		"upgradedText": "デッキから「猫」をランダムに3枚手札に加える。",
 		"flavor": "三つの影が、同時に跳ねる。",
-		"art": "res://art/pixel/cards/study.jpg",
+		"art": "res://art/pixel/cards/cat_fork.jpg",
 		"target": "none",
 		"effects": [
 			{"t": "seekTagged", "tag": "cat", "n": 3},
@@ -902,7 +902,7 @@ const CARDS := {
 		"text": "このターン、「猫」を使用するたび、ブロック5と筋力1を得る。",
 		"upgradedText": "このターン、「猫」を使用するたび、ブロック5と筋力1を得る。",
 		"flavor": "猫神は、眷属を数える。",
-		"art": "res://art/pixel/cards/ward.jpg",
+		"art": "res://art/pixel/cards/goddess_blessing.jpg",
 		"target": "none",
 		"effects": [
 			{"t": "bastBlessing", "block": 5, "strength": 1},
@@ -924,7 +924,7 @@ const CARDS := {
 		"text": "体力を半分失う。「女神契約」をデッキに加える。破棄。",
 		"upgradedText": "体力を半分失う。「女神契約」をデッキに加える。破棄。",
 		"flavor": "血を半分。契約は、残る。",
-		"art": "res://art/pixel/cards/offering.jpg",
+		"art": "res://art/pixel/cards/goddess_offering.jpg",
 		"target": "none",
 		"exhaust": true,
 		"effects": [
@@ -950,7 +950,7 @@ const CARDS := {
 		"text": "「猫」の効果の数字を2倍にする。「ねこの手」を4枚手札に加える。",
 		"upgradedText": "「猫」の効果の数字を2倍にする。「ねこの手」を4枚手札に加える。",
 		"flavor": "名前を呼ばれた。従うほかない。",
-		"art": "res://art/pixel/cards/sigil.jpg",
+		"art": "res://art/pixel/cards/goddess_contract.jpg",
 		"target": "none",
 		"effects": [
 			{"t": "gainPower", "id": "goddessContract"},
