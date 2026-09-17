@@ -8,8 +8,9 @@ const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
 const CARD_BACK := "res://art/pixel/ui/card_back_pack.png"
 const CARD_BACK_FALLBACK := "res://art/pixel/ui/card_back.png"
-const PACK_SIZE := Vector2(220, 330)
-const CARD_SIZE := Vector2(176, 264)
+const PACK_BASE := Vector2(220, 330)
+const PACK_SCALE := 1.5
+const CARD_ASPECT := 1.5
 const MYTHOS_ARCHETYPES := ["greatold", "elder", "outer"]
 const FLIP_HALF_S := 0.22
 const DEAL_S := 0.20
@@ -34,6 +35,8 @@ var _close: Button
 var _row: Control
 var _idle_tween: Tween
 var _seq_tween: Tween
+var _pack_size: Vector2 = PACK_BASE * PACK_SCALE
+var _card_size: Vector2 = Vector2(264, 396)
 
 
 func _ready() -> void:
@@ -74,8 +77,8 @@ func _build() -> void:
 	add_child(_dim)
 	_pack = TextureRect.new()
 	_pack.name = "PackImage"
-	_pack.custom_minimum_size = PACK_SIZE
-	_pack.size = PACK_SIZE
+	_pack.custom_minimum_size = _pack_size
+	_pack.size = _pack_size
 	_pack.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_pack.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_pack.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -113,19 +116,39 @@ func _layout_chrome() -> void:
 	var view: Vector2 = size
 	if view.x < 8.0 or view.y < 8.0:
 		view = get_viewport_rect().size
+	_compute_stage_sizes(view)
 	_skip.position = Vector2(view.x - 128.0, 16.0)
 	_skip.size = Vector2(108, 36)
 	_close.size = Vector2(160, 44)
 	_close.position = Vector2(view.x * 0.5 - 80.0, view.y * 0.86)
-	_pack.pivot_offset = PACK_SIZE * 0.5
+	_pack.custom_minimum_size = _pack_size
+	_pack.size = _pack_size
+	_pack.pivot_offset = _pack_size * 0.5
 	if _phase == "idle" or _phase == "shaking" or _phase == "bursting":
-		_pack.position = view * 0.5 - PACK_SIZE * 0.5
+		_pack.position = view * 0.5 - _pack_size * 0.5
 		_hint.size = Vector2(view.x, 24.0)
-		_hint.position = Vector2(0.0, view.y * 0.5 + PACK_SIZE.y * 0.5 + 12.0)
+		_hint.position = Vector2(0.0, view.y * 0.5 + _pack_size.y * 0.5 + 12.0)
 	else:
 		_hint.size = Vector2(view.x, 24.0)
 		_hint.position = Vector2(0.0, view.y * 0.86 - 36.0)
 	_layout_row()
+
+
+func _compute_stage_sizes(view: Vector2) -> void:
+	var pack_h: float = minf(PACK_BASE.y * PACK_SCALE, view.y * 0.72)
+	var pack_s: float = pack_h / PACK_BASE.y
+	_pack_size = PACK_BASE * pack_s
+	var n: int = maxi(_card_ids.size(), 4)
+	var gap: float = 16.0
+	var side: float = 36.0
+	var max_w: float = (view.x - side * 2.0 - gap * float(n - 1)) / float(n)
+	var max_h: float = view.y * 0.62
+	var card_h: float = minf(max_h, _pack_size.y)
+	var card_w: float = card_h / CARD_ASPECT
+	if card_w > max_w:
+		card_w = max_w
+		card_h = card_w * CARD_ASPECT
+	_card_size = Vector2(card_w, card_h)
 
 
 func _show_idle() -> void:
@@ -209,7 +232,7 @@ func _deal_cards(instant: bool = false) -> void:
 			root.scale = Vector2.ONE
 			root.modulate.a = 1.0
 	else:
-		var pack_center: Vector2 = size * 0.5 - CARD_SIZE * 0.5
+		var pack_center: Vector2 = size * 0.5 - _card_size * 0.5
 		for i in n:
 			var root: Control = _slots[i]["root"]
 			var dest: Vector2 = root.position
@@ -228,15 +251,15 @@ func _deal_cards(instant: bool = false) -> void:
 
 func _make_slot(index: int, def_id: String) -> Dictionary:
 	var root := Control.new()
-	root.custom_minimum_size = CARD_SIZE
-	root.size = CARD_SIZE
-	root.pivot_offset = CARD_SIZE * 0.5
+	root.custom_minimum_size = _card_size
+	root.size = _card_size
+	root.pivot_offset = _card_size * 0.5
 	root.mouse_filter = Control.MOUSE_FILTER_STOP
 	root.gui_input.connect(_on_slot_input.bind(index))
 	var glow := TextureRect.new()
 	glow.name = "Glow"
 	glow.position = Vector2(-28, -28)
-	glow.size = CARD_SIZE + Vector2(56, 56)
+	glow.size = _card_size + Vector2(56, 56)
 	glow.pivot_offset = glow.size * 0.5
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	glow.stretch_mode = TextureRect.STRETCH_SCALE
@@ -252,7 +275,7 @@ func _make_slot(index: int, def_id: String) -> Dictionary:
 	var back := TextureRect.new()
 	back.name = "Back"
 	back.position = Vector2.ZERO
-	back.size = CARD_SIZE
+	back.size = _card_size
 	back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	back.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	back.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -265,8 +288,9 @@ func _make_slot(index: int, def_id: String) -> Dictionary:
 	var def: Dictionary = Cards.get_card(def_id)
 	var fake: Dictionary = {"uid": "", "defId": def_id}
 	var front: CombatCard = COMBAT_CARD.new()
-	front.custom_minimum_size = CARD_SIZE
-	front.size = CARD_SIZE
+	front.custom_minimum_size = _card_size
+	front.size = _card_size
+	front.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	front.configure(fake, def, true, false, false)
 	front.visible = false
 	front.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -287,15 +311,29 @@ func _layout_row() -> void:
 	var view: Vector2 = size
 	if view.x < 8.0:
 		view = get_viewport_rect().size
-	var gap: float = 18.0
-	var total_w: float = float(n) * CARD_SIZE.x + float(maxi(0, n - 1)) * gap
-	var origin := Vector2((view.x - total_w) * 0.5, view.y * 0.42 - CARD_SIZE.y * 0.5)
+	var gap: float = 16.0
+	var total_w: float = float(n) * _card_size.x + float(maxi(0, n - 1)) * gap
+	var origin := Vector2((view.x - total_w) * 0.5, view.y * 0.46 - _card_size.y * 0.5)
 	for i in n:
-		var root: Control = _slots[i]["root"]
+		var slot: Dictionary = _slots[i]
+		var root: Control = slot["root"]
+		root.custom_minimum_size = _card_size
+		root.size = _card_size
+		root.pivot_offset = _card_size * 0.5
+		var glow: TextureRect = slot["glow"]
+		glow.position = Vector2(-28, -28)
+		glow.size = _card_size + Vector2(56, 56)
+		glow.pivot_offset = glow.size * 0.5
+		var back: TextureRect = slot["back"]
+		back.size = _card_size
+		var front: Control = slot["front"]
+		front.custom_minimum_size = _card_size
+		front.size = _card_size
 		if root.get_meta("flipping", false):
 			continue
-		root.position = origin + Vector2(float(i) * (CARD_SIZE.x + gap), 0.0)
-		root.size = CARD_SIZE
+		if _phase == "revealing" and root.modulate.a < 0.99:
+			continue
+		root.position = origin + Vector2(float(i) * (_card_size.x + gap), 0.0)
 
 
 func _on_slot_input(event: InputEvent, index: int) -> void:

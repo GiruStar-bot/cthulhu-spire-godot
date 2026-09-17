@@ -718,7 +718,7 @@ func _open_pack(archetype: String) -> void:
 		var def_id: String = str(free_card.get("defId", ""))
 		CollectionData.add_loot_card(def_id)
 		revealed.append(def_id)
-	var art_path := "res://art/pixel/packs/pack_%s.jpg" % archetype
+	var art_path: String = _pack_open_art_path(archetype)
 	_launch_pack_open(art_path, revealed)
 
 
@@ -734,6 +734,13 @@ func _launch_pack_open(pack_art: String, card_ids: Array) -> void:
 	_pack_open = node
 	node.connect("closed", _on_pack_open_closed)
 	node.call("setup", pack_art, card_ids)
+
+
+func _pack_open_art_path(archetype: String) -> String:
+	var png_path: String = "res://art/pixel/packs/pack_%s_nobackground.png" % archetype
+	if ResourceLoader.exists(png_path):
+		return png_path
+	return "res://art/pixel/packs/pack_%s.jpg" % archetype
 
 
 func _on_pack_open_closed() -> void:
