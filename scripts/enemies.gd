@@ -260,3 +260,17 @@ static func get_enemy(id: String) -> Dictionary:
 		return {}
 	return ENEMIES[id]
 
+
+const BOSS_IDS := ["priest", "choir", "nurse", "flock", "herald", "warden", "bell", "nyar", "iha", "yog_sothoth"]
+
+
+static func combat_ids_for_archetype(archetype: String) -> Array:
+	var out: Array = []
+	for enemy_id in ENEMIES.keys():
+		if BOSS_IDS.has(enemy_id) or enemy_id == "treasure_wanderer":
+			continue
+		var def: Dictionary = ENEMIES[enemy_id]
+		if str(def.get("archetype", "")) == archetype:
+			out.append(enemy_id)
+	return out
+

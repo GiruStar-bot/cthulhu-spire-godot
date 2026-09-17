@@ -247,8 +247,7 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 	var enemies: Array = []
 	for id in enemy_ids:
 		enemies.append(make_enemy(str(id), floor, rand))
-	var peek := func(rid: String): return CollectionData.peek_rune(rid)
-	var eq: Dictionary = Equipment.compute_equipment_stats(player.get("equipped", {}), peek)
+	var eq: Dictionary = Blessings.compute_stats(player.get("blessings", []))
 	var base_energy: int = int(player.get("baseEnergy", 3))
 	var c := {
 		"floor": floor,
@@ -934,7 +933,7 @@ static func _maybe_choir(c: Dictionary, rand: Callable) -> void:
 
 
 ## combat.ts encounterIds()
-static func encounter_ids(kind: String, floor: int, rand: Callable) -> Array:
+static func encounter_ids(kind: String, floor: int, rand: Callable, bias: Array = []) -> Array:
 	if kind == "boss":
 		if floor >= 100:
 			return ["yog_sothoth"]
@@ -985,6 +984,11 @@ static func encounter_ids(kind: String, floor: int, rand: Callable) -> Array:
 	else:
 		pool = ["acolyte", "drowned", "coral"]
 	var double := 0.5 if floor >= 40 else (0.35 if floor >= 12 else 0.12)
+	if not bias.is_empty():
+		for arch in bias:
+			var extra: Array = Enemies.combat_ids_for_archetype(str(arch))
+			for enemy_id in extra:
+				pool.append(enemy_id)
 	if rand.call() < double:
 		return [Mulberry32.pick_rand(pool, rand), Mulberry32.pick_rand(pool, rand)]
 	return [Mulberry32.pick_rand(pool, rand)]

@@ -106,7 +106,7 @@ func _begin_combat() -> void:
 	var rand := Callable(GameState, "_rand")
 	var enemy_ids: Array = meta.get("enemy_ids", [])
 	if enemy_ids.is_empty():
-		enemy_ids = CombatLogic.encounter_ids(kind, floor, rand)
+		enemy_ids = CombatLogic.encounter_ids(kind, floor, rand, GameState.encounter_bias)
 	var deck: Array = []
 	for card in GameState.deck:
 		var def := Cards.get_card(str(card.get("defId", "")))
@@ -256,7 +256,7 @@ func _refresh_hud() -> void:
 		pname = "無名"
 	_hud_name.text = pname
 	var current_floor: int = int(GameState.floor)
-	_hud_floor.text = "%s · %s" % [Floors.floor_band(current_floor), Floors.layer_label(current_floor)]
+	_hud_floor.text = "%s · %s · %s" % [Floors.floor_band(current_floor), Floors.layer_label(current_floor), Floors.floor_kind_label(str(GameState.floor_kind), current_floor)]
 	_set_bar(_hp_fill, _hp_value, int(player.hp), int(player.maxHp))
 	_set_bar(_san_fill, _san_value, int(player.sanity), int(player.maxSanity))
 	var bits: PackedStringArray = PackedStringArray()

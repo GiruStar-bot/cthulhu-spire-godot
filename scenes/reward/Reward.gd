@@ -14,8 +14,9 @@ const CARD_SIZE := Vector2(128, 192)
 
 
 func _ready() -> void:
-	var spec: Dictionary = GameState.run_floors[GameState.floor - 1] if GameState.floor > 0 and GameState.floor - 1 < GameState.run_floors.size() else {}
-	var kind: String = str(spec.get("type", "combat"))
+	var kind: String = str(GameState.floor_kind)
+	if kind == "":
+		kind = "combat"
 	eyebrow.text = "%s · %s" % [Floors.layer_label(GameState.floor), Floors.floor_kind_label(kind, GameState.floor)]
 	var offers: Array = GameState.reward if GameState.reward is Array else []
 	var items: Array = []

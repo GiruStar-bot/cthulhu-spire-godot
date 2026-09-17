@@ -1,0 +1,95 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/blessing/Blessing.gd" id="1"]
+[ext_resource type="Texture2D" path="res://art/pixel/bg/fold.jpg" id="2"]
+
+[node name="Blessing" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="BackgroundArt" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Veil" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0431, 0.051, 0.0627, 0.7)
+
+[node name="Eyebrow" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -360.0
+offset_top = -240.0
+offset_right = 360.0
+offset_bottom = -218.0
+theme_override_colors/font_color = Color(0.7176, 0.6039, 0.3843, 1)
+theme_override_font_sizes/font_size = 12
+text = "加護"
+horizontal_alignment = 1
+
+[node name="TitleLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -360.0
+offset_top = -210.0
+offset_right = 360.0
+offset_bottom = -168.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 30
+text = "三つの潮流から、一つを選ぶ"
+horizontal_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -360.0
+offset_top = -150.0
+offset_right = 360.0
+offset_bottom = -110.0
+theme_override_colors/font_color = Color(0.6039, 0.5765, 0.5255, 1)
+text = "この沈降のあいだ、選んだ加護は累積する。"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ChoicesRow" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -80.0
+offset_right = 400.0
+offset_bottom = 180.0
+theme_override_constants/separation = 16
+alignment = 1

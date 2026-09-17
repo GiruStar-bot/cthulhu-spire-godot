@@ -31,6 +31,7 @@ const SCENE_PATHS := {
 	"victory": "res://scenes/end/End.tscn",
 	"defeat": "res://scenes/end/End.tscn",
 	"shatter": "res://scenes/end/Shatter.tscn",
+	"blessing": "res://scenes/blessing/Blessing.tscn",
 }
 
 # --- PlayerProfile 相当（拠点に永続、次ランへ引き継ぐ）。実体は Profile.gd 参照 ---
@@ -72,6 +73,11 @@ var event = null
 var rest_mode: String = ""  ## visitVillage() の room 相当："", "hub", "inn", "smith"
 var village = null
 var toast: String = ""
+var floor_kind: String = ""
+var run_blessings: Array = []
+var encounter_bias: Array = []
+var blessing_choices: Array = []
+var _force_first_drowned: bool = false
 
 
 func _ready() -> void:
@@ -285,7 +291,7 @@ func begin(tree: SceneTree) -> void:
 	_load_profile()
 	seed = randi()
 	rng = Mulberry32.new(seed)
-	run_floors = Floors.generate_run_table(rng, Floors.DEMO_MAX_FLOOR)
+	run_floors = []
 	floor = 0
 	toast = ""
 	goto_scene(tree, "hub")
@@ -310,39 +316,34 @@ func start_run(tree: SceneTree) -> void:
 
 	character = starter_path(stats)
 	var vitals := Profile.derived_vitals(stats, madness)
-	var fanatic: bool = Equipment.has_full_set(equipped, "fanatic")
 
 	max_hp = vitals.max_hp
 	hp = max_hp
 
 	max_sanity = vitals.max_sanity
 	if max_sanity <= 0:
-		if not fanatic:
-			_shatter(tree)
-			return
-		max_sanity = 1
+		_shatter(tree)
+		return
 	sanity = max_sanity if profile_sanity == null else min(int(profile_sanity), max_sanity)
 	if sanity <= 0:
-		if not fanatic:
-			_shatter(tree)
-			return
-		sanity = max(1, sanity)
+		_shatter(tree)
+		return
 
 	run_strength = int(vitals.strength)
 	extra_energy_next = 0
 	act = 1
 	deck = loadout_deck()
-	if run_floors.is_empty():
-		seed = randi()
-		rng = Mulberry32.new(seed)
-		run_floors = Floors.generate_run_table(rng, Floors.DEMO_MAX_FLOOR)
+	run_floors = []
+	run_blessings = []
+	encounter_bias = []
+	blessing_choices = []
+	floor_kind = ""
+	_force_first_drowned = false
 
 	if not seen_rlyeh:
-		## store.ts startRun()：初回のみ1階の遭遇を"drowned"に強制上書きする
 		seen_rlyeh = true
 		_persist_profile()
-		if run_floors.size() > 0:
-			run_floors[0] = {"floor": 1, "type": "combat", "enemy_ids": ["drowned"]}
+		_force_first_drowned = true
 
 	enter_floor(tree, 1)
 
@@ -363,9 +364,7 @@ func _shatter(tree: SceneTree) -> void:
 ## ランテーブルの終端を超えたら victory、それ以外は spec.type に応じて
 ## combat/elite/boss→戦闘、rest→休憩、それ以外→予兆(event) に振り分ける。
 func enter_floor(tree: SceneTree, next_floor: int) -> void:
-	var table_len: int = run_floors.size() if run_floors.size() > 0 else Floors.DEMO_MAX_FLOOR
-	if next_floor > table_len:
-		## store.ts enterFloor()のvictory分岐：bestFloor/earnedPoints/unspentPoints/wins/sanityを更新して永続化
+	if next_floor > Floors.DEMO_MAX_FLOOR:
 		best_floor = max(best_floor, floor)
 		var budget := Profile.total_points(best_floor)
 		earned_points = budget
@@ -381,48 +380,69 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		goto_scene(tree, "victory")
 		return
 
-	var spec: Dictionary = run_floors[next_floor - 1]
 	floor = next_floor
 	combat = null
 	reward = null
 	reward_shells = 0
 	event = null
 	rest_mode = ""
+	blessing_choices = []
 
-	var kind: String = spec.get("type", "combat")
+	var kind: String = Floors.type_for(floor, rng)
+	var enemy_ids: Array = []
+	if _force_first_drowned and floor == 1:
+		_force_first_drowned = false
+		kind = "combat"
+		enemy_ids = ["drowned"]
+	floor_kind = kind
+
 	if kind == "combat" or kind == "elite" or kind == "boss":
-		## store.ts enterFloor(): spec.enemyIds が空なら encounterIds() で決定する。
-		## CombatState 本体は Combat.gd が CombatLogic.start_combat() で構築する。
-		var enemy_ids: Array = spec.get("enemy_ids", [])
 		if enemy_ids.is_empty():
-			enemy_ids = CombatLogic.encounter_ids(kind, floor, Callable(self, "_rand"))
+			enemy_ids = CombatLogic.encounter_ids(kind, floor, Callable(self, "_rand"), encounter_bias)
 		combat = {"floor": floor, "kind": kind, "enemy_ids": enemy_ids}
 		goto_scene(tree, "combat")
 	elif kind == "rest":
 		rest_mode = "hub"
-		## smith.ts の makeSmith(rand)。ランの継続シード(rng)を渡すことで、実ソースの
-		## s.rand（ラン中は同一ストリームを使い続ける）と同じ乱数の消費順を再現する。
 		village = {"smith": Smith.make_smith(rng)}
 		goto_scene(tree, "rest")
 	else:
-		## store.ts enterFloor(): EVENTS.find(spec.eventId) ?? pick(EVENTS, rand)
-		var event_id: String = str(spec.get("event_id", ""))
-		var ev: Dictionary = Events.get_event(event_id)
-		if ev.is_empty():
-			ev = Events.pick_event(Callable(self, "_rand"))
+		var ev: Dictionary = Events.pick_event(Callable(self, "_rand"))
 		event = ev
 		goto_scene(tree, "event")
 
 
-## store.ts の finishAdvance(carry) 相当。
-## 10層毎のボス撃破（周回未終了時）は拠点(hub)に自動帰還＝中継点。
-## 最終層到達で victory。それ以外は次の階層へ enter_floor する。
-## 注意：DEMO_MAX_FLOOR分岐は実ソースでもearnedPoints/unspentPointsを更新しない
-## （中継点分岐・enterFloorのvictory分岐とはフィールド更新内容が異なる）。実装ミスの可能性が
-## あるが、値のズレが実害を生まない箇所のため、忠実性を優先しそのまま移植する。
 func finish_advance(tree: SceneTree) -> void:
-	var spec: Dictionary = run_floors[floor - 1] if floor - 1 < run_floors.size() else {}
-	if spec.get("type", "") == "boss" and floor % 10 == 0 and floor < Floors.DEMO_MAX_FLOOR:
+	if _should_offer_blessing():
+		_open_blessing(tree)
+		return
+	_advance_after_blessing(tree)
+
+
+func _should_offer_blessing() -> bool:
+	return floor > 0 and floor % 5 == 0 and floor < Floors.DEMO_MAX_FLOOR
+
+
+func _open_blessing(tree: SceneTree) -> void:
+	blessing_choices = Blessings.roll_choices(run_blessings, rng)
+	goto_scene(tree, "blessing")
+
+
+func choose_blessing(tree: SceneTree, blessing_id: String) -> void:
+	var def: Dictionary = Blessings.get_def(blessing_id)
+	if def.is_empty():
+		_advance_after_blessing(tree)
+		return
+	run_blessings.append(blessing_id)
+	var bias: String = str(def.get("bias", ""))
+	if bias != "":
+		encounter_bias.append(bias)
+	toast = "%sを得た。" % str(def.get("name", blessing_id))
+	blessing_choices = []
+	_advance_after_blessing(tree)
+
+
+func _advance_after_blessing(tree: SceneTree) -> void:
+	if floor_kind == "boss" and floor % 10 == 0 and floor < Floors.DEMO_MAX_FLOOR:
 		best_floor = max(best_floor, floor)
 		var budget := Profile.total_points(best_floor)
 		earned_points = budget
@@ -519,13 +539,9 @@ func resolve_event(tree: SceneTree, choice_id: String) -> void:
 	elif event_id == "cult":
 		if choice_id == "kneel":
 			sanity = max(0, sanity - 10)
-			var inst: Dictionary = Equipment.roll_equipment(Equipment.pick_equipment_template(rng), floor, rng, "gift")
-			CollectionData.add_loot_equipment(inst)
-			var def: Dictionary = Equipment.get_equipment(str(inst.get("def_id", "")))
-			var slot: String = str(def.get("slot", ""))
-			if slot != "" and equipped.get(slot) == null:
-				equipped[slot] = inst
-			toast = "%sを渡された。正気-10。" % Equipment.equipment_label(inst)
+			var ticket: String = _reward_ticket_archetype()
+			CollectionData.add_pack_ticket(ticket)
+			toast = "%sのパックチケットを渡された。正気-10。" % str(CollectionData.PACK_TICKET_LABELS.get(ticket, ticket))
 		else:
 			hp = max(1, hp - 8)
 			sanity = mini(max_sanity, sanity + 6)
@@ -547,6 +563,9 @@ func resolve_event(tree: SceneTree, choice_id: String) -> void:
 func leave_village(tree: SceneTree) -> void:
 	rest_mode = ""
 	village = null
+	if _should_offer_blessing():
+		_open_blessing(tree)
+		return
 	enter_floor(tree, floor + 1)
 
 
@@ -627,7 +646,7 @@ func _mark_defeat() -> void:
 ## shatter（wipeProfile）、それ以外は defeat へ。
 func lose_combat(tree: SceneTree) -> void:
 	_mark_defeat()
-	if (sanity <= 0 or max_sanity <= 0) and not Equipment.has_full_set(equipped, "fanatic"):
+	if sanity <= 0 or max_sanity <= 0:
 		_shatter(tree)
 	else:
 		goto_scene(tree, "defeat")
@@ -648,7 +667,7 @@ func turn_grimoire_page(tree: SceneTree) -> void:
 	var max_sanity_next: int = Profile.derived_vitals(stats, new_madness).max_sanity
 	var cur: int = prev_max if profile_sanity == null else int(profile_sanity)
 	var new_sanity: int = max(0, min(cur, max_sanity_next))
-	if (max_sanity_next <= 0 or new_sanity <= 0) and not Equipment.has_full_set(equipped, "fanatic"):
+	if max_sanity_next <= 0 or new_sanity <= 0:
 		_shatter(tree)
 		return
 	madness = new_madness
@@ -690,7 +709,7 @@ func player_hook() -> Dictionary:
 		"extraStrength": run_strength,
 		"extraEnergyNext": extra_energy_next,
 		"baseEnergy": derived_energy(),
-		"equipped": equipped,
+		"blessings": run_blessings,
 	}
 
 
@@ -709,8 +728,7 @@ func mark_starter_chosen() -> void:
 
 ## store.ts rollShells()
 func _roll_shells() -> int:
-	var spec: Dictionary = run_floors[floor - 1] if floor - 1 < run_floors.size() and floor > 0 else {}
-	if str(spec.get("type", "")) == "boss":
+	if floor_kind == "boss":
 		if floor % 50 == 0:
 			return 40 + int(rng.next_float() * 21)
 		return 9 + int(rng.next_float() * 7)
@@ -760,44 +778,30 @@ func _encounter_archetype() -> String:
 
 ## store.ts rewardTicketArchetype()
 func _reward_ticket_archetype() -> String:
+	if not encounter_bias.is_empty():
+		return str(Mulberry32.pick(encounter_bias, rng))
 	var arch: String = _encounter_archetype()
 	if arch != "" and arch != "generic":
 		return arch
 	return str(Mulberry32.pick(CollectionData.PACK_TICKET_ARCHETYPES, rng))
 
 
-## store.ts makeRewards()
+## store.ts makeRewards() — 装備／ルーン廃止。落ちるのはパックチケットのみ。
 func _make_rewards() -> Array:
-	var enemies: Array = combat.get("enemies", []) if combat is Dictionary else []
 	if _had_treasure_wanderer():
-		var arch: String = _encounter_archetype()
-		var effect: String = str(Mulberry32.pick(Runes.RUNE_CATALOG.keys(), rng))
-		var def_id: String = Equipment.pick_equipment_def_id(arch, rng)
 		return [
 			{"kind": "ticket", "ticket": _reward_ticket_archetype()},
-			{"kind": "equipment", "equipment": Equipment.roll_equipment(def_id, floor, rng, "drop")},
-			{"kind": "rune", "rune": Runes.roll_rune(effect, floor, rng)},
+			{"kind": "ticket", "ticket": _reward_ticket_archetype()},
+			{"kind": "ticket", "ticket": _reward_ticket_archetype()},
 		]
-	var spec: Dictionary = run_floors[floor - 1] if floor - 1 < run_floors.size() and floor > 0 else {}
-	var spec_type: String = str(spec.get("type", "combat"))
-	var kind: String = "boss" if spec_type == "boss" else ("elite" if spec_type == "elite" else "combat")
+	var kind: String = "boss" if floor_kind == "boss" else ("elite" if floor_kind == "elite" else "combat")
 	var table: Dictionary = DROP_RATES[kind]
 	if rng.next_float() >= float(table.get("chance", 0.5)):
 		return [{"kind": "none"}]
-	var floor_for_roll: int = floor + 5 if kind == "boss" else floor
-	var archetype: String = _encounter_archetype()
 	var count: int = int(Mulberry32.weighted_pick(ITEM_COUNT_WEIGHTS[kind], Callable(self, "_rand")))
 	var rewards: Array = []
 	for i in count:
-		var category: String = str(Mulberry32.weighted_pick(table.get("weights", {}), Callable(self, "_rand")))
-		if category == "card":
-			rewards.append({"kind": "ticket", "ticket": _reward_ticket_archetype()})
-		elif category == "rune":
-			var effect: String = str(Mulberry32.pick(Runes.RUNE_CATALOG.keys(), rng))
-			rewards.append({"kind": "rune", "rune": Runes.roll_rune(effect, floor_for_roll, rng)})
-		else:
-			var def_id: String = Equipment.pick_equipment_def_id(archetype, rng)
-			rewards.append({"kind": "equipment", "equipment": Equipment.roll_equipment(def_id, floor_for_roll, rng, "drop")})
+		rewards.append({"kind": "ticket", "ticket": _reward_ticket_archetype()})
 	return rewards
 
 
@@ -805,6 +809,11 @@ func _make_rewards() -> Array:
 func reset_run() -> void:
 	floor = 0
 	run_floors = []
+	floor_kind = ""
+	run_blessings = []
+	encounter_bias = []
+	blessing_choices = []
+	_force_first_drowned = false
 	combat = null
 	reward = null
 	reward_shells = 0

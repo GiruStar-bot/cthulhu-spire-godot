@@ -80,7 +80,7 @@ func play_bgm_for_scene(scene_name: String) -> void:
 		"combat":
 			var kind := str(GameState.combat.get("kind", "combat")) if GameState.combat is Dictionary else "combat"
 			play_bgm("boss" if kind == "boss" else "combat")
-		"event": play_bgm("event")
+		"event", "blessing": play_bgm("event")
 		"reward", "victory":
 			play_bgm("none")
 			play_sfx("reward")

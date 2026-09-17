@@ -235,22 +235,8 @@ func _refresh_smith_room() -> void:
 		empty.text = "売約済み"
 		smith_goods.add_child(empty)
 	_free_children(smith_equip)
-	var equipment_goods: Array = smith.get("equipment_goods", [])
-	var shown_eq: int = 0
-	for good in equipment_goods:
-		if good.get("sold", false):
-			continue
-		var def_id: String = str(good.get("def_id", ""))
-		var equip_def: Dictionary = Equipment.get_equipment(def_id)
-		var tier: int = int(good.get("tier", 1))
-		var price: int = int(good.get("price", 0))
-		var price_text: String = "無料" if price <= 0 else "%d貝殻" % price
-		var disabled: bool = GameState.shells < price and price > 0
-		var label: String = "%s T%d" % [str(equip_def.get("name", def_id)), tier]
-		smith_equip.add_child(_make_shop_equip(equip_def, label, price_text, disabled, _buy_equipment_good.bind(good)))
-		shown_eq += 1
-	$SmithLayer/SmithBody/EquipLabel.visible = shown_eq > 0
-	$SmithLayer/SmithBody/SmithEquipScroll.visible = shown_eq > 0
+	$SmithLayer/SmithBody/EquipLabel.visible = false
+	$SmithLayer/SmithBody/SmithEquipScroll.visible = false
 
 
 func _make_shop_card(def: Dictionary, def_id: String, price_text: String, disabled: bool, action: Callable) -> Button:

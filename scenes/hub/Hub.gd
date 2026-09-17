@@ -211,6 +211,11 @@ func _ready() -> void:
 	sell_confirm_button.pressed.connect(_on_sell_confirm_pressed)
 	_setup_deck_filters()
 	_setup_equipment_filters()
+	if nav_buttons.has("equipment"):
+		nav_buttons["equipment"].visible = false
+	sell_equipment_tab_button.visible = false
+	sell_rune_tab_button.visible = false
+	prepare_equipment_summary_panel.visible = false
 	_select_tab("descend")
 	_update_header()
 	if GameState.toast != "":
@@ -424,13 +429,21 @@ func _update_header() -> void:
 func _update_descend_panel() -> void:
 	if GameState.floor > 0:
 		## HubScreen.tsx の CheckpointPanel 相当
-		descend_status_label.text = "中継点\n%sを越えた\nHP %d/%d · SAN %d/%d · 貝殻 %d" % [
+		var blessing_line: String = "加護 なし"
+		if GameState.run_blessings.size() > 0:
+			var names: Array = []
+			for blessing_id in GameState.run_blessings:
+				var def: Dictionary = Blessings.get_def(str(blessing_id))
+				names.append(str(def.get("name", blessing_id)))
+			blessing_line = "加護 %s" % " · ".join(PackedStringArray(names))
+		descend_status_label.text = "中継点\n%sを越えた\nHP %d/%d · SAN %d/%d · 貝殻 %d\n%s" % [
 			Floors.layer_label(GameState.floor),
 			GameState.hp,
 			GameState.max_hp,
 			GameState.sanity,
 			GameState.max_sanity,
 			GameState.shells,
+			blessing_line,
 		]
 		primary_action_button.text = "次の層へ沈む"
 		primary_action_button.disabled = false
@@ -455,9 +468,8 @@ func _update_descend_panel() -> void:
 		extract_button.visible = false
 		stat_panel.visible = true
 		_refresh_stat_panel()
-		prepare_equipment_summary_panel.visible = true
+		prepare_equipment_summary_panel.visible = false
 		prepare_deck_select_panel.visible = true
-		_refresh_prepare_equipment_summary()
 		_rebuild_prepare_deck_list()
 
 
