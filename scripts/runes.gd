@@ -8,18 +8,6 @@ extends RefCounted
 ##
 ## 参照: reference/cthulhu-spire-main/src/game/runes.ts
 
-const RUNE_ART_FILES := {
-	"BLK+": "blk.png",
-	"DRAW": "draw.png",
-	"SAN+": "san.png",
-	"STR+": "str.png",
-	"POISON": "poison.png",
-	"HEAL": "heal.png",
-	"VULN+": "vuln.png",
-	"ENERGY+": "energy.png",
-	"THORN": "thorn.png",
-}
-
 ## effect -> base value（RUNE_CATALOGのvalue相当。IDは個体ごとにロール時採番）
 const RUNE_CATALOG := {
 	"BLK+": 2,
@@ -32,13 +20,6 @@ const RUNE_CATALOG := {
 	"ENERGY+": 1,
 	"THORN": 2,
 }
-
-
-## runes.ts の runeArt()
-static func rune_art(effect: String) -> String:
-	if not RUNE_ART_FILES.has(effect):
-		return ""
-	return "res://art/pixel/runes/%s" % RUNE_ART_FILES[effect]
 
 
 ## runes.ts の rollRune()
