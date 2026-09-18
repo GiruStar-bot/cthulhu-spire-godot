@@ -32,6 +32,8 @@ const SCENE_PATHS := {
 	"defeat": "res://scenes/end/End.tscn",
 	"shatter": "res://scenes/end/Shatter.tscn",
 	"blessing": "res://scenes/blessing/Blessing.tscn",
+	"dream_gate": "res://scenes/dream_gate/DreamGate.tscn",
+	"dream_title": "res://scenes/main_menu/DreamTitle.tscn",
 }
 
 # --- PlayerProfile 相当（拠点に永続、次ランへ引き継ぐ）。実体は Profile.gd 参照 ---
@@ -609,11 +611,12 @@ func give_up(tree: SceneTree) -> void:
 ## store.ts の acceptShatter()（ShatterView「タイトル」）。
 ## wipeProfile()自体は lose_combat() 側（実ソースのpresentCombat lose分岐相当）で
 ## 既に実行済みのため、ここでは実ソース同様 loadProfile() の再読込のみ行う。
+## reset_run() は従来どおり。タイトルへは行かず、瞼の先の螺旋階段へ渡す。
 func accept_shatter(tree: SceneTree) -> void:
 	_load_profile()
 	reset_run()
 	player_name = ""
-	goto_scene(tree, "title")
+	goto_scene(tree, "dream_gate")
 
 
 ## 戦闘勝利。store.ts presentCombat win 分岐：貝殻加算のあと makeRewards() で報酬画面へ。

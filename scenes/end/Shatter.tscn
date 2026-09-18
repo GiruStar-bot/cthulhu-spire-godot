@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scenes/end/Shatter.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/pixel/bg/death.jpg" id="2"]
@@ -11,6 +11,9 @@ border_width_top = 3
 border_width_right = 3
 border_width_bottom = 3
 border_color = Color(0.45, 0.22, 0.23, 0.9)
+
+[sub_resource type="StyleBoxFlat" id="StyleLid"]
+bg_color = Color(0.01, 0.012, 0.02, 1)
 
 [node name="Shatter" type="Control"]
 layout_mode = 3
@@ -100,5 +103,28 @@ offset_bottom = 90.0
 grow_horizontal = 2
 grow_vertical = 2
 text = "タイトル"
+
+[node name="LidTop" type="Panel" parent="."]
+z_index = 40
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 0.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleLid")
+
+[node name="LidBottom" type="Panel" parent="."]
+z_index = 40
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 0.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleLid")
 
 [connection signal="pressed" from="TitleButton" to="." method="_on_title_button_pressed"]
