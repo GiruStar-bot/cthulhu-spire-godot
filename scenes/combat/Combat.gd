@@ -74,7 +74,7 @@ var _vertigo_mat: ShaderMaterial
 var _vertigo_tween: Tween
 var _shield: Polygon2D
 var _shield_tween: Tween
-var _vfx_layer: Control
+var _vfx_layer: Node2D
 
 
 func _ready() -> void:
@@ -1394,10 +1394,8 @@ func _set_float_y(y: float, uid: String) -> void:
 func _ensure_vfx_layer() -> void:
 	if _vfx_layer != null and is_instance_valid(_vfx_layer):
 		return
-	_vfx_layer = Control.new()
+	_vfx_layer = Node2D.new()
 	_vfx_layer.name = "VfxLayer"
-	_vfx_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_vfx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vfx_layer.z_index = 16
 	add_child(_vfx_layer)
 
@@ -1508,7 +1506,7 @@ func _fx_slash_on(uid: String) -> void:
 func _fx_arrow_to(uid: String) -> void:
 	_ensure_vfx_layer()
 	var dest: Vector2 = _vfx_center_of(uid)
-	var start := Vector2(_vfx_layer.size.x * 0.5, _vfx_layer.size.y * 0.80)
+	var start := Vector2(size.x * 0.5, size.y * 0.80)
 	var spr: Sprite2D = _spawn_vfx_sprite(FX_ARROW, start, 0.34)
 	var delta: Vector2 = dest - start
 	if delta.length() > 1.0:
