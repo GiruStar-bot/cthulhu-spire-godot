@@ -219,7 +219,7 @@ func _on_beer_pressed() -> void:
 
 
 ## GameState.village.smith（smith.ts の makeSmith() の戻り値相当：
-## rank/kind/taboo/goods/equipment_goods）を取得する共通ヘルパー
+## rank/kind/taboo/goods）を取得する共通ヘルパー
 func _current_smith() -> Dictionary:
 	if not (GameState.village is Dictionary):
 		return {}
@@ -282,37 +282,6 @@ func _make_shop_card(def: Dictionary, def_id: String, price_text: String, disabl
 	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wrap.add_child(price_label)
 	return wrap
-
-
-func _make_shop_equip(def: Dictionary, label: String, price_text: String, disabled: bool, action: Callable) -> Button:
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(120, 150)
-	button.disabled = disabled
-	button.pressed.connect(action)
-	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 6)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var art := TextureRect.new()
-	art.custom_minimum_size = Vector2(0, 80)
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	art.texture = _load_texture_safe(str(def.get("art", "")))
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(art)
-	var name_label := Label.new()
-	name_label.text = label
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(name_label)
-	var price_label := Label.new()
-	price_label.text = price_text
-	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	price_label.add_theme_color_override("font_color", Color("d4a84b"))
-	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(price_label)
-	button.add_child(col)
-	return button
 
 
 func _refresh_sub_room(mode: String) -> void:
@@ -395,21 +364,6 @@ func _buy_card_good(good: Dictionary) -> void:
 	if price > 0 and not GameState.spend_shells(price):
 		return
 	CollectionData.add_loot_card(str(good.get("def_id", "")))
-	good.sold = true
-	_refresh()
-
-
-## store.ts の buyEquipmentGood()。在庫生成時（Smith.make_equipment_goods）に確保したuidは
-## 表示専用で、購入が確定した時点で同じdef_id/tierを使って改めて roll_equipment_at_tier() を
-## 呼び直す（power/bonus_statsが在庫プレビュー時とは変わる、実ソースの仕様上の挙動）。
-func _buy_equipment_good(good: Dictionary) -> void:
-	if good.get("sold", false):
-		return
-	var price := int(good.get("price", 0))
-	if price > 0 and not GameState.spend_shells(price):
-		return
-	var inst := Equipment.roll_equipment_at_tier(str(good.get("def_id", "")), int(good.get("tier", 1)), GameState.rng, "smith")
-	CollectionData.add_loot_equipment(inst)
 	good.sold = true
 	_refresh()
 

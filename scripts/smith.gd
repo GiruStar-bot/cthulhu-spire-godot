@@ -63,8 +63,6 @@ const SLOTS := {
 	"taboo": [["genius"], ["genius"], ["god"], ["god"], ["taboo"], ["taboo"]],
 }
 
-const EQUIPMENT_TIER_BY_RANK := {"normal": 1, "mid": 2, "genius": 3, "god": 4, "taboo": 5}
-
 const RANK_LABELS := {"normal": "普通", "mid": "中級", "genius": "天才", "god": "神", "taboo": "禁忌"}
 
 
@@ -80,28 +78,6 @@ static func roll_shop_rank(rng: Mulberry32) -> String:
 	if r < 0.382:
 		return "mid"
 	return "normal"
-
-
-## smith.ts の makeEquipmentGoods()。表示用の在庫データ（uid/def_id/tier/price/sold）のみを
-## 生成する。uidを確保するために roll_equipment_at_tier() を一度呼ぶが、そこで決まる
-## power/bonus_stats は捨てる ——購入時（buyEquipmentGood相当、Rest.gd参照）に同じ
-## def_id/tierで改めてロールし直す、という実ソースの挙動を忠実に踏襲している
-## （在庫プレビューと実際に手に入る個体のステータスが一致しない、実ソース側の仕様）。
-static func make_equipment_goods(rank: String, rng: Mulberry32) -> Array:
-	var tier: int = int(EQUIPMENT_TIER_BY_RANK.get(rank, 1))
-	var ids := Equipment.EQUIPMENT.keys()
-	var out: Array = []
-	for i in range(2):
-		var def_id: String = str(Mulberry32.pick(ids, rng))
-		var inst := Equipment.roll_equipment_at_tier(def_id, tier, rng, "smith")
-		out.append({
-			"uid": str(inst.get("uid", "")),
-			"def_id": def_id,
-			"tier": tier,
-			"price": 0 if rank == "taboo" else tier * 15,
-			"sold": false,
-		})
-	return out
 
 
 ## smith.ts の makeSmith()
