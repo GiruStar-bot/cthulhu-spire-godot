@@ -40,10 +40,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -260.0
-offset_top = -140.0
-offset_right = 260.0
-offset_bottom = 140.0
+offset_left = -360.0
+offset_top = -160.0
+offset_right = 360.0
+offset_bottom = 160.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 36
@@ -51,20 +51,20 @@ alignment = 1
 
 [node name="LogoSlot" type="Control" parent="Stage"]
 layout_mode = 2
-custom_minimum_size = Vector2(560, 72)
+custom_minimum_size = Vector2(720, 108)
 size_flags_horizontal = 4
 
 [node name="LogoContainer" type="VBoxContainer" parent="Stage/LogoSlot"]
 layout_mode = 0
 offset_left = 0.0
 offset_top = 8.0
-offset_right = 560.0
-offset_bottom = 64.0
+offset_right = 720.0
+offset_bottom = 100.0
 theme_override_constants/separation = 0
 
 [node name="NameLabel" type="Label" parent="Stage/LogoSlot/LogoContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 40
+theme_override_font_sizes/font_size = 60
 theme_override_colors/font_color = Color(0.42, 0.28, 0.55, 1)
 text = "The Dream Island"
 horizontal_alignment = 1

@@ -16,7 +16,6 @@ const HAND_ABOVE_MARGIN := 20.0
 const CARD_SIZE := Vector2(128, 192)
 const PREVIEW_CARD_SIZE := Vector2(112, 160)
 const PREVIEW_CARD_SIZE_DUAL := Vector2(76, 114)
-const FRAME_PANEL := "res://art/ui/frame_panel.png"
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 176.0
 const ENEMY_PLATE_W_DUAL := 148.0
@@ -907,23 +906,13 @@ func _build_chrome() -> void:
 
 
 func _decorate_panel(panel: Panel) -> void:
-	var frame := NinePatchRect.new()
-	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	frame.texture = load(FRAME_PANEL) as Texture2D
-	frame.draw_center = false
-	frame.patch_margin_left = 10
-	frame.patch_margin_top = 10
-	frame.patch_margin_right = 10
-	frame.patch_margin_bottom = 10
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(frame)
-	panel.move_child(frame, 0)
+	VitalsHud.attach_panel_frame(panel)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.07, 0.065, 0.055, 0.92)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
+	style.content_margin_left = 18
+	style.content_margin_right = 18
+	style.content_margin_top = 14
+	style.content_margin_bottom = 14
 	panel.add_theme_stylebox_override("panel", style)
 
 

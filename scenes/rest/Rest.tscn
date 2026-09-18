@@ -244,6 +244,7 @@ mouse_filter = 2
 
 [node name="InnVitals" parent="InnLayer/InnHud" instance=ExtResource("10")]
 layout_mode = 2
+show_frame = false
 
 [node name="InnShells" type="Label" parent="InnLayer/InnHud"]
 visible = false
@@ -410,6 +411,7 @@ theme_override_constants/separation = 4
 mouse_filter = 2
 
 [node name="SmithVitals" parent="SmithLayer/SmithHud" instance=ExtResource("10")]
+visible = false
 layout_mode = 2
 
 [node name="SmithShells" type="Label" parent="SmithLayer/SmithHud"]
@@ -439,7 +441,7 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = 188.0
+offset_top = 118.0
 offset_right = -360.0
 offset_bottom = -80.0
 grow_horizontal = 2

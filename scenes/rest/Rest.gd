@@ -137,11 +137,15 @@ func _refresh() -> void:
 	smith_layer.visible = mode == "smith"
 	sub_layer.visible = mode == "upgrade" or mode == "deck" or mode == "sell"
 	var payload: Dictionary = _vitals_payload()
+	hub_vitals.visible = true
+	hub_vitals.set_show_frame(true)
 	hub_vitals.bind(payload)
 	hub_shells.text = _shells_text()
+	inn_vitals.visible = true
+	inn_vitals.set_show_frame(false)
 	inn_vitals.bind(payload)
 	inn_shells.text = _shells_text()
-	smith_vitals.bind(payload)
+	smith_vitals.visible = false
 	smith_shells.text = _shells_text()
 	if is_hub:
 		_layout_hub_buildings()

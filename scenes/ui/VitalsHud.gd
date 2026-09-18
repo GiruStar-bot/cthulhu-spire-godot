@@ -4,6 +4,10 @@ extends Panel
 ## 戦闘・村で共用する HP/SAN 枠。エナジー箱と状態異常アイコンもここで描く。
 
 const FRAME_PANEL := "res://art/ui/frame_panel.png"
+## 原作 CSS: border-image-slice 62 / border-width 10px。
+## 画像の透明余白を含めた柱は約62px。表示は石の見え方を優先して16pxへ縮小する。
+const FRAME_SLICE := 62
+const FRAME_DISPLAY := 16
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ICON_STR := "res://art/pixel/runes/str.png"
 const ICON_POISON := "res://art/pixel/runes/poison.png"
@@ -27,7 +31,10 @@ var _hp_value: Label
 var _san_fill: ColorRect
 var _san_value: Label
 var _status_row: HFlowContainer
+var _frame: NinePatchRect
 var _built: bool = false
+@export var show_frame: bool = true
+static var _scaled_frame_tex: Texture2D
 
 
 func _ready() -> void:
@@ -50,6 +57,12 @@ func bind(data: Dictionary) -> void:
 	_set_bar(_hp_fill, _hp_value, int(data.get("hp", 0)), int(data.get("max_hp", 0)))
 	_set_bar(_san_fill, _san_value, int(data.get("sanity", 0)), int(data.get("max_sanity", 0)))
 	_rebuild_status(data)
+	_apply_frame_visible()
+
+
+func set_show_frame(enabled: bool) -> void:
+	show_frame = enabled
+	_apply_frame_visible()
 
 
 func _build() -> void:
@@ -58,8 +71,9 @@ func _build() -> void:
 	if custom_minimum_size.x < 8.0:
 		custom_minimum_size = Vector2(232, 96)
 	_decorate()
+	var pad: int = 18 if show_frame else 8
 	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, pad)
 	col.add_theme_constant_override("separation", 4)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(col)
@@ -236,24 +250,65 @@ static func _load_static(path: String) -> Texture2D:
 
 
 func _decorate() -> void:
-	var frame := NinePatchRect.new()
-	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	frame.texture = load(FRAME_PANEL) as Texture2D
-	frame.draw_center = false
-	frame.patch_margin_left = 10
-	frame.patch_margin_top = 10
-	frame.patch_margin_right = 10
-	frame.patch_margin_bottom = 10
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(frame)
-	move_child(frame, 0)
+	_frame = attach_panel_frame(self)
+	_apply_frame_visible()
+
+
+func _apply_frame_visible() -> void:
+	if _frame:
+		_frame.visible = show_frame
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.065, 0.055, 0.92)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
+	if show_frame:
+		style.bg_color = Color(0.07, 0.065, 0.055, 0.92)
+		style.content_margin_left = 18
+		style.content_margin_right = 18
+		style.content_margin_top = 14
+		style.content_margin_bottom = 14
+	else:
+		style.bg_color = Color(0, 0, 0, 0)
+		style.content_margin_left = 4
+		style.content_margin_right = 4
+		style.content_margin_top = 2
+		style.content_margin_bottom = 2
 	add_theme_stylebox_override("panel", style)
+
+
+static func panel_frame_texture() -> Texture2D:
+	if _scaled_frame_tex != null:
+		return _scaled_frame_tex
+	var src: Texture2D = load(FRAME_PANEL) as Texture2D
+	if src == null:
+		return null
+	var img: Image = src.get_image()
+	if img == null:
+		return src
+	if img.is_compressed():
+		img.decompress()
+	var factor: float = float(FRAME_DISPLAY) / float(FRAME_SLICE)
+	var nw: int = maxi(1, int(round(float(img.get_width()) * factor)))
+	var nh: int = maxi(1, int(round(float(img.get_height()) * factor)))
+	img.resize(nw, nh, Image.INTERPOLATE_NEAREST)
+	_scaled_frame_tex = ImageTexture.create_from_image(img)
+	return _scaled_frame_tex
+
+
+static func attach_panel_frame(host: Control) -> NinePatchRect:
+	var frame := NinePatchRect.new()
+	frame.name = "PanelFrame"
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.texture = panel_frame_texture()
+	frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	frame.draw_center = false
+	frame.patch_margin_left = FRAME_DISPLAY
+	frame.patch_margin_top = FRAME_DISPLAY
+	frame.patch_margin_right = FRAME_DISPLAY
+	frame.patch_margin_bottom = FRAME_DISPLAY
+	frame.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+	frame.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(frame)
+	host.move_child(frame, 0)
+	return frame
 
 
 func _set_bar(fill: ColorRect, value_label: Label, current: int, maximum: int) -> void:
