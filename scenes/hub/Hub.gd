@@ -126,10 +126,10 @@ var _sell_rune_ids: Dictionary = {}  ## id -> true
 # （DeckBuilderScreen.tsx / EquipmentScreen.tsx 相当）
 # ============================================================
 
-const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold"]
-const DECK_FILTERABLE_RARITIES := ["starter", "common", "uncommon", "rare"]
+const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all"]
+const DECK_FILTERABLE_RARITIES := ["starter", "common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
-const DECK_RARITY_ORDER := ["starter", "common", "uncommon", "rare", "status"]
+const DECK_RARITY_ORDER := ["starter", "common", "uncommon", "rare", "legendary", "status"]
 const DECK_SORT_MODES := ["cost", "rarity", "owned", "archetype"]
 const DECK_SORT_LABELS := {"cost": "コスト順", "rarity": "レア度順", "owned": "所持数順", "archetype": "ジャンル順"}
 const RARITY_LABELS := {"starter": "スターター", "common": "コモン", "uncommon": "アンコモン", "rare": "レア", "status": "状態"}
@@ -143,11 +143,13 @@ const CARD_FRAME_BY_RARITY := {
 	"common": ["res://art/pixel/ui/frame_card_common_9.png", 8],
 	"uncommon": ["res://art/pixel/ui/frame_card_uncommon_9.png", 16],
 	"rare": ["res://art/pixel/ui/frame_card_9.png", 13],
+	"legendary": ["res://art/pixel/ui/frame_card_9.png", 13],
 }
 const CARD_FRAME_BY_ARCHETYPE := {
 	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 15],
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 14],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
+	"all": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
 }
 
 const RUNE_CATEGORY_OF_EFFECT := {
@@ -708,16 +710,22 @@ func _open_pack(archetype: String) -> void:
 	var owner: String = GameState.character if GameState.character != "" else GameState.starter_path(GameState.stats)
 	var rand := Callable(GameState, "_rand")
 	var revealed: Array = []
-	for i in range(2):
-		var forced: Dictionary = Cards.weighted_archetype_card(owner, archetype, rand)
-		var def_id: String = str(forced.get("defId", ""))
-		CollectionData.add_loot_card(def_id)
-		revealed.append(def_id)
-	for i in range(2):
-		var free_card: Dictionary = Cards.weighted_card(owner, rand)
-		var def_id: String = str(free_card.get("defId", ""))
-		CollectionData.add_loot_card(def_id)
-		revealed.append(def_id)
+	if archetype == "all":
+		var all_card: Dictionary = Cards.pick_all_pack_card(rand)
+		var all_id: String = str(all_card.get("defId", ""))
+		CollectionData.add_loot_card(all_id)
+		revealed.append(all_id)
+	else:
+		for i in range(2):
+			var forced: Dictionary = Cards.weighted_archetype_card(owner, archetype, rand)
+			var def_id: String = str(forced.get("defId", ""))
+			CollectionData.add_loot_card(def_id)
+			revealed.append(def_id)
+		for i in range(2):
+			var free_card: Dictionary = Cards.weighted_card(owner, rand)
+			var def_id: String = str(free_card.get("defId", ""))
+			CollectionData.add_loot_card(def_id)
+			revealed.append(def_id)
 	var art_path: String = _pack_open_art_path(archetype)
 	_launch_pack_open(art_path, revealed)
 
@@ -740,7 +748,10 @@ func _pack_open_art_path(archetype: String) -> String:
 	var png_path: String = "res://art/pixel/packs/pack_%s_nobackground.png" % archetype
 	if ResourceLoader.exists(png_path):
 		return png_path
-	return "res://art/pixel/packs/pack_%s.jpg" % archetype
+	var jpg_path: String = "res://art/pixel/packs/pack_%s.jpg" % archetype
+	if ResourceLoader.exists(jpg_path):
+		return jpg_path
+	return "res://art/pixel/packs/pack_outer_nobackground.png"
 
 
 func _on_pack_open_closed() -> void:
@@ -834,6 +845,8 @@ func _make_pack_tile(archetype: String, ticket_count: int) -> PanelContainer:
 	pack_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var art_path := "res://art/pixel/packs/pack_%s.jpg" % archetype
 	var art_tex: Texture2D = _load_texture_safe(art_path)
+	if art_tex == null:
+		art_tex = _load_texture_safe("res://art/pixel/packs/pack_outer.jpg")
 	if art_tex != null:
 		pack_art.texture = art_tex
 	col.add_child(pack_art)
@@ -846,7 +859,10 @@ func _make_pack_tile(archetype: String, ticket_count: int) -> PanelContainer:
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_label)
 	var sub := Label.new()
-	sub.text = "4枚中2枚が%s確定" % label_name
+	if archetype == "all":
+		sub.text = "開封で1枚（銀の鍵／崩壊／全能／超越者）"
+	else:
+		sub.text = "4枚中2枚が%s確定" % label_name
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_font_size_override("font_size", 10)
 	sub.add_theme_color_override("font_color", Color(0.72, 0.68, 0.58, 1))

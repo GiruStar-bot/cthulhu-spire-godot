@@ -13,7 +13,7 @@ const PACK_SCALE := 1.5
 const CARD_ASPECT := 1.5
 const CARD_REVEAL_SCALE := 2.0 / 3.0
 const CARD_GAP := 12.0
-const MYTHOS_ARCHETYPES := ["greatold", "elder", "outer"]
+const MYTHOS_ARCHETYPES := ["greatold", "elder", "outer", "all"]
 const FLIP_HALF_S := 0.22
 const DEAL_S := 0.20
 const RARE_POP_S := 0.50
@@ -22,6 +22,7 @@ const MYTHOS_LIGHT := {
 	"greatold": Color(0.063, 0.725, 0.506, 1.0),
 	"elder": Color(0.980, 0.863, 0.510, 1.0),
 	"outer": Color(0.627, 0.314, 0.902, 1.0),
+	"all": Color(0.85, 0.55, 1.0, 1.0),
 }
 
 var _card_ids: Array = []
@@ -386,7 +387,7 @@ func _after_flip(index: int) -> void:
 	var def: Dictionary = Cards.get_card(str(slot["def_id"]))
 	var rarity: String = str(def.get("rarity", "common"))
 	var arch: String = str(def.get("archetype", ""))
-	var is_rare: bool = rarity == "rare"
+	var is_rare: bool = rarity == "rare" or rarity == "legendary"
 	var is_mythos: bool = MYTHOS_ARCHETYPES.has(arch)
 	if is_rare or is_mythos:
 		_play_rarity_fx(slot, is_rare, arch)

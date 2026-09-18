@@ -10,17 +10,20 @@ const FRAME_BY_RARITY := {
 	"common": ["res://art/pixel/ui/frame_card_common_9.png", 10],
 	"uncommon": ["res://art/pixel/ui/frame_card_uncommon_9.png", 12],
 	"rare": ["res://art/pixel/ui/frame_card_9.png", 12],
+	"legendary": ["res://art/pixel/ui/frame_card_9.png", 12],
 }
 const FRAME_BY_ARCHETYPE := {
 	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 14],
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 12],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
+	"all": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
 }
 ## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
 const MYTHOS_GLOW_COLOR := {
 	"greatold": Color(0.063, 0.725, 0.506, 1.0),
 	"elder": Color(0.980, 0.863, 0.510, 1.0),
 	"outer": Color(0.627, 0.314, 0.902, 1.0),
+	"all": Color(0.85, 0.55, 1.0, 1.0),
 }
 const TAG_TONES := {
 	"attack": Color("6b1f22"),

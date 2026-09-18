@@ -244,7 +244,7 @@ const ENEMIES := {
 		"maxHp": 9999,
 		"signatureCardId": "thecall",
 		"cardsPerTurn": 3,
-		"deck": ["eldersign", "star_sword", "yog_gun", "blood_toll", "tower_shield", "cthulhu_mail", "self_offering", "perfect_stealth", "deep_ones_blessing", "thecall"],
+		"deck": ["eldersign", "star_sword", "yog_gun", "blood_toll", "tower_shield", "cthulhu_mail", "self_offering", "perfect_stealth", "deep_ones_blessing", "thecall", "silver_key", "collapse", "omnipotence", "transcendent"],
 	},
 	"treasure_wanderer": {
 		"id": "treasure_wanderer",

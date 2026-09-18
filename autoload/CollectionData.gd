@@ -45,7 +45,7 @@ const DEBUG_OWN_ALL_CARDS := true
 
 ## packTickets.ts PACK_TICKET_ARCHETYPES / PACK_TICKET_LABELS
 const PACK_TICKET_ARCHETYPES := [
-	"fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold",
+	"fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all",
 ]
 
 const PACK_TICKET_LABELS := {
@@ -121,6 +121,7 @@ func _ready() -> void:
 	inventory.cards = cards
 	if DEBUG_OWN_ALL_CARDS:
 		_grant_all_cards_for_debug()
+		pack_tickets["all"] = maxi(int(pack_tickets.get("all", 0)), 3)
 
 	var runes: Array = []
 	for effect in Runes.RUNE_CATALOG.keys():

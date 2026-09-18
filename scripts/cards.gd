@@ -16,6 +16,7 @@ const ARCHETYPE_LABELS := {
 	"offering": "供物",
 	"shadow": "影",
 	"greatold": "旧支配者",
+	"all": "全",
 }
 
 const ART_FALLBACK := {
@@ -39,6 +40,10 @@ const ART_FALLBACK := {
 	"res://art/pixel/cards/pustule_armor.jpg": "res://art/pixel/cards/adapted_scales.jpg",
 	"res://art/pixel/cards/venom_potency.jpg": "res://art/pixel/cards/pus_mist.jpg",
 	"res://art/pixel/cards/self_poisoning.jpg": "res://art/pixel/cards/bloodpact.jpg",
+	"res://art/pixel/cards/silver_key.jpg": "res://art/pixel/cards/all-zero.jpg",
+	"res://art/pixel/cards/collapse.jpg": "res://art/pixel/cards/all-geo.jpg",
+	"res://art/pixel/cards/omnipotence.jpg": "res://art/pixel/cards/all-phase.jpg",
+	"res://art/pixel/cards/transcendent.jpg": "res://art/pixel/cards/all-diffuse.jpg",
 }
 
 const CARDS := {
@@ -4202,8 +4207,105 @@ const CARDS := {
 		"effects": [],
 		"upgradedEffects": [],
 	},
+	"silver_key": {
+		"id": "silver_key",
+		"name": "銀の鍵",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "all",
+		"cost": 4,
+		"rarity": "legendary",
+		"owner": "shared",
+		"packOnly": true,
+		"text": "手札上限までカードを引く。",
+		"upgradedText": "手札上限までカードを引く。",
+		"flavor": "門の向こうで、全なる者が待っている。",
+		"art": "res://art/pixel/cards/silver_key.jpg",
+		"target": "none",
+		"effects": [
+			{"t": "drawToHandLimit"},
+		],
+		"upgradedEffects": [
+			{"t": "drawToHandLimit"},
+		],
+	},
+	"collapse": {
+		"id": "collapse",
+		"name": "崩壊",
+		"type": "attack",
+		"aiTag": "attack",
+		"archetype": "all",
+		"cost": 4,
+		"rarity": "legendary",
+		"owner": "shared",
+		"packOnly": true,
+		"vfx": "impact",
+		"text": "敵全体に1000ダメージ。",
+		"upgradedText": "敵全体に1000ダメージ。",
+		"flavor": "世界が、ひとつの点に折れる。",
+		"art": "res://art/pixel/cards/collapse.jpg",
+		"target": "all",
+		"effects": [
+			{"t": "damageAll", "n": 1000},
+		],
+		"upgradedEffects": [
+			{"t": "damageAll", "n": 1000},
+		],
+	},
+	"omnipotence": {
+		"id": "omnipotence",
+		"name": "全能",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "all",
+		"cost": 8,
+		"rarity": "legendary",
+		"owner": "shared",
+		"packOnly": true,
+		"oncePerTurn": true,
+		"text": "エナジーを30得る。同名カードは1ターンに一度しか使えない。",
+		"upgradedText": "エナジーを30得る。同名カードは1ターンに一度しか使えない。",
+		"flavor": "すべてを動かす力は、ここに満ちる。",
+		"art": "res://art/pixel/cards/omnipotence.jpg",
+		"target": "none",
+		"effects": [
+			{"t": "energy", "n": 30},
+		],
+		"upgradedEffects": [
+			{"t": "energy", "n": 30},
+		],
+	},
+	"transcendent": {
+		"id": "transcendent",
+		"name": "超越者",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "all",
+		"cost": 10,
+		"rarity": "legendary",
+		"owner": "shared",
+		"packOnly": true,
+		"text": "全回復、正気度全回復、状態異常回復。",
+		"upgradedText": "全回復、正気度全回復、状態異常回復。",
+		"flavor": "器が光になり、傷も狂気も残らない。",
+		"art": "res://art/pixel/cards/transcendent.jpg",
+		"target": "none",
+		"effects": [
+			{"t": "healFull"},
+			{"t": "sanityFull"},
+			{"t": "clearStatus"},
+		],
+		"upgradedEffects": [
+			{"t": "healFull"},
+			{"t": "sanityFull"},
+			{"t": "clearStatus"},
+		],
+	},
 }
 
+
+const ALL_PACK_IDS := ["silver_key", "collapse", "omnipotence", "transcendent"]
+const ALL_SET_COUNT := 16
 
 const CARD_FRAME_CLASSES := [
 	"frame-card-common",
@@ -4393,7 +4495,7 @@ static func reward_pool(owner: String) -> Array:
 	for c in CARDS.values():
 		if c.get("rarity") == "starter" or c.get("rarity") == "status":
 			continue
-		if c.get("grimoire") or c.get("shop") or c.get("enemyOnly"):
+		if c.get("grimoire") or c.get("shop") or c.get("enemyOnly") or c.get("packOnly"):
 			continue
 		if c.get("retired") or c.get("unobtainable"):
 			continue
@@ -4411,7 +4513,7 @@ static func archetype_card_pool(owner: String, archetype: String) -> Array:
 			continue
 		if c.get("rarity") == "starter" or c.get("rarity") == "status":
 			continue
-		if c.get("grimoire") or c.get("enemyOnly"):
+		if c.get("grimoire") or c.get("enemyOnly") or c.get("packOnly"):
 			continue
 		if c.get("retired") or c.get("unobtainable"):
 			continue
@@ -4458,3 +4560,19 @@ static func weighted_archetype_card(owner: String, archetype: String, rand: Call
 		return 1.0 / (1.0 + float(n))
 	, rand)
 	return make_card(str(def.get("id", "")), false)
+
+
+static func pick_all_pack_card(rand: Callable) -> Dictionary:
+	var def_id: String = str(Mulberry32.pick_rand(ALL_PACK_IDS, rand))
+	return make_card(def_id, false)
+
+
+static func count_all_in_deck(deck: Array) -> int:
+	var n: int = 0
+	for card in deck:
+		if typeof(card) != TYPE_DICTIONARY:
+			continue
+		var def: Dictionary = get_card(str(card.get("defId", "")))
+		if str(def.get("archetype", "")) == "all":
+			n += 1
+	return n

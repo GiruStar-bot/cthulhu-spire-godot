@@ -296,8 +296,15 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		"floaters": [],
 		"equipmentStats": eq,
 		"synergy": compute_deck_synergy(deck),
+		"playedThisTurn": {},
 	}
 	c.strength = int(c.strength) + int(player.get("extraStrength", 0))
+	if Cards.count_all_in_deck(deck) >= Cards.ALL_SET_COUNT:
+		c.strength = int(c.strength) + 99999
+		c.block = int(c.block) + 99999
+		c.maxEnergy = int(c.maxEnergy) + 100
+		c.energy = int(c.energy) + 100
+		c.log.append("全が揃った。法則が屈する。")
 	if c.synergy:
 		var archetype: String = str(c.synergy.archetype)
 		var tier: int = int(c.synergy.tier)
@@ -399,6 +406,11 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				c.log.append("%sでブロック%dを得た。" % [Cards.get_card(str(card.defId)).name if card != null else "防御", bn])
 			"draw":
 				draw_cards(c, int(e.n), rand)
+			"drawToHandLimit":
+				var hand_limit: int = 12 if c.equipmentStats.get("expandedHand") else 10
+				var need: int = maxi(0, hand_limit - int(c.hand.size()))
+				if need > 0:
+					draw_cards(c, need, rand)
 			"energy":
 				c.energy = int(c.energy) + int(e.n)
 			"strength":
@@ -410,6 +422,16 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				player.hp = mini(int(player.maxHp), int(player.hp) + healed)
 				c.floaters.append(_floater("+%d" % healed, "heal", "player"))
 				c.log.append("体力を%d回復した。" % healed)
+			"healFull":
+				var missing_hp: int = maxi(0, int(player.maxHp) - int(player.hp))
+				player.hp = int(player.maxHp)
+				if missing_hp > 0:
+					c.floaters.append(_floater("+%d" % missing_hp, "heal", "player"))
+				c.log.append("体力が全快した。")
+			"sanityFull":
+				var missing_san: int = maxi(0, int(player.maxSanity) - int(player.sanity))
+				if missing_san > 0:
+					change_sanity(player, c, missing_san)
 			"sanity":
 				change_sanity(player, c, int(e.n))
 			"sanityDamage":
@@ -575,6 +597,7 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				c.weak = 0
 				c.vulnerable = 0
 				c.cold = 0
+				c.sealed = null
 				c.log.append("状態異常が回復した。")
 			"addToDraw":
 				var add_n: int = int(e.get("n", 1))
@@ -646,6 +669,10 @@ static func can_play(c: Dictionary, card: Dictionary) -> bool:
 		return false
 	if d.get("xCost"):
 		return true
+	if d.get("oncePerTurn"):
+		var used: Dictionary = c.get("playedThisTurn", {})
+		if used.has(str(card.defId)):
+			return false
 	return int(_evaluate_card_effect(card).cost) <= int(c.energy)
 
 
@@ -671,12 +698,20 @@ static func play_card(c: Dictionary, player: Dictionary, card_uid: String, targe
 	var cost: int = int(c.energy) if d.get("xCost") else int(evaled.cost)
 	if (not d.get("xCost")) and cost > int(c.energy):
 		return {"error": "エネルギーが足りない。", "sfx": empty}
+	if d.get("oncePerTurn"):
+		var used: Dictionary = c.get("playedThisTurn", {})
+		if used.has(str(card.defId)):
+			return {"error": "このカードは今ターン既に使った。", "sfx": empty}
 	if d.get("target") == "enemy" and living(c).size() > 1 and not target_id:
 		return {"error": "対象を選んでください。", "sfx": empty}
 	c.hand.remove_at(idx)
 	c.xSpent = cost if d.get("xCost") else 0
 	c.energy = int(c.energy) - cost
 	c.cardsPlayed = int(c.cardsPlayed) + 1
+	if d.get("oncePerTurn"):
+		var used_now: Dictionary = c.get("playedThisTurn", {})
+		used_now[str(card.defId)] = true
+		c.playedThisTurn = used_now
 	_run_effects(evaled.effects, c, player, target_id, rand, card)
 	if d.get("type") == "attack" and "resolve" in c.powers:
 		c.block = int(c.block) + 3
@@ -871,6 +906,7 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 	c.thornsVulnerable = 0
 	c.phase = "player"
 	c.turn = int(c.turn) + 1
+	c.playedThisTurn = {}
 	_handle_flee(c)
 	if c.result != "ongoing":
 		return sfx

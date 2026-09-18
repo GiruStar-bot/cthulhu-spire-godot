@@ -158,6 +158,8 @@ const ITEM_COUNT_WEIGHTS := {
 	"boss": {1: 0.3, 2: 0.4, 3: 0.3},
 }
 
+const ALL_TICKET_BOSS_CHANCE := 0.05
+
 
 ## store.ts の buyCardPack()。貝殻CARD_PACK_PRICEで通常パックを購入し、
 ## Cards.weighted_card()（所持数が少ないカードほど出やすい重み付け）で4枚引く。
@@ -811,9 +813,15 @@ func _reward_ticket_archetype() -> String:
 	if not encounter_bias.is_empty():
 		return str(Mulberry32.pick(encounter_bias, rng))
 	var arch: String = _encounter_archetype()
-	if arch != "" and arch != "generic":
+	if arch != "" and arch != "generic" and arch != "all":
 		return arch
-	return str(Mulberry32.pick(CollectionData.PACK_TICKET_ARCHETYPES, rng))
+	var pool: Array = []
+	for a in CollectionData.PACK_TICKET_ARCHETYPES:
+		if str(a) != "all":
+			pool.append(str(a))
+	if pool.is_empty():
+		return "fanatic"
+	return str(Mulberry32.pick(pool, rng))
 
 
 ## store.ts makeRewards() — 装備／ルーンは出さない。カードかパックチケットのみ。
@@ -826,17 +834,23 @@ func _make_rewards() -> Array:
 		]
 	var kind: String = "boss" if floor_kind == "boss" else ("elite" if floor_kind == "elite" else "combat")
 	var table: Dictionary = DROP_RATES[kind]
-	if rng.next_float() >= float(table.get("chance", 0.5)):
-		return [{"kind": "none"}]
-	var count: int = int(Mulberry32.weighted_pick(ITEM_COUNT_WEIGHTS[kind], Callable(self, "_rand")))
-	var weights: Dictionary = table.get("weights", {"ticket": 1.0})
 	var rewards: Array = []
-	for i in count:
-		var category: String = str(Mulberry32.weighted_pick(weights, Callable(self, "_rand")))
-		if category == "card":
-			rewards.append(_reward_card_offer())
+	if rng.next_float() >= float(table.get("chance", 0.5)):
+		rewards = [{"kind": "none"}]
+	else:
+		var count: int = int(Mulberry32.weighted_pick(ITEM_COUNT_WEIGHTS[kind], Callable(self, "_rand")))
+		var weights: Dictionary = table.get("weights", {"ticket": 1.0})
+		for i in count:
+			var category: String = str(Mulberry32.weighted_pick(weights, Callable(self, "_rand")))
+			if category == "card":
+				rewards.append(_reward_card_offer())
+			else:
+				rewards.append({"kind": "ticket", "ticket": _reward_ticket_archetype()})
+	if kind == "boss" and rng.next_float() < ALL_TICKET_BOSS_CHANCE:
+		if rewards.size() == 1 and str(rewards[0].get("kind", "")) == "none":
+			rewards = [{"kind": "ticket", "ticket": "all"}]
 		else:
-			rewards.append({"kind": "ticket", "ticket": _reward_ticket_archetype()})
+			rewards.append({"kind": "ticket", "ticket": "all"})
 	return rewards
 
 
