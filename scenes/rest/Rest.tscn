@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scenes/rest/Rest.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/pixel/village/bg.jpg" id="2"]
@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" path="res://art/pixel/village/smith-interior.jpg" id="7"]
 [ext_resource type="Texture2D" path="res://art/pixel/village/smith-npc.png" id="8"]
 [ext_resource type="PackedScene" path="res://scenes/ui/PixelButton.tscn" id="9"]
+[ext_resource type="PackedScene" path="res://scenes/ui/VitalsHud.tscn" id="10"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleEmpty"]
 
@@ -56,19 +57,15 @@ layout_mode = 1
 offset_left = 16.0
 offset_top = 14.0
 offset_right = 280.0
-offset_bottom = 120.0
+offset_bottom = 168.0
 theme_override_constants/separation = 6
 mouse_filter = 2
 
-[node name="HubVitals" type="Label" parent="HubLayer/HubHud"]
+[node name="HubVitals" parent="HubLayer/HubHud" instance=ExtResource("10")]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.93, 0.88, 0.76, 1)
-theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.02, 0.85)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 14
-text = "HP --/--"
 
 [node name="HubShells" type="Label" parent="HubLayer/HubHud"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.78, 0.42, 1)
 theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.02, 0.85)
@@ -241,19 +238,15 @@ layout_mode = 1
 offset_left = 16.0
 offset_top = 14.0
 offset_right = 320.0
-offset_bottom = 150.0
+offset_bottom = 220.0
 theme_override_constants/separation = 4
 mouse_filter = 2
 
-[node name="InnVitals" type="Label" parent="InnLayer/InnHud"]
+[node name="InnVitals" parent="InnLayer/InnHud" instance=ExtResource("10")]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.93, 0.88, 0.76, 1)
-theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.02, 0.85)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 14
-text = "HP --/--"
 
 [node name="InnShells" type="Label" parent="InnLayer/InnHud"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.78, 0.42, 1)
 theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.02, 0.85)
@@ -412,19 +405,15 @@ layout_mode = 1
 offset_left = 16.0
 offset_top = 14.0
 offset_right = 360.0
-offset_bottom = 130.0
+offset_bottom = 200.0
 theme_override_constants/separation = 4
 mouse_filter = 2
 
-[node name="SmithVitals" type="Label" parent="SmithLayer/SmithHud"]
+[node name="SmithVitals" parent="SmithLayer/SmithHud" instance=ExtResource("10")]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.93, 0.88, 0.76, 1)
-theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.02, 0.85)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 14
-text = "HP --/--"
 
 [node name="SmithShells" type="Label" parent="SmithLayer/SmithHud"]
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.92, 0.78, 0.42, 1)
 theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.02, 0.85)
@@ -450,7 +439,7 @@ anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = 136.0
+offset_top = 188.0
 offset_right = -360.0
 offset_bottom = -80.0
 grow_horizontal = 2

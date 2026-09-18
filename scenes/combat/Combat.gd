@@ -30,7 +30,7 @@ const ENEMY_GROUND_SINGLE := 0.20
 const ENEMY_GROUND_DUAL := 0.14
 const ENEMY_BOSS_HP := 150
 
-@onready var hud_panel: Panel = $HudPanel
+@onready var hud_panel: VitalsHud = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
 @onready var log_scroll: ScrollContainer = $LogPanel/LogScroll
 @onready var log_label: Label = $LogPanel/LogScroll/LogLabel
@@ -53,13 +53,6 @@ var _enemy_hit_by_uid := {}
 var _drag_uid: String = ""
 var _drag_ghost: CombatCard = null
 var _drag_source: CombatCard = null
-var _hud_name: Label
-var _hud_floor: Label
-var _hp_fill: ColorRect
-var _hp_value: Label
-var _san_fill: ColorRect
-var _san_value: Label
-var _hud_status: Label
 var _draw_btn: Button
 var _discard_btn: Button
 var _chrome_ready: bool = false
@@ -239,44 +232,35 @@ func _refresh_hud() -> void:
 	if not _chrome_ready:
 		_build_chrome()
 	var pname: String = GameState.player_name
-	if pname == "":
-		pname = "無名"
-	_hud_name.text = pname
 	var current_floor: int = int(GameState.floor)
-	_hud_floor.text = "%s · %s · %s" % [Floors.floor_band(current_floor), Floors.layer_label(current_floor), Floors.floor_kind_label(str(GameState.floor_kind), current_floor)]
-	_set_bar(_hp_fill, _hp_value, int(player.hp), int(player.maxHp))
-	_set_bar(_san_fill, _san_value, int(player.sanity), int(player.maxSanity))
-	var bits: PackedStringArray = PackedStringArray()
-	bits.append("NRG %d/%d" % [int(state.get("energy", 0)), int(state.get("maxEnergy", 0))])
-	bits.append("防 %d" % int(state.get("block", 0)))
-	var strength: int = int(state.get("strength", 0))
-	var weak: int = int(state.get("weak", 0))
-	var poison: int = int(state.get("poison", 0))
-	if strength > 0:
-		bits.append("筋 %d" % strength)
-	if weak > 0:
-		bits.append("弱 %d" % weak)
-	if poison > 0:
-		bits.append("毒 %d" % poison)
-	var sealed = state.get("sealed")
-	if sealed:
-		bits.append("封印:%s" % ("攻撃" if sealed == "attack" else "技能"))
-	for p in state.get("powers", []):
-		bits.append(str(CombatLogic.POWER_TEXT.get(p, p)))
-	_hud_status.text = "  ".join(bits)
+	var floor_text: String = "%s · %s · %s" % [Floors.floor_band(current_floor), Floors.layer_label(current_floor), Floors.floor_kind_label(str(GameState.floor_kind), current_floor)]
+	var sealed_raw = state.get("sealed")
+	hud_panel.bind({
+		"player_name": pname,
+		"floor_text": floor_text,
+		"hp": int(player.hp),
+		"max_hp": int(player.maxHp),
+		"sanity": int(player.sanity),
+		"max_sanity": int(player.maxSanity),
+		"energy": int(state.get("energy", 0)),
+		"max_energy": int(state.get("maxEnergy", 0)),
+		"block": int(state.get("block", 0)),
+		"strength": int(state.get("strength", 0)),
+		"weak": int(state.get("weak", 0)),
+		"poison": int(state.get("poison", 0)),
+		"sealed": sealed_raw,
+		"powers": state.get("powers", []),
+		"shells": GameState.shells,
+		"show_header": true,
+		"show_energy": true,
+		"show_status": true,
+		"show_shells": true,
+	})
 	if _draw_btn:
 		_draw_btn.text = "山札: %d" % int((state.get("draw", []) as Array).size())
 	if _discard_btn:
 		_discard_btn.text = "捨て札: %d" % int((state.get("discard", []) as Array).size())
 	hud_label.visible = false
-
-
-func _set_bar(fill: ColorRect, value_label: Label, current: int, maximum: int) -> void:
-	value_label.text = "%d/%d" % [current, maximum]
-	var ratio: float = 0.0
-	if maximum > 0:
-		ratio = clampf(float(current) / float(maximum), 0.0, 1.0)
-	fill.anchor_right = ratio
 
 
 func _refresh_log() -> void:
@@ -827,20 +811,18 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(hp_label)
 
-	var status_bits: PackedStringArray = PackedStringArray()
+	var status_row := HFlowContainer.new()
+	status_row.add_theme_constant_override("h_separation", 6)
+	status_row.add_theme_constant_override("v_separation", 2)
+	status_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if int(e.get("strength", 0)) > 0:
-		status_bits.append("筋 %d" % int(e.strength))
+		status_row.add_child(VitalsHud.make_icon_stat("res://art/pixel/runes/str.png", str(int(e.strength)), Color("3aa39a")))
 	if int(e.get("weak", 0)) > 0:
-		status_bits.append("弱 %d" % int(e.weak))
+		status_row.add_child(VitalsHud.make_icon_stat("res://art/pixel/status/weak.png", str(int(e.weak)), Color("c45c4a")))
 	if int(e.get("poison", 0)) > 0:
-		status_bits.append("毒 %d" % int(e.poison))
-	if status_bits.size() > 0:
-		var status_label := Label.new()
-		status_label.text = "  ".join(status_bits)
-		status_label.add_theme_font_size_override("font_size", 10)
-		status_label.add_theme_color_override("font_color", Color("d4a84b"))
-		status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(status_label)
+		status_row.add_child(VitalsHud.make_icon_stat("res://art/pixel/runes/poison.png", str(int(e.poison)), Color("3aa39a")))
+	if status_row.get_child_count() > 0:
+		col.add_child(status_row)
 
 	box.add_child(col)
 	plate.add_child(box)
@@ -893,61 +875,32 @@ func _build_chrome() -> void:
 	if _chrome_ready:
 		return
 	_chrome_ready = true
-	_decorate_panel(hud_panel)
-	_decorate_panel(log_panel)
 	hud_label.visible = false
-
-	_hud_name = _make_hud_label(Color.WHITE, 13)
-	_hud_name.position = Vector2(14, 12)
-	_hud_name.size = Vector2(120, 18)
-	hud_panel.add_child(_hud_name)
-
-	_hud_floor = _make_hud_label(Color("9a917f"), 11)
-	_hud_floor.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_hud_floor.position = Vector2(120, 12)
-	_hud_floor.size = Vector2(122, 18)
-	hud_panel.add_child(_hud_floor)
-
-	var hp_cap := _make_hud_label(Color("9a917f"), 10)
-	hp_cap.text = "HP"
-	hp_cap.position = Vector2(14, 34)
-	hp_cap.size = Vector2(28, 14)
-	hud_panel.add_child(hp_cap)
-	_hp_value = _make_hud_label(Color.WHITE, 10)
-	_hp_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_hp_value.position = Vector2(150, 34)
-	_hp_value.size = Vector2(90, 14)
-	hud_panel.add_child(_hp_value)
-	_hp_fill = _make_bar(hud_panel, Vector2(14, 48), Vector2(226, 8), Color("8b1e1e"))
-
-	var san_cap := _make_hud_label(Color("9a917f"), 10)
-	san_cap.text = "SAN"
-	san_cap.position = Vector2(14, 60)
-	san_cap.size = Vector2(36, 14)
-	hud_panel.add_child(san_cap)
-	_san_value = _make_hud_label(Color.WHITE, 10)
-	_san_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_san_value.position = Vector2(150, 60)
-	_san_value.size = Vector2(90, 14)
-	hud_panel.add_child(_san_value)
-	_san_fill = _make_bar(hud_panel, Vector2(14, 74), Vector2(226, 8), Color("3aa39a"))
-
-	_hud_status = _make_hud_label(Color.WHITE, 11)
-	_hud_status.position = Vector2(14, 88)
-	_hud_status.size = Vector2(226, 32)
-	_hud_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hud_panel.add_child(_hud_status)
+	_decorate_panel(log_panel)
+	hud_panel.bind({
+		"player_name": GameState.player_name,
+		"floor_text": "",
+		"hp": 0,
+		"max_hp": 1,
+		"sanity": 0,
+		"max_sanity": 1,
+		"show_header": true,
+		"show_energy": true,
+		"show_status": true,
+		"show_shells": true,
+		"shells": GameState.shells,
+	})
 
 	_draw_btn = PIXEL_BUTTON.instantiate() as Button
 	_draw_btn.text = "山札: 0"
-	_draw_btn.position = Vector2(12, 158)
+	_draw_btn.position = Vector2(12, 184)
 	_draw_btn.size = Vector2(110, 36)
 	_draw_btn.pressed.connect(func(): _open_pile("draw"))
 	add_child(_draw_btn)
 
 	_discard_btn = PIXEL_BUTTON.instantiate() as Button
 	_discard_btn.text = "捨て札: 0"
-	_discard_btn.position = Vector2(130, 158)
+	_discard_btn.position = Vector2(130, 184)
 	_discard_btn.size = Vector2(120, 36)
 	_discard_btn.pressed.connect(func(): _open_pile("discard"))
 	add_child(_discard_btn)
@@ -972,29 +925,6 @@ func _decorate_panel(panel: Panel) -> void:
 	style.content_margin_top = 8
 	style.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", style)
-
-
-func _make_hud_label(tone: Color, font_px: int) -> Label:
-	var label := Label.new()
-	label.add_theme_font_size_override("font_size", font_px)
-	label.add_theme_color_override("font_color", tone)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return label
-
-
-func _make_bar(parent: Control, pos: Vector2, bar_size: Vector2, fill_color: Color) -> ColorRect:
-	var track := ColorRect.new()
-	track.position = pos
-	track.size = bar_size
-	track.color = Color("161512")
-	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(track)
-	var fill := ColorRect.new()
-	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	fill.color = fill_color
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	track.add_child(fill)
-	return fill
 
 
 func _open_pile(which: String) -> void:

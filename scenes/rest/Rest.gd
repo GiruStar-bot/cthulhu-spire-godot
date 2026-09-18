@@ -9,16 +9,17 @@ const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const BUILDING_HOVER_LIFT := 12.0
 const BUILDING_HOVER_DUR := 0.16
 const FORGE_CARD_SIZE := Vector2(132, 198)
+const SHOP_CARD_SIZE := Vector2(128, 192)
 
 @onready var hub_layer: Control = $HubLayer
-@onready var hub_vitals: Label = $HubLayer/HubHud/HubVitals
+@onready var hub_vitals: VitalsHud = $HubLayer/HubHud/HubVitals
 @onready var hub_shells: Label = $HubLayer/HubHud/HubShells
 @onready var tavern_hotspot: Button = $HubLayer/TavernHotspot
 @onready var smith_hotspot: Button = $HubLayer/SmithHotspot
 @onready var leave_button: Button = $HubLayer/LeaveButton
 
 @onready var inn_layer: Control = $InnLayer
-@onready var inn_vitals: Label = $InnLayer/InnHud/InnVitals
+@onready var inn_vitals: VitalsHud = $InnLayer/InnHud/InnVitals
 @onready var inn_shells: Label = $InnLayer/InnHud/InnShells
 @onready var stay_list: VBoxContainer = $InnLayer/StayList
 @onready var beer_button: Button = $InnLayer/BeerPanel/BeerCol/BeerButton
@@ -26,7 +27,7 @@ const FORGE_CARD_SIZE := Vector2(132, 198)
 @onready var landlady_line: Label = $InnLayer/LandladyLine
 
 @onready var smith_layer: Control = $SmithLayer
-@onready var smith_vitals: Label = $SmithLayer/SmithHud/SmithVitals
+@onready var smith_vitals: VitalsHud = $SmithLayer/SmithHud/SmithVitals
 @onready var smith_shells: Label = $SmithLayer/SmithHud/SmithShells
 @onready var smith_rank: Label = $SmithLayer/SmithHud/SmithRank
 @onready var smith_goods: HFlowContainer = $SmithLayer/SmithBody/SmithGoodsScroll/SmithGoods
@@ -107,8 +108,21 @@ func _on_building_hover(hotspot: Button, hovering: bool) -> void:
 	tw.tween_property(hotspot, "position:y", rest_y - BUILDING_HOVER_LIFT if hovering else rest_y, BUILDING_HOVER_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
-func _vitals_text() -> String:
-	return "HP %d/%d\nSAN %d/%d" % [GameState.hp, GameState.max_hp, GameState.sanity, GameState.max_sanity]
+func _vitals_payload() -> Dictionary:
+	var current_floor: int = int(GameState.floor)
+	return {
+		"player_name": GameState.player_name,
+		"floor_text": "%s · %s" % [Floors.floor_band(current_floor), Floors.layer_label(current_floor)],
+		"hp": GameState.hp,
+		"max_hp": GameState.max_hp,
+		"sanity": GameState.sanity,
+		"max_sanity": GameState.max_sanity,
+		"shells": GameState.shells,
+		"show_header": true,
+		"show_energy": false,
+		"show_status": false,
+		"show_shells": true,
+	}
 
 
 func _shells_text() -> String:
@@ -122,11 +136,12 @@ func _refresh() -> void:
 	inn_layer.visible = mode == "inn"
 	smith_layer.visible = mode == "smith"
 	sub_layer.visible = mode == "upgrade" or mode == "deck" or mode == "sell"
-	hub_vitals.text = _vitals_text()
+	var payload: Dictionary = _vitals_payload()
+	hub_vitals.bind(payload)
 	hub_shells.text = _shells_text()
-	inn_vitals.text = _vitals_text()
+	inn_vitals.bind(payload)
 	inn_shells.text = _shells_text()
-	smith_vitals.text = _vitals_text()
+	smith_vitals.bind(payload)
 	smith_shells.text = _shells_text()
 	if is_hub:
 		_layout_hub_buildings()
@@ -241,37 +256,28 @@ func _refresh_smith_room() -> void:
 	$SmithLayer/SmithBody/SmithEquipScroll.visible = false
 
 
-func _make_shop_card(def: Dictionary, def_id: String, price_text: String, disabled: bool, action: Callable) -> Button:
-	var button := Button.new()
-	button.custom_minimum_size = Vector2(112, 168)
-	button.disabled = disabled
-	button.pressed.connect(action)
-	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 6)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_theme_constant_override("separation", 4)
-	var art := TextureRect.new()
-	art.custom_minimum_size = Vector2(0, 110)
-	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	art.texture = _load_texture_safe(str(def.get("art", "")))
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(art)
-	var name_label := Label.new()
-	name_label.text = str(def.get("name", def_id))
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(name_label)
+func _make_shop_card(def: Dictionary, def_id: String, price_text: String, disabled: bool, action: Callable) -> VBoxContainer:
+	var wrap := VBoxContainer.new()
+	wrap.custom_minimum_size = Vector2(SHOP_CARD_SIZE.x, SHOP_CARD_SIZE.y + 28.0)
+	wrap.add_theme_constant_override("separation", 4)
+	var view: CombatCard = COMBAT_CARD.new()
+	view.custom_minimum_size = SHOP_CARD_SIZE
+	view.size = SHOP_CARD_SIZE
+	var fake: Dictionary = {"uid": "shop-%s" % def_id, "defId": def_id}
+	view.configure(fake, def, not disabled, false, true)
+	if disabled:
+		view.disabled = true
+	else:
+		view.pressed.connect(action)
+	wrap.add_child(view)
 	var price_label := Label.new()
 	price_label.text = price_text
 	price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	price_label.add_theme_font_size_override("font_size", 12)
 	price_label.add_theme_color_override("font_color", Color("d4a84b"))
 	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(price_label)
-	button.add_child(col)
-	return button
+	wrap.add_child(price_label)
+	return wrap
 
 
 func _make_shop_equip(def: Dictionary, label: String, price_text: String, disabled: bool, action: Callable) -> Button:

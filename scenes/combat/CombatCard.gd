@@ -107,13 +107,15 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed and card_uid != "":
-			drag_began.emit(card_uid)
-			accept_event()
+			if drag_began.get_connections().size() > 0:
+				drag_began.emit(card_uid)
+				accept_event()
 	elif event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed and card_uid != "":
-			drag_began.emit(card_uid)
-			accept_event()
+			if drag_began.get_connections().size() > 0:
+				drag_began.emit(card_uid)
+				accept_event()
 
 
 func _load_texture_safe(path: String) -> Texture2D:
