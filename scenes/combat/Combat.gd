@@ -21,6 +21,11 @@ const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
 const HAND_ABOVE_MARGIN := 20.0
+const DRAW_IN_DURATION := 0.35
+const DRAW_IN_STAGGER := 0.04
+const DRAW_IN_STAGGER_CAP := 8
+const DRAW_IN_SCALE := 0.42
+const DRAW_IN_ROT_OFFSET := -16.0
 const CARD_SIZE := Vector2(128, 192)
 const PREVIEW_CARD_SIZE := Vector2(112, 160)
 const PREVIEW_CARD_SIZE_DUAL := Vector2(76, 114)
@@ -75,6 +80,7 @@ var _vertigo_tween: Tween
 var _shield: Polygon2D
 var _shield_tween: Tween
 var _vfx_layer: Node2D
+var _draw_in_tweens: Dictionary = {}
 
 
 func _ready() -> void:
@@ -538,25 +544,63 @@ func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool
 func _refresh_hand() -> void:
 	if _drag_uid != "":
 		return
-	var stale: Array = hand_row.get_children()
+	var player_turn: bool = state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving
+	var desired: Array = state.get("hand", [])
+	var desired_uids: Dictionary = {}
+	for card in desired:
+		desired_uids[str(card.uid)] = true
+
+	# Drop cards no longer in hand.
+	var stale: Array = []
+	for child in hand_row.get_children():
+		if child is CombatCard:
+			var uid: String = (child as CombatCard).card_uid
+			if not desired_uids.has(uid):
+				stale.append(child)
 	for child in stale:
+		var uid: String = (child as CombatCard).card_uid
+		_kill_draw_in(uid)
 		hand_row.remove_child(child)
 		child.queue_free()
-	var player_turn: bool = state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving
-	for card in state.get("hand", []):
+
+	# Reuse by uid; spawn only brand-new cards.
+	var by_uid: Dictionary = {}
+	for child in hand_row.get_children():
+		if child is CombatCard:
+			by_uid[(child as CombatCard).card_uid] = child
+
+	var new_uids: Array = []
+	var order_index: int = 0
+	for card in desired:
+		var uid: String = str(card.uid)
 		var d: Dictionary = Cards.get_card(str(card.defId))
 		var playable: bool = player_turn and CombatLogic.can_play(state, card)
-		var btn: CombatCard = COMBAT_CARD.new()
-		btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		btn.custom_minimum_size = CARD_SIZE
-		btn.size = CARD_SIZE
-		btn.configure(card, d, playable, str(card.uid) == targeting_uid)
-		btn.drag_began.connect(_on_drag_began)
-		hand_row.add_child(btn)
-	_layout_fan()
-	call_deferred("_layout_fan")
+		var btn: CombatCard = by_uid.get(uid) as CombatCard
+		if btn == null:
+			btn = COMBAT_CARD.new()
+			btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
+			btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+			btn.custom_minimum_size = CARD_SIZE
+			btn.size = CARD_SIZE
+			btn.configure(card, d, playable, uid == targeting_uid)
+			btn.drag_began.connect(_on_drag_began)
+			btn.set_meta("draw_in", true)
+			hand_row.add_child(btn)
+			new_uids.append(uid)
+		else:
+			btn.configure(card, d, playable, uid == targeting_uid)
+			if not _draw_in_tweens.has(uid):
+				btn.set_meta("draw_in", false)
+		hand_row.move_child(btn, order_index)
+		order_index += 1
+
+	_layout_fan(new_uids)
+	call_deferred("_layout_fan_deferred")
+
+
+func _layout_fan_deferred() -> void:
+	_layout_fan([])
 
 
 func _upcoming_card_ids(e: Dictionary) -> Array:
@@ -676,6 +720,12 @@ func _animate_enemy_hit(uid: String) -> void:
 
 
 func _on_drag_began(card_uid: String) -> void:
+	# Prefer drag only after draw-in lands.
+	for child in hand_row.get_children():
+		if child is CombatCard and (child as CombatCard).card_uid == card_uid:
+			if child.get_meta("draw_in", false) == true:
+				return
+			break
 	if resolving or _drag_uid != "" or state.is_empty():
 		return
 	if state.get("phase") != "player" or state.get("result") != "ongoing":
@@ -872,7 +922,7 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	return plate
 
 
-func _layout_fan() -> void:
+func _layout_fan(new_uids: Array = []) -> void:
 	if hand_row == null or not is_instance_valid(hand_row):
 		return
 	var cards: Array = []
@@ -900,18 +950,103 @@ func _layout_fan() -> void:
 			overlap = -68.0
 	var step_angle: float = 0.0 if n <= 1 else minf(5.0, 24.0 / float(maxi(1, n - 1)))
 	var spacing: float = CARD_SIZE.x + overlap
+	var draw_offset := _draw_pile_offset_in_hand_row()
+	var new_index: int = 0
 	for i in n:
 		var card: Control = cards[i] as Control
 		var offset: float = float(i) - float(n - 1) / 2.0
 		var rot: float = offset * step_angle
 		var extra_y: float = absf(offset) * (5.0 if n >= 9 else 7.0)
 		var x: float = offset * spacing
+		var final_pos := Vector2(origin.x + x - CARD_SIZE.x * 0.5, origin.y - CARD_SIZE.y + extra_y)
 		card.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		card.size = CARD_SIZE
 		card.pivot_offset = Vector2(CARD_SIZE.x * 0.5, CARD_SIZE.y)
-		card.position = Vector2(origin.x + x - CARD_SIZE.x * 0.5, origin.y - CARD_SIZE.y + extra_y)
-		card.rotation_degrees = rot
 		card.z_index = i
+		var uid: String = ""
+		if card is CombatCard:
+			uid = (card as CombatCard).card_uid
+		var pending_draw: bool = (card.get_meta("draw_in", false) == true) and not _draw_in_tweens.has(uid)
+		var should_draw_in: bool = uid != "" and (new_uids.has(uid) or pending_draw)
+		card.set_meta("fan_pos", final_pos)
+		card.set_meta("fan_rot", rot)
+		if should_draw_in:
+			_start_draw_in(card, uid, final_pos, rot, draw_offset, new_index)
+			new_index += 1
+		elif (card.get_meta("draw_in", false) == true) and _draw_in_tweens.has(uid):
+			# Mid-flight: landing slot kept in fan_pos/fan_rot for _finish_draw_in.
+			pass
+		else:
+			card.position = final_pos
+			card.rotation_degrees = rot
+
+
+func _draw_pile_offset_in_hand_row() -> Vector2:
+	# Start from the real draw-pile button when available; fallback to upper-left ritual offset.
+	if _draw_btn != null and is_instance_valid(_draw_btn) and hand_row != null:
+		var pile_center: Vector2 = _draw_btn.get_global_rect().get_center()
+		var hand_origin: Vector2 = hand_row.get_global_transform_with_canvas().origin
+		var local_pile: Vector2 = pile_center - hand_origin - CARD_SIZE * 0.5
+		# Offset from a typical fan landing near bottom-center toward the pile.
+		var area: Vector2 = hand_row.size
+		var typical := Vector2(area.x * 0.5 - CARD_SIZE.x * 0.5, area.y - CARD_SIZE.y - 4.0)
+		return local_pile - typical
+	var viewport_size: Vector2 = get_viewport_rect().size
+	return Vector2(-0.36 * viewport_size.x, -0.28 * viewport_size.y)
+
+
+func _kill_draw_in(uid: String) -> void:
+	if not _draw_in_tweens.has(uid):
+		return
+	var tw: Tween = _draw_in_tweens[uid] as Tween
+	_draw_in_tweens.erase(uid)
+	if tw != null and is_instance_valid(tw):
+		tw.kill()
+
+
+func _start_draw_in(card: Control, uid: String, final_pos: Vector2, final_rot: float, draw_offset: Vector2, stagger_index: int) -> void:
+	_kill_draw_in(uid)
+	card.set_meta("draw_in", true)
+	card.position = final_pos + draw_offset
+	card.scale = Vector2(DRAW_IN_SCALE, DRAW_IN_SCALE)
+	card.rotation_degrees = final_rot + DRAW_IN_ROT_OFFSET
+	var base_a: float = 1.0
+	if card is CombatCard and (card as CombatCard).disabled:
+		base_a = 0.56
+	var start_mod: Color = card.modulate
+	start_mod.a = 0.0
+	card.modulate = start_mod
+	if card is CombatCard:
+		(card as CombatCard).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var delay: float = float(mini(stagger_index, DRAW_IN_STAGGER_CAP)) * DRAW_IN_STAGGER
+	var tw: Tween = card.create_tween()
+	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if delay > 0.0:
+		tw.tween_interval(delay)
+	tw.set_parallel(true)
+	tw.tween_property(card, "position", final_pos, DRAW_IN_DURATION)
+	tw.tween_property(card, "scale", Vector2.ONE, DRAW_IN_DURATION)
+	tw.tween_property(card, "rotation_degrees", final_rot, DRAW_IN_DURATION)
+	tw.tween_property(card, "modulate:a", base_a, DRAW_IN_DURATION)
+	tw.set_parallel(false)
+	tw.tween_callback(_finish_draw_in.bind(uid))
+	_draw_in_tweens[uid] = tw
+
+
+func _finish_draw_in(uid: String) -> void:
+	_draw_in_tweens.erase(uid)
+	for child in hand_row.get_children():
+		if child is CombatCard and (child as CombatCard).card_uid == uid:
+			var card: CombatCard = child as CombatCard
+			card.set_meta("draw_in", false)
+			var fan_pos: Vector2 = card.get_meta("fan_pos", card.position)
+			var fan_rot: float = float(card.get_meta("fan_rot", card.rotation_degrees))
+			card.position = fan_pos
+			card.rotation_degrees = fan_rot
+			card.scale = Vector2.ONE
+			if not card.disabled:
+				card.mouse_filter = Control.MOUSE_FILTER_STOP
+			return
 
 
 func _build_chrome() -> void:
