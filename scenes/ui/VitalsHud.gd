@@ -9,10 +9,12 @@ const FRAME_PANEL := "res://art/ui/frame_panel.png"
 const FRAME_SLICE := 62
 const FRAME_DISPLAY := 16
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
-const ICON_STR := "res://art/pixel/runes/str.png"
-const ICON_POISON := "res://art/pixel/runes/poison.png"
+const ICON_STR := "res://art/pixel/status/strength.png"
+const ICON_POISON := "res://art/pixel/status/poison.png"
 const ICON_WEAK := "res://art/pixel/status/weak.png"
-const ICON_SEAL := "res://art/pixel/status/seal.png"
+const ICON_SEAL_ATTACK := "res://art/pixel/status/seal_attack.png"
+const ICON_SEAL_SKILL := "res://art/pixel/status/seal_skill.png"
+const ICON_BLOCK := "res://art/pixel/status/block.png"
 const ICON_SHELL := "res://art/shell.jpg"
 const ENERGY_CAP := 5
 const ENERGY_BOX := 12.0
@@ -152,9 +154,7 @@ func _rebuild_status(data: Dictionary) -> void:
 		_status_row.add_child(nrg)
 		_status_row.add_child(_make_energy(energy, max_energy))
 		var block_n: int = int(data.get("block", 0))
-		var block_lab := _make_label(PARCHMENT, 11)
-		block_lab.text = "防 %d" % block_n
-		_status_row.add_child(block_lab)
+		_status_row.add_child(make_icon_stat(ICON_BLOCK, str(block_n), PARCHMENT))
 	var show_shells: bool = data.get("show_shells", true) and true
 	if show_shells:
 		_status_row.add_child(make_icon_stat(ICON_SHELL, str(int(data.get("shells", 0))), PARCHMENT))
@@ -174,8 +174,9 @@ func _rebuild_status(data: Dictionary) -> void:
 		if sealed_raw != null:
 			sealed = str(sealed_raw)
 		if sealed != "" and sealed != "<null>":
-			var seal_txt: String = "攻撃封印" if sealed == "attack" else "技能封印"
-			_status_row.add_child(make_icon_stat(ICON_SEAL, seal_txt, BLOOD))
+			var seal_path: String = ICON_SEAL_ATTACK if sealed == "attack" else ICON_SEAL_SKILL
+			var seal_txt: String = "攻撃" if sealed == "attack" else "技能"
+			_status_row.add_child(make_icon_stat(seal_path, seal_txt, BLOOD))
 		var powers: Array = data.get("powers", [])
 		for power_id in powers:
 			var lab := _make_label(MUTED, 10)
@@ -224,7 +225,7 @@ static func make_icon_stat(path: String, amount: String, tone: Color) -> HBoxCon
 	row.add_theme_constant_override("separation", 3)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon := TextureRect.new()
-	icon.custom_minimum_size = Vector2(14, 14)
+	icon.custom_minimum_size = Vector2(16, 16)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = _load_static(path)

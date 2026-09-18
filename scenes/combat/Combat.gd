@@ -841,10 +841,7 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	col.add_child(track)
 
 	var hp_label := Label.new()
-	var block_txt := ""
-	if int(e.get("block", 0)) > 0:
-		block_txt = " · 防 %d" % int(e.block)
-	hp_label.text = "%d/%d%s" % [int(e.hp), int(e.maxHp), block_txt]
+	hp_label.text = "%d/%d" % [int(e.hp), int(e.maxHp)]
 	hp_label.add_theme_font_size_override("font_size", 10)
 	hp_label.add_theme_color_override("font_color", Color("b8ad96"))
 	hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -854,12 +851,19 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	status_row.add_theme_constant_override("h_separation", 6)
 	status_row.add_theme_constant_override("v_separation", 2)
 	status_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if int(e.get("block", 0)) > 0:
+		status_row.add_child(VitalsHud.make_icon_stat(VitalsHud.ICON_BLOCK, str(int(e.block)), Color("ede4d0")))
 	if int(e.get("strength", 0)) > 0:
-		status_row.add_child(VitalsHud.make_icon_stat("res://art/pixel/runes/str.png", str(int(e.strength)), Color("3aa39a")))
+		status_row.add_child(VitalsHud.make_icon_stat(VitalsHud.ICON_STR, str(int(e.strength)), Color("3aa39a")))
 	if int(e.get("weak", 0)) > 0:
-		status_row.add_child(VitalsHud.make_icon_stat("res://art/pixel/status/weak.png", str(int(e.weak)), Color("c45c4a")))
+		status_row.add_child(VitalsHud.make_icon_stat(VitalsHud.ICON_WEAK, str(int(e.weak)), Color("c45c4a")))
 	if int(e.get("poison", 0)) > 0:
-		status_row.add_child(VitalsHud.make_icon_stat("res://art/pixel/runes/poison.png", str(int(e.poison)), Color("3aa39a")))
+		status_row.add_child(VitalsHud.make_icon_stat(VitalsHud.ICON_POISON, str(int(e.poison)), Color("3aa39a")))
+	var enemy_sealed = e.get("sealed", "")
+	if enemy_sealed != null and str(enemy_sealed) != "" and str(enemy_sealed) != "<null>":
+		var seal_path: String = VitalsHud.ICON_SEAL_ATTACK if str(enemy_sealed) == "attack" else VitalsHud.ICON_SEAL_SKILL
+		var seal_txt: String = "攻撃" if str(enemy_sealed) == "attack" else "技能"
+		status_row.add_child(VitalsHud.make_icon_stat(seal_path, seal_txt, Color("c45c4a")))
 	if status_row.get_child_count() > 0:
 		col.add_child(status_row)
 
