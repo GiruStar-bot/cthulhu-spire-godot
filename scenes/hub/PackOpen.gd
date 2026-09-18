@@ -11,6 +11,8 @@ const CARD_BACK_FALLBACK := "res://art/pixel/ui/card_back.png"
 const PACK_BASE := Vector2(220, 330)
 const PACK_SCALE := 1.5
 const CARD_ASPECT := 1.5
+const CARD_REVEAL_SCALE := 2.0 / 3.0
+const CARD_GAP := 12.0
 const MYTHOS_ARCHETYPES := ["greatold", "elder", "outer"]
 const FLIP_HALF_S := 0.22
 const DEAL_S := 0.20
@@ -36,7 +38,7 @@ var _row: Control
 var _idle_tween: Tween
 var _seq_tween: Tween
 var _pack_size: Vector2 = PACK_BASE * PACK_SCALE
-var _card_size: Vector2 = Vector2(264, 396)
+var _card_size: Vector2 = Vector2(176, 264)
 
 
 func _ready() -> void:
@@ -139,7 +141,7 @@ func _compute_stage_sizes(view: Vector2) -> void:
 	var pack_s: float = pack_h / PACK_BASE.y
 	_pack_size = PACK_BASE * pack_s
 	var n: int = maxi(_card_ids.size(), 4)
-	var gap: float = 16.0
+	var gap: float = CARD_GAP
 	var side: float = 36.0
 	var max_w: float = (view.x - side * 2.0 - gap * float(n - 1)) / float(n)
 	var max_h: float = view.y * 0.62
@@ -148,7 +150,7 @@ func _compute_stage_sizes(view: Vector2) -> void:
 	if card_w > max_w:
 		card_w = max_w
 		card_h = card_w * CARD_ASPECT
-	_card_size = Vector2(card_w, card_h)
+	_card_size = Vector2(card_w, card_h) * CARD_REVEAL_SCALE
 
 
 func _show_idle() -> void:
@@ -311,7 +313,7 @@ func _layout_row() -> void:
 	var view: Vector2 = size
 	if view.x < 8.0:
 		view = get_viewport_rect().size
-	var gap: float = 16.0
+	var gap: float = CARD_GAP
 	var total_w: float = float(n) * _card_size.x + float(maxi(0, n - 1)) * gap
 	var origin := Vector2((view.x - total_w) * 0.5, view.y * 0.46 - _card_size.y * 0.5)
 	for i in n:
