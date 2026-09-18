@@ -49,23 +49,24 @@ grow_vertical = 2
 theme_override_constants/separation = 36
 alignment = 1
 
-[node name="LogoContainer" type="VBoxContainer" parent="Stage"]
+[node name="LogoSlot" type="Control" parent="Stage"]
 layout_mode = 2
+custom_minimum_size = Vector2(560, 72)
 size_flags_horizontal = 4
-theme_override_constants/separation = 4
 
-[node name="OfLabel" type="Label" parent="Stage/LogoContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-theme_override_colors/font_color = Color(0.55, 0.42, 0.62, 1)
-text = "The Dream"
-horizontal_alignment = 1
+[node name="LogoContainer" type="VBoxContainer" parent="Stage/LogoSlot"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 8.0
+offset_right = 560.0
+offset_bottom = 64.0
+theme_override_constants/separation = 0
 
-[node name="NameLabel" type="Label" parent="Stage/LogoContainer"]
+[node name="NameLabel" type="Label" parent="Stage/LogoSlot/LogoContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 64
+theme_override_font_sizes/font_size = 40
 theme_override_colors/font_color = Color(0.42, 0.28, 0.55, 1)
-text = "ISLAND"
+text = "The Dream Island"
 horizontal_alignment = 1
 
 [node name="ButtonRow" type="HBoxContainer" parent="Stage"]

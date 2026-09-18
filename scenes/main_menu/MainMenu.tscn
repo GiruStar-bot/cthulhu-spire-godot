@@ -49,21 +49,29 @@ grow_vertical = 2
 theme_override_constants/separation = 36
 alignment = 1
 
-[node name="LogoContainer" type="VBoxContainer" parent="Stage"]
+[node name="LogoSlot" type="Control" parent="Stage"]
 layout_mode = 2
+custom_minimum_size = Vector2(520, 118)
 size_flags_horizontal = 4
+
+[node name="LogoContainer" type="VBoxContainer" parent="Stage/LogoSlot"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 8.0
+offset_right = 520.0
+offset_bottom = 100.0
 theme_override_constants/separation = 4
 
-[node name="OfLabel" type="Label" parent="Stage/LogoContainer"]
+[node name="OfLabel" type="Label" parent="Stage/LogoSlot/LogoContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
 theme_override_colors/font_color = Color(0.7451, 0.698, 0.6235, 1)
 text = "Abyss of"
 horizontal_alignment = 1
 
-[node name="NameLabel" type="Label" parent="Stage/LogoContainer"]
+[node name="NameLabel" type="Label" parent="Stage/LogoSlot/LogoContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 64
+theme_override_font_sizes/font_size = 72
 text = "R'LYEH"
 horizontal_alignment = 1
 

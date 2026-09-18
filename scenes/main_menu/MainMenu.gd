@@ -5,7 +5,7 @@ extends Control
 ## ロゴ: .title-float（drift: 0%/100% translateY(0), 50% translateY(-7px), 6.2s ease-in-out infinite）
 ## ボタン: プレイ=begin()。設定/クレジットはビジュアル配置のみ（パネル自体はフェーズB以降）。
 
-@onready var logo_container: VBoxContainer = $Stage/LogoContainer
+@onready var logo_container: VBoxContainer = $Stage/LogoSlot/LogoContainer
 @onready var play_button: Button = $Stage/ButtonRow/PlayButton
 @onready var settings_button: Button = $Stage/ButtonRow/SettingsButton
 @onready var credits_button: Button = $Stage/ButtonRow/CreditsButton
@@ -35,7 +35,18 @@ func _ready() -> void:
 	sfx_slider.set_value_no_signal(AudioManager.get_sfx_volume())
 	fullscreen_check.set_pressed_no_signal(DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN)
 	_refresh_volume_labels()
+	_apply_logo_tracking()
 	_start_drift()
+
+
+func _apply_logo_tracking() -> void:
+	var name_label: Label = logo_container.get_node_or_null("NameLabel") as Label
+	if name_label:
+		var is_dream: bool = name_label.text.find("Dream") >= 0
+		name_label.add_theme_constant_override("letter_spacing", 2 if is_dream else 6)
+	var of_label: Label = logo_container.get_node_or_null("OfLabel") as Label
+	if of_label:
+		of_label.add_theme_constant_override("letter_spacing", 6)
 
 
 ## styles.css の @keyframes drift 相当（0%/100%=0, 50%=-7px, 6.2s ease-in-out infinite）
