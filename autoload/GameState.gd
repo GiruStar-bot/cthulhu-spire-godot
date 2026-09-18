@@ -147,9 +147,9 @@ const CARD_PACK_PRICE := 150
 
 ## store.ts DROP_RATES / ITEM_COUNT_WEIGHTS
 const DROP_RATES := {
-	"combat": {"chance": 0.5, "weights": {"card": 0.6, "rune": 0.3, "equipment": 0.1}},
-	"elite": {"chance": 0.9, "weights": {"card": 0.4, "rune": 0.35, "equipment": 0.25}},
-	"boss": {"chance": 1.0, "weights": {"card": 0.2, "rune": 0.3, "equipment": 0.5}},
+	"combat": {"chance": 0.5, "weights": {"card": 0.6, "ticket": 0.4}},
+	"elite": {"chance": 0.9, "weights": {"card": 0.4, "ticket": 0.6}},
+	"boss": {"chance": 1.0, "weights": {"card": 0.2, "ticket": 0.8}},
 }
 
 const ITEM_COUNT_WEIGHTS := {
@@ -489,18 +489,6 @@ func claim_reward(tree: SceneTree) -> void:
 			var ticket: String = str(offer.get("ticket", ""))
 			CollectionData.add_pack_ticket(ticket)
 			labels.append("%sのパックチケット" % str(CollectionData.PACK_TICKET_LABELS.get(ticket, ticket)))
-		elif kind == "equipment":
-			var inst: Dictionary = offer.get("equipment", {})
-			CollectionData.add_loot_equipment(inst)
-			var def: Dictionary = Equipment.get_equipment(str(inst.get("def_id", "")))
-			var slot: String = str(def.get("slot", ""))
-			if slot != "" and equipped.get(slot) == null:
-				equipped[slot] = inst
-			labels.append(Equipment.equipment_label(inst))
-		elif kind == "rune":
-			var rune: Dictionary = offer.get("rune", {})
-			CollectionData.add_loot_rune(rune)
-			labels.append("%sのルーン" % str(rune.get("effect", "")))
 	toast = "何も見つからなかった。" if labels.is_empty() else "%sを戦利品として持ち帰った。" % "・".join(labels)
 	_persist_profile()
 	reward = null
@@ -828,7 +816,7 @@ func _reward_ticket_archetype() -> String:
 	return str(Mulberry32.pick(CollectionData.PACK_TICKET_ARCHETYPES, rng))
 
 
-## store.ts makeRewards() — 装備／ルーン廃止。落ちるのはパックチケットのみ。
+## store.ts makeRewards() — 装備／ルーンは出さない。カードかパックチケットのみ。
 func _make_rewards() -> Array:
 	if _had_treasure_wanderer():
 		return [
@@ -841,10 +829,21 @@ func _make_rewards() -> Array:
 	if rng.next_float() >= float(table.get("chance", 0.5)):
 		return [{"kind": "none"}]
 	var count: int = int(Mulberry32.weighted_pick(ITEM_COUNT_WEIGHTS[kind], Callable(self, "_rand")))
+	var weights: Dictionary = table.get("weights", {"ticket": 1.0})
 	var rewards: Array = []
 	for i in count:
-		rewards.append({"kind": "ticket", "ticket": _reward_ticket_archetype()})
+		var category: String = str(Mulberry32.weighted_pick(weights, Callable(self, "_rand")))
+		if category == "card":
+			rewards.append(_reward_card_offer())
+		else:
+			rewards.append({"kind": "ticket", "ticket": _reward_ticket_archetype()})
 	return rewards
+
+
+func _reward_card_offer() -> Dictionary:
+	var owner: String = character if character != "" else starter_path(stats)
+	var card: Dictionary = Cards.weighted_card(owner, Callable(self, "_rand"))
+	return {"kind": "card", "card": card}
 
 
 ## extractToHub() / giveUp() / accept_shatter() 共通のラン状態リセット

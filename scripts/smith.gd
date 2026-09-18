@@ -134,7 +134,7 @@ static func make_smith(rng: Mulberry32) -> Dictionary:
 		"kind": kind,
 		"taboo": taboo,
 		"goods": goods,
-		"equipment_goods": make_equipment_goods(rank, rng),
+		"equipment_goods": [],
 	}
 
 

@@ -21,8 +21,12 @@ func _ready() -> void:
 	var offers: Array = GameState.reward if GameState.reward is Array else []
 	var items: Array = []
 	for offer in offers:
-		if offer is Dictionary and str(offer.get("kind", "")) != "none":
-			items.append(offer)
+		if not (offer is Dictionary):
+			continue
+		var offer_kind: String = str(offer.get("kind", ""))
+		if offer_kind == "" or offer_kind == "none" or offer_kind == "equipment" or offer_kind == "rune":
+			continue
+		items.append(offer)
 	if items.is_empty():
 		title_label.text = "何も見つからなかった"
 	else:
@@ -83,17 +87,6 @@ func _make_offer(offer: Dictionary) -> Control:
 		art.texture = _load_texture_safe(CollectionData.pack_ticket_art(ticket))
 		kind_label.text = "パックチケット"
 		name_label.text = str(CollectionData.PACK_TICKET_LABELS.get(ticket, ticket))
-	elif kind == "equipment":
-		var inst: Dictionary = offer.get("equipment", {})
-		var def: Dictionary = Equipment.get_equipment(str(inst.get("def_id", "")))
-		art.texture = _load_texture_safe(str(def.get("art", "")))
-		kind_label.text = "装備"
-		name_label.text = Equipment.equipment_label(inst)
-	elif kind == "rune":
-		var rune: Dictionary = offer.get("rune", {})
-		art.texture = _load_texture_safe(Runes.rune_art(str(rune.get("effect", ""))))
-		kind_label.text = "ルーン"
-		name_label.text = "%s %s" % [str(rune.get("effect", "")), str(rune.get("value", ""))]
 	else:
 		kind_label.text = "戦利"
 		name_label.text = kind
