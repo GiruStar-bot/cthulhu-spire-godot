@@ -14,6 +14,9 @@ const SHOCK_CARDS := ["migo_gun"]
 const SHOCK_CORE := Color(0.70, 0.95, 0.28, 0.95)
 const SHOCK_GLOW := Color(0.48, 0.12, 0.62, 0.38)
 const SHOCK_SPARK := Color(0.78, 0.42, 0.95, 1.0)
+const FX_IMPACT := preload("res://art/pixel/fx/fx_impact.png")
+const FX_SLASH := preload("res://art/pixel/fx/fx_slash.png")
+const FX_ARROW := preload("res://art/pixel/fx/fx_arrow.png")
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
@@ -71,6 +74,7 @@ var _vertigo_mat: ShaderMaterial
 var _vertigo_tween: Tween
 var _shield: Polygon2D
 var _shield_tween: Tween
+var _vfx_layer: Control
 
 
 func _ready() -> void:
@@ -165,6 +169,7 @@ func _play_card(card_uid: String, target_id) -> void:
 		def_id = str(selected_card.get("defId", ""))
 	if SHOCK_CARDS.has(def_id):
 		_fx_shock_living()
+	_fx_card_vfx(def_id, target_id)
 	if state.get("forceEnd") and state.get("result") == "ongoing":
 		_end_turn()
 		return
@@ -911,6 +916,7 @@ func _build_chrome() -> void:
 	_chrome_ready = true
 	hud_label.visible = false
 	_ensure_fx()
+	_ensure_vfx_layer()
 	_decorate_panel(log_panel)
 	hud_panel.bind({
 		"player_name": GameState.player_name,
@@ -1384,3 +1390,135 @@ func _set_float_y(y: float, uid: String) -> void:
 	if art != null and is_instance_valid(art):
 		art.set_meta("float_y", y)
 	_layout_enemies()
+
+func _ensure_vfx_layer() -> void:
+	if _vfx_layer != null and is_instance_valid(_vfx_layer):
+		return
+	_vfx_layer = Control.new()
+	_vfx_layer.name = "VfxLayer"
+	_vfx_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_vfx_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vfx_layer.z_index = 16
+	add_child(_vfx_layer)
+
+
+func _fx_card_vfx(def_id: String, target_id) -> void:
+	if def_id == "":
+		return
+	var definition: Dictionary = Cards.get_card(def_id)
+	var kind: String = str(definition.get("vfx", ""))
+	if kind == "":
+		return
+	var uids: Array = _vfx_target_uids(definition, target_id)
+	if uids.is_empty():
+		return
+	if kind == "arrow":
+		for uid in uids:
+			_fx_arrow_to(str(uid))
+		return
+	if kind == "slash":
+		for uid in uids:
+			_fx_slash_on(str(uid))
+		return
+	if kind == "impact":
+		for uid in uids:
+			_fx_impact_on(str(uid))
+
+
+func _vfx_target_uids(definition: Dictionary, target_id) -> Array:
+	var uids: Array = []
+	if str(definition.get("target", "")) == "all":
+		for e in state.get("enemies", []):
+			var uid: String = str(e.get("uid", ""))
+			if uid == "" or str(_death_fx_done.get(uid, "")) == "gone":
+				continue
+			uids.append(uid)
+		return uids
+	if target_id != null:
+		uids.append(str(target_id))
+		return uids
+	for e in state.get("enemies", []):
+		var uid: String = str(e.get("uid", ""))
+		if uid == "" or str(_death_fx_done.get(uid, "")) == "gone":
+			continue
+		uids.append(uid)
+		break
+	return uids
+
+
+func _vfx_center_of(uid: String) -> Vector2:
+	_ensure_vfx_layer()
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art != null and is_instance_valid(art):
+		var rect: Rect2 = art.get_global_rect()
+		return _vfx_layer.to_local(rect.position + rect.size * 0.5)
+	return Vector2(size.x * 0.5, size.y * 0.42)
+
+
+func _vfx_fit(uid: String) -> float:
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art != null and is_instance_valid(art):
+		var span: float = minf(art.size.x, art.size.y)
+		if span > 8.0:
+			return clampf(span / 512.0, 0.18, 0.55)
+	return 0.32
+
+
+func _spawn_vfx_sprite(tex: Texture2D, pos: Vector2, sc: float) -> Sprite2D:
+	_ensure_vfx_layer()
+	var spr := Sprite2D.new()
+	spr.texture = tex
+	spr.centered = true
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	spr.position = pos
+	spr.scale = Vector2(sc, sc)
+	_vfx_layer.add_child(spr)
+	return spr
+
+
+func _fx_impact_on(uid: String) -> void:
+	_fx_impact_at(_vfx_center_of(uid), _vfx_fit(uid))
+
+
+func _fx_impact_at(pos: Vector2, fit: float) -> void:
+	var spr: Sprite2D = _spawn_vfx_sprite(FX_IMPACT, pos, fit * 0.32)
+	spr.modulate.a = 0.95
+	var tw: Tween = spr.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(spr, "scale", Vector2(fit * 1.12, fit * 1.12), 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(spr, "modulate:a", 0.0, 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.set_parallel(false)
+	tw.tween_callback(spr.queue_free)
+
+
+func _fx_slash_on(uid: String) -> void:
+	var fit: float = _vfx_fit(uid) * 1.05
+	var spr: Sprite2D = _spawn_vfx_sprite(FX_SLASH, _vfx_center_of(uid), fit * 0.55)
+	spr.modulate.a = 0.0
+	spr.flip_h = randf() < 0.5
+	spr.flip_v = randf() < 0.5
+	spr.rotation_degrees = randf_range(-16.0, 16.0)
+	var tw: Tween = spr.create_tween()
+	tw.tween_property(spr, "modulate:a", 1.0, 0.08).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(spr, "scale", Vector2(fit, fit), 0.08)
+	tw.tween_property(spr, "modulate:a", 0.0, 0.24).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(spr.queue_free)
+
+
+func _fx_arrow_to(uid: String) -> void:
+	_ensure_vfx_layer()
+	var dest: Vector2 = _vfx_center_of(uid)
+	var start := Vector2(_vfx_layer.size.x * 0.5, _vfx_layer.size.y * 0.80)
+	var spr: Sprite2D = _spawn_vfx_sprite(FX_ARROW, start, 0.34)
+	var delta: Vector2 = dest - start
+	if delta.length() > 1.0:
+		spr.rotation = delta.angle()
+	var tw: Tween = spr.create_tween()
+	tw.tween_property(spr, "position", dest, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(_fx_arrow_land.bind(spr, dest, _vfx_fit(uid)))
+
+
+func _fx_arrow_land(spr: Sprite2D, dest: Vector2, fit: float) -> void:
+	if spr != null and is_instance_valid(spr):
+		spr.queue_free()
+	_fx_impact_at(dest, fit)
