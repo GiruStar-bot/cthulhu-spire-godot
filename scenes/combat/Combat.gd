@@ -9,6 +9,8 @@ const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
 const DISSOLVE_SHADER := preload("res://scenes/combat/enemy_dissolve.gdshader")
 const DISSOLVE_NOISE := preload("res://art/pixel/ui/dissolve_noise.png")
+const INVERT_SHADER := preload("res://scenes/combat/screen_invert.gdshader")
+const SHOCK_CARDS := ["migo_gun"]
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
@@ -57,6 +59,15 @@ var _discard_btn: Button
 var _chrome_ready: bool = false
 var _death_fx_done: Dictionary = {}
 var _hit_tweens: Dictionary = {}
+var _float_tweens: Dictionary = {}
+var _prev_hp: int = -1
+var _prev_sanity: int = -1
+var _fx_canvas: CanvasLayer
+var _invert_rect: ColorRect
+var _invert_mat: ShaderMaterial
+var _invert_tween: Tween
+var _shield: Polygon2D
+var _shield_tween: Tween
 
 
 func _ready() -> void:
@@ -114,6 +125,8 @@ func _begin_combat() -> void:
 	GameState.apply_player_hook(player)
 	_apply_biome_art(enemy_ids)
 	message_label.text = ""
+	_prev_hp = int(player.hp)
+	_prev_sanity = int(player.sanity)
 
 
 func _apply_biome_art(enemy_ids: Array) -> void:
@@ -144,6 +157,11 @@ func _play_card(card_uid: String, target_id) -> void:
 	targeting_uid = ""
 	GameState.apply_player_hook(player)
 	_refresh()
+	var def_id: String = ""
+	if selected_card != null:
+		def_id = str(selected_card.get("defId", ""))
+	if SHOCK_CARDS.has(def_id):
+		_fx_shock_living()
 	if state.get("forceEnd") and state.get("result") == "ongoing":
 		_end_turn()
 		return
@@ -223,6 +241,7 @@ func _refresh() -> void:
 		_refresh_enemies()
 		_refresh_hand()
 	_show_new_floaters()
+	_run_player_hit_fx()
 	var player_turn: bool = state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving
 	end_turn_button.disabled = not player_turn
 
@@ -362,6 +381,8 @@ func _spawn_enemy_stage(e: Dictionary, dead: bool, dual: bool = false) -> Contro
 	art.set_meta("dead", dead)
 	stage.add_child(art)
 	_enemy_art_by_uid[uid] = art
+	if def.get("floats", false) and not dead:
+		_start_enemy_float(uid, art)
 	if not dead:
 		var plate: VBoxContainer = _make_enemy_plate(e, def, dual)
 		plate.name = "Plate"
@@ -411,6 +432,8 @@ func _start_enemy_dissolve(stage: Control, art: TextureRect) -> void:
 		return
 	var uid: String = str(stage.get_meta("enemy_uid", ""))
 	_kill_hit_tween(uid)
+	_kill_float_tween(uid)
+	art.set_meta("float_y", 0.0)
 	art.modulate = Color.WHITE
 	art.self_modulate = Color.WHITE
 	art.scale = Vector2.ONE
@@ -479,6 +502,15 @@ func _kill_hit_tween(uid: String) -> void:
 	var tw: Tween = _hit_tweens.get(uid) as Tween
 	_hit_tweens.erase(uid)
 	if tw != null and tw.is_valid():
+		tw.kill()
+
+
+func _kill_float_tween(uid: String) -> void:
+	if uid == "" or not _float_tweens.has(uid):
+		return
+	var tw: Tween = _float_tweens.get(uid) as Tween
+	_float_tweens.erase(uid)
+	if tw != null and is_instance_valid(tw):
 		tw.kill()
 
 
@@ -875,6 +907,7 @@ func _build_chrome() -> void:
 		return
 	_chrome_ready = true
 	hud_label.visible = false
+	_ensure_fx()
 	_decorate_panel(log_panel)
 	hud_panel.bind({
 		"player_name": GameState.player_name,
@@ -1023,6 +1056,10 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	var ground_ratio: float = ENEMY_GROUND_DUAL if count >= 2 else ENEMY_GROUND_SINGLE
 	var ground_y: float = area.y * (1.0 - ground_ratio)
 	var art_pos := Vector2((slot_w - drawn.x) * 0.5, ground_y - drawn.y)
+	var float_y: float = 0.0
+	if art.has_meta("float_y"):
+		float_y = float(art.get_meta("float_y"))
+	art_pos.y += float_y
 	if plate != null:
 		var plate_w: float = ENEMY_PLATE_W_DUAL if count >= 2 else ENEMY_PLATE_W
 		var plate_h: float = maxf(140.0 if count >= 2 else 220.0, plate.get_combined_minimum_size().y)
@@ -1076,3 +1113,163 @@ func _load_texture_safe(path: String) -> Texture2D:
 		return resource as Texture2D
 	push_warning("Texture2Dとして読み込めませんでした: %s" % path)
 	return load(FALLBACK_TEX) as Texture2D
+
+
+func _ensure_fx() -> void:
+	if _fx_canvas != null and is_instance_valid(_fx_canvas):
+		return
+	_fx_canvas = CanvasLayer.new()
+	_fx_canvas.name = "CombatFx"
+	_fx_canvas.layer = 80
+	add_child(_fx_canvas)
+	var copy := BackBufferCopy.new()
+	copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
+	_fx_canvas.add_child(copy)
+	_invert_mat = ShaderMaterial.new()
+	_invert_mat.shader = INVERT_SHADER
+	_invert_mat.set_shader_parameter("amount", 0.0)
+	_invert_rect = ColorRect.new()
+	_invert_rect.name = "InvertFlash"
+	_invert_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_invert_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_invert_rect.color = Color(1, 1, 1, 1)
+	_invert_rect.material = _invert_mat
+	_invert_rect.visible = false
+	_fx_canvas.add_child(_invert_rect)
+	_shield = Polygon2D.new()
+	_shield.name = "HitShield"
+	_shield.color = Color(0.72, 0.92, 1.0, 0.42)
+	_shield.polygon = _octagon_points(118.0)
+	_shield.modulate.a = 0.0
+	_fx_canvas.add_child(_shield)
+
+
+func _octagon_points(radius: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var i: int = 0
+	while i < 8:
+		var ang: float = deg_to_rad(22.5 + float(i) * 45.0)
+		pts.append(Vector2(cos(ang), sin(ang)) * radius)
+		i += 1
+	return pts
+
+
+func _run_player_hit_fx() -> void:
+	if player.is_empty():
+		return
+	var hp_now: int = int(player.hp)
+	var san_now: int = int(player.sanity)
+	if _prev_hp >= 0 and hp_now < _prev_hp:
+		_fx_shield()
+	if _prev_sanity >= 0 and san_now < _prev_sanity:
+		_fx_invert()
+	_prev_hp = hp_now
+	_prev_sanity = san_now
+
+
+func _fx_invert() -> void:
+	_ensure_fx()
+	if _invert_tween != null and is_instance_valid(_invert_tween):
+		_invert_tween.kill()
+	_invert_rect.visible = true
+	_invert_mat.set_shader_parameter("amount", 0.0)
+	_invert_tween = create_tween()
+	_invert_tween.tween_method(_set_invert_amount, 0.0, 1.0, 0.04)
+	_invert_tween.tween_interval(0.06)
+	_invert_tween.tween_method(_set_invert_amount, 1.0, 0.0, 0.06)
+	_invert_tween.tween_callback(_hide_invert)
+
+
+func _set_invert_amount(value: float) -> void:
+	if _invert_mat != null:
+		_invert_mat.set_shader_parameter("amount", value)
+
+
+func _hide_invert() -> void:
+	if _invert_rect != null:
+		_invert_rect.visible = false
+	if _invert_mat != null:
+		_invert_mat.set_shader_parameter("amount", 0.0)
+
+
+func _fx_shield() -> void:
+	_ensure_fx()
+	var view: Vector2 = get_viewport_rect().size
+	_shield.position = view * 0.5
+	_shield.scale = Vector2(0.72, 0.72)
+	_shield.modulate = Color(0.78, 0.94, 1.0, 0.55)
+	if _shield_tween != null and is_instance_valid(_shield_tween):
+		_shield_tween.kill()
+	_shield_tween = create_tween()
+	_shield_tween.set_parallel(true)
+	_shield_tween.tween_property(_shield, "scale", Vector2(1.18, 1.18), 0.32).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_shield_tween.tween_property(_shield, "modulate:a", 0.0, 0.32).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func _fx_shock_living() -> void:
+	var living: Array = CombatLogic.living(state)
+	for e in living:
+		var uid: String = str(e.get("uid", ""))
+		var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+		if art != null and is_instance_valid(art):
+			_fx_shock_on(art)
+
+
+func _fx_shock_on(art: TextureRect) -> void:
+	var w: float = art.size.x
+	var h: float = art.size.y
+	if w < 8.0 or h < 8.0:
+		return
+	var n: int = 0
+	while n < 3:
+		var line := Line2D.new()
+		line.width = 2.5
+		line.default_color = Color(0.78, 0.96, 1.0, 0.92)
+		line.joint_mode = Line2D.LINE_JOINT_SHARP
+		line.begin_cap_mode = Line2D.LINE_CAP_NONE
+		line.end_cap_mode = Line2D.LINE_CAP_NONE
+		line.antialiased = false
+		var start := Vector2(randf_range(w * 0.18, w * 0.82), randf_range(h * 0.08, h * 0.28))
+		var ending := Vector2(randf_range(w * 0.18, w * 0.82), randf_range(h * 0.68, h * 0.94))
+		var pts := PackedVector2Array()
+		pts.append(start)
+		var segs: int = 4
+		var i: int = 1
+		while i < segs:
+			var t: float = float(i) / float(segs)
+			var p: Vector2 = start.lerp(ending, t)
+			p.x += randf_range(-w * 0.14, w * 0.14)
+			p.y += randf_range(-h * 0.05, h * 0.05)
+			pts.append(p)
+			i += 1
+		pts.append(ending)
+		line.points = pts
+		art.add_child(line)
+		var tw: Tween = line.create_tween()
+		tw.tween_interval(0.05)
+		tw.tween_property(line, "modulate:a", 0.0, 0.22)
+		tw.tween_callback(line.queue_free)
+		n += 1
+
+
+func _start_enemy_float(uid: String, art: TextureRect) -> void:
+	if uid == "" or art == null:
+		return
+	_kill_float_tween(uid)
+	art.set_meta("float_y", 0.0)
+	var amp: float = 9.0 + randf_range(-2.0, 3.0)
+	var half: float = 1.55 + randf_range(0.0, 0.5)
+	var tw: Tween = create_tween()
+	tw.set_loops()
+	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_method(_set_float_y.bind(uid), 0.0, -amp, half)
+	tw.tween_method(_set_float_y.bind(uid), -amp, amp, half)
+	tw.tween_method(_set_float_y.bind(uid), amp, 0.0, half)
+	_float_tweens[uid] = tw
+
+
+func _set_float_y(y: float, uid: String) -> void:
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art != null and is_instance_valid(art):
+		art.set_meta("float_y", y)
+	_layout_enemies()

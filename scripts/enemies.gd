@@ -41,6 +41,7 @@ const ENEMIES := {
 		"maxHp": 38,
 		"tier": "elite",
 		"archetype": "outer",
+		"floats": true,
 	},
 	"coral": {
 		"id": "coral",
@@ -88,6 +89,7 @@ const ENEMIES := {
 		"biome": "void",
 		"maxHp": 40,
 		"archetype": "outer",
+		"floats": true,
 	},
 	"colour": {
 		"id": "colour",
@@ -107,6 +109,7 @@ const ENEMIES := {
 		"maxHp": 56,
 		"tier": "elite",
 		"archetype": "outer",
+		"floats": true,
 	},
 	"shan": {
 		"id": "shan",
@@ -116,6 +119,7 @@ const ENEMIES := {
 		"biome": "void",
 		"maxHp": 36,
 		"archetype": "outer",
+		"floats": true,
 	},
 	"priest": {
 		"id": "priest",
@@ -163,6 +167,7 @@ const ENEMIES := {
 		"biome": "reef",
 		"maxHp": 52,
 		"archetype": "deep",
+		"floats": true,
 		"signatureCardId": "flockrush",
 		"cardsPerTurn": 2,
 		"deck": ["flockrush", "lash", "all-glass", "ward"],
