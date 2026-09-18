@@ -9,8 +9,11 @@ const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
 const DISSOLVE_SHADER := preload("res://scenes/combat/enemy_dissolve.gdshader")
 const DISSOLVE_NOISE := preload("res://art/pixel/ui/dissolve_noise.png")
-const INVERT_SHADER := preload("res://scenes/combat/screen_invert.gdshader")
+const VERTIGO_SHADER := preload("res://scenes/combat/screen_vertigo.gdshader")
 const SHOCK_CARDS := ["migo_gun"]
+const SHOCK_CORE := Color(0.70, 0.95, 0.28, 0.95)
+const SHOCK_GLOW := Color(0.48, 0.12, 0.62, 0.38)
+const SHOCK_SPARK := Color(0.78, 0.42, 0.95, 1.0)
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
@@ -63,9 +66,9 @@ var _float_tweens: Dictionary = {}
 var _prev_hp: int = -1
 var _prev_sanity: int = -1
 var _fx_canvas: CanvasLayer
-var _invert_rect: ColorRect
-var _invert_mat: ShaderMaterial
-var _invert_tween: Tween
+var _vertigo_rect: ColorRect
+var _vertigo_mat: ShaderMaterial
+var _vertigo_tween: Tween
 var _shield: Polygon2D
 var _shield_tween: Tween
 
@@ -1125,17 +1128,19 @@ func _ensure_fx() -> void:
 	var copy := BackBufferCopy.new()
 	copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
 	_fx_canvas.add_child(copy)
-	_invert_mat = ShaderMaterial.new()
-	_invert_mat.shader = INVERT_SHADER
-	_invert_mat.set_shader_parameter("amount", 0.0)
-	_invert_rect = ColorRect.new()
-	_invert_rect.name = "InvertFlash"
-	_invert_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_invert_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_invert_rect.color = Color(1, 1, 1, 1)
-	_invert_rect.material = _invert_mat
-	_invert_rect.visible = false
-	_fx_canvas.add_child(_invert_rect)
+	_vertigo_mat = ShaderMaterial.new()
+	_vertigo_mat.shader = VERTIGO_SHADER
+	_vertigo_mat.set_shader_parameter("blur", 0.0)
+	_vertigo_mat.set_shader_parameter("warp", 0.0)
+	_vertigo_mat.set_shader_parameter("time_shift", 0.0)
+	_vertigo_rect = ColorRect.new()
+	_vertigo_rect.name = "Vertigo"
+	_vertigo_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_vertigo_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_vertigo_rect.color = Color(1, 1, 1, 1)
+	_vertigo_rect.material = _vertigo_mat
+	_vertigo_rect.visible = false
+	_fx_canvas.add_child(_vertigo_rect)
 	_shield = Polygon2D.new()
 	_shield.name = "HitShield"
 	_shield.color = Color(0.72, 0.92, 1.0, 0.42)
@@ -1162,34 +1167,54 @@ func _run_player_hit_fx() -> void:
 	if _prev_hp >= 0 and hp_now < _prev_hp:
 		_fx_shield()
 	if _prev_sanity >= 0 and san_now < _prev_sanity:
-		_fx_invert()
+		_fx_vertigo()
 	_prev_hp = hp_now
 	_prev_sanity = san_now
 
 
-func _fx_invert() -> void:
+func _fx_vertigo() -> void:
 	_ensure_fx()
-	if _invert_tween != null and is_instance_valid(_invert_tween):
-		_invert_tween.kill()
-	_invert_rect.visible = true
-	_invert_mat.set_shader_parameter("amount", 0.0)
-	_invert_tween = create_tween()
-	_invert_tween.tween_method(_set_invert_amount, 0.0, 1.0, 0.04)
-	_invert_tween.tween_interval(0.06)
-	_invert_tween.tween_method(_set_invert_amount, 1.0, 0.0, 0.06)
-	_invert_tween.tween_callback(_hide_invert)
+	if _vertigo_tween != null and is_instance_valid(_vertigo_tween):
+		_vertigo_tween.kill()
+	_vertigo_rect.visible = true
+	var blur_now: float = float(_vertigo_mat.get_shader_parameter("blur"))
+	var warp_now: float = float(_vertigo_mat.get_shader_parameter("warp"))
+	_vertigo_tween = create_tween()
+	_vertigo_tween.set_trans(Tween.TRANS_SINE)
+	_vertigo_tween.set_parallel(true)
+	_vertigo_tween.tween_method(_set_vertigo_blur, blur_now, 0.82, 0.22).set_ease(Tween.EASE_OUT)
+	_vertigo_tween.tween_method(_set_vertigo_warp, warp_now, 0.70, 0.22).set_ease(Tween.EASE_OUT)
+	_vertigo_tween.tween_method(_set_vertigo_time, 0.0, 3.2, 0.66)
+	_vertigo_tween.set_parallel(false)
+	_vertigo_tween.tween_interval(0.06)
+	_vertigo_tween.set_parallel(true)
+	_vertigo_tween.tween_method(_set_vertigo_blur, 0.82, 0.0, 0.38).set_ease(Tween.EASE_IN)
+	_vertigo_tween.tween_method(_set_vertigo_warp, 0.70, 0.0, 0.38).set_ease(Tween.EASE_IN)
+	_vertigo_tween.set_parallel(false)
+	_vertigo_tween.tween_callback(_hide_vertigo)
 
 
-func _set_invert_amount(value: float) -> void:
-	if _invert_mat != null:
-		_invert_mat.set_shader_parameter("amount", value)
+func _set_vertigo_blur(value: float) -> void:
+	if _vertigo_mat != null:
+		_vertigo_mat.set_shader_parameter("blur", value)
 
 
-func _hide_invert() -> void:
-	if _invert_rect != null:
-		_invert_rect.visible = false
-	if _invert_mat != null:
-		_invert_mat.set_shader_parameter("amount", 0.0)
+func _set_vertigo_warp(value: float) -> void:
+	if _vertigo_mat != null:
+		_vertigo_mat.set_shader_parameter("warp", value)
+
+
+func _set_vertigo_time(value: float) -> void:
+	if _vertigo_mat != null:
+		_vertigo_mat.set_shader_parameter("time_shift", value)
+
+
+func _hide_vertigo() -> void:
+	if _vertigo_rect != null:
+		_vertigo_rect.visible = false
+	if _vertigo_mat != null:
+		_vertigo_mat.set_shader_parameter("blur", 0.0)
+		_vertigo_mat.set_shader_parameter("warp", 0.0)
 
 
 func _fx_shield() -> void:
@@ -1220,36 +1245,122 @@ func _fx_shock_on(art: TextureRect) -> void:
 	var h: float = art.size.y
 	if w < 8.0 or h < 8.0:
 		return
+	_fx_shock_flash(art)
+	var origins: Array = [
+		Vector2(w * randf_range(0.10, 0.28), h * randf_range(0.10, 0.30)),
+		Vector2(w * randf_range(0.40, 0.60), h * randf_range(0.06, 0.20)),
+		Vector2(w * randf_range(0.72, 0.90), h * randf_range(0.12, 0.32)),
+	]
 	var n: int = 0
-	while n < 3:
-		var line := Line2D.new()
-		line.width = 2.5
-		line.default_color = Color(0.78, 0.96, 1.0, 0.92)
-		line.joint_mode = Line2D.LINE_JOINT_SHARP
-		line.begin_cap_mode = Line2D.LINE_CAP_NONE
-		line.end_cap_mode = Line2D.LINE_CAP_NONE
-		line.antialiased = false
-		var start := Vector2(randf_range(w * 0.18, w * 0.82), randf_range(h * 0.08, h * 0.28))
-		var ending := Vector2(randf_range(w * 0.18, w * 0.82), randf_range(h * 0.68, h * 0.94))
-		var pts := PackedVector2Array()
-		pts.append(start)
-		var segs: int = 4
-		var i: int = 1
-		while i < segs:
-			var t: float = float(i) / float(segs)
-			var p: Vector2 = start.lerp(ending, t)
-			p.x += randf_range(-w * 0.14, w * 0.14)
-			p.y += randf_range(-h * 0.05, h * 0.05)
-			pts.append(p)
-			i += 1
-		pts.append(ending)
-		line.points = pts
-		art.add_child(line)
-		var tw: Tween = line.create_tween()
-		tw.tween_interval(0.05)
-		tw.tween_property(line, "modulate:a", 0.0, 0.22)
-		tw.tween_callback(line.queue_free)
+	while n < origins.size():
+		var origin: Vector2 = origins[n]
+		var ending := Vector2(origin.x + randf_range(-w * 0.16, w * 0.16), h * randf_range(0.70, 0.94))
+		ending.x = clampf(ending.x, w * 0.06, w * 0.94)
+		var main: PackedVector2Array = _lightning_path(origin, ending, 6, w * 0.09)
+		_spawn_bolt(art, main, true)
+		var mid_i: int = 2 + (randi() % 3)
+		if mid_i < main.size() - 1:
+			var mid: Vector2 = main[mid_i]
+			var br_end: Vector2 = mid + Vector2(randf_range(-w * 0.24, w * 0.24), randf_range(h * 0.06, h * 0.22))
+			_spawn_bolt(art, _lightning_path(mid, br_end, 3, w * 0.05), false)
+		if randf() < 0.55 and mid_i > 1:
+			var mid2: Vector2 = main[maxi(1, mid_i - 1)]
+			var br2: Vector2 = mid2 + Vector2(randf_range(-w * 0.18, w * 0.18), randf_range(h * 0.04, h * 0.16))
+			_spawn_bolt(art, _lightning_path(mid2, br2, 3, w * 0.04), false)
+		_spawn_sparks(art, main)
 		n += 1
+
+
+func _lightning_path(start: Vector2, ending: Vector2, segs: int, jag: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	pts.append(start)
+	var i: int = 1
+	while i < segs:
+		var t: float = float(i) / float(segs)
+		var p: Vector2 = start.lerp(ending, t)
+		var side: Vector2 = (ending - start).orthogonal().normalized()
+		p += side * randf_range(-jag, jag)
+		p.y += randf_range(-jag * 0.25, jag * 0.25)
+		pts.append(p)
+		i += 1
+	pts.append(ending)
+	return pts
+
+
+func _spawn_bolt(host: Control, pts: PackedVector2Array, is_main: bool) -> void:
+	if pts.size() < 2:
+		return
+	var holder := Node2D.new()
+	host.add_child(holder)
+	var glow: Line2D = _make_shock_line(pts, 15.0 if is_main else 9.0, SHOCK_GLOW, true, false)
+	var core: Line2D = _make_shock_line(pts, 5.5 if is_main else 3.0, SHOCK_CORE, false, true)
+	var hot: Line2D = _make_shock_line(pts, 2.0 if is_main else 1.2, Color(0.92, 1.0, 0.55, 0.85), true, false)
+	holder.add_child(glow)
+	holder.add_child(core)
+	holder.add_child(hot)
+	var tw: Tween = holder.create_tween()
+	tw.tween_interval(0.06)
+	tw.tween_property(holder, "modulate:a", 0.0, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(holder.queue_free)
+
+
+func _make_shock_line(pts: PackedVector2Array, width: float, color: Color, additive: bool, taper: bool) -> Line2D:
+	var line := Line2D.new()
+	line.points = pts
+	line.width = width
+	line.default_color = color
+	line.joint_mode = Line2D.LINE_JOINT_SHARP
+	line.begin_cap_mode = Line2D.LINE_CAP_NONE
+	line.end_cap_mode = Line2D.LINE_CAP_NONE
+	line.antialiased = false
+	if taper:
+		var curve := Curve.new()
+		curve.add_point(Vector2(0.0, 1.0))
+		curve.add_point(Vector2(0.55, 0.7))
+		curve.add_point(Vector2(1.0, 0.18))
+		line.width_curve = curve
+	if additive:
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		line.material = mat
+	return line
+
+
+func _spawn_sparks(host: Control, pts: PackedVector2Array) -> void:
+	var count: int = mini(12, 6 + pts.size())
+	var i: int = 0
+	while i < count:
+		var anchor: Vector2 = pts[randi() % pts.size()]
+		var spark := Polygon2D.new()
+		var r: float = randf_range(2.2, 4.6)
+		spark.polygon = PackedVector2Array([
+			Vector2(0.0, -r),
+			Vector2(r * 0.7, 0.0),
+			Vector2(0.0, r),
+			Vector2(-r * 0.7, 0.0),
+		])
+		spark.color = SHOCK_SPARK if i % 2 == 0 else Color(0.85, 0.95, 0.35, 1.0)
+		spark.position = anchor + Vector2(randf_range(-6.0, 6.0), randf_range(-6.0, 6.0))
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		spark.material = mat
+		host.add_child(spark)
+		var dest: Vector2 = spark.position + Vector2(randf_range(-14.0, 14.0), randf_range(-18.0, 8.0))
+		var tw: Tween = spark.create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(spark, "position", dest, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(spark, "modulate:a", 0.0, 0.22)
+		tw.set_parallel(false)
+		tw.tween_callback(spark.queue_free)
+		i += 1
+
+
+func _fx_shock_flash(art: TextureRect) -> void:
+	if art.get_meta("dissolving", false):
+		return
+	var tw: Tween = art.create_tween()
+	tw.tween_property(art, "self_modulate", Color(1.22, 1.08, 1.30, 1.0), 0.07).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(art, "self_modulate", Color.WHITE, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 
 func _start_enemy_float(uid: String, art: TextureRect) -> void:
