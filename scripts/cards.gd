@@ -40,10 +40,6 @@ const ART_FALLBACK := {
 	"res://art/pixel/cards/pustule_armor.jpg": "res://art/pixel/cards/adapted_scales.jpg",
 	"res://art/pixel/cards/venom_potency.jpg": "res://art/pixel/cards/pus_mist.jpg",
 	"res://art/pixel/cards/self_poisoning.jpg": "res://art/pixel/cards/bloodpact.jpg",
-	"res://art/pixel/cards/silver_key.jpg": "res://art/pixel/cards/all-zero.jpg",
-	"res://art/pixel/cards/collapse.jpg": "res://art/pixel/cards/all-geo.jpg",
-	"res://art/pixel/cards/omnipotence.jpg": "res://art/pixel/cards/all-phase.jpg",
-	"res://art/pixel/cards/transcendent.jpg": "res://art/pixel/cards/all-diffuse.jpg",
 }
 
 const CARDS := {
