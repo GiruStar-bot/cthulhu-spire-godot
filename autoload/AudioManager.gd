@@ -163,6 +163,9 @@ func play_sfx(cue: String) -> void:
 	player.stop()
 	player.stream = stream
 	player.pitch_scale = 1.0
+	## gift_type: Undertale-ish blip with light pitch jitter (±5%)
+	if sample == "gift_type":
+		player.pitch_scale = randf_range(0.95, 1.05)
 	player.volume_db = 0.0
 	if sample in ["select", "skill", "card_draw"]:
 		player.volume_db = -3.0
@@ -227,6 +230,9 @@ func _next_sfx_player() -> AudioStreamPlayer:
 
 func _load_stream(path: String) -> AudioStream:
 	if path == "":
+		return null
+	## 未ベイク / 欠落ファイルは soft-fail（音楽くん作業中でも落ちない）
+	if not ResourceLoader.exists(path):
 		return null
 	if not _sfx_streams.has(path):
 		_sfx_streams[path] = load(path)
