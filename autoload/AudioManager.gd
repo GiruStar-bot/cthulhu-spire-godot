@@ -17,11 +17,19 @@ const BGM_PATHS := {
 
 const SFX_PATHS := {
 	"attack": "res://audio/sfx/attack.wav",
-	"block": "res://audio/sfx/block.wav",
-	"hurt": "res://audio/sfx/hurt.wav",
+	"block": "res://audio/sfx/sfx_block.wav",
+	"hurt": "res://audio/sfx/sfx_hurt_from_enemy.wav",
+	"hurt_from_enemy": "res://audio/sfx/sfx_hurt_from_enemy.wav",
+	"hurt_self": "res://audio/sfx/sfx_hurt_self.wav",
+	"hurt_sanity": "res://audio/sfx/sfx_hurt_sanity.wav",
 	"step": "res://audio/sfx/step.mp3",
 	"lose": "res://audio/sfx/lose.mp3",
 	"select": "res://audio/sfx/select.mp3",
+	"skill": "res://audio/sfx/sfx_skill.wav",
+	"card_draw": "res://audio/sfx/sfx_card_draw.wav",
+	"vfx_impact": "res://audio/sfx/sfx_vfx_impact.wav",
+	"vfx_slash": "res://audio/sfx/sfx_vfx_slash.wav",
+	"vfx_arrow": "res://audio/sfx/sfx_vfx_arrow.wav",
 }
 
 var music_volume := 0.9
@@ -121,7 +129,7 @@ func play_sfx(cue: String) -> void:
 	player.stream = stream
 	player.pitch_scale = 1.0
 	player.volume_db = 0.0
-	if sample == "select":
+	if sample in ["select", "skill", "card_draw"]:
 		player.volume_db = -3.0
 	player.play()
 
@@ -161,9 +169,18 @@ func get_sfx_volume() -> float:
 
 func _sample_for(cue: String) -> String:
 	match cue:
-		"hit": return "attack"
-		"skill", "play", "draw", "hover", "ui", "reward", "win": return "select"
-		_: return cue
+		"hit":
+			return "vfx_impact"
+		"attack":
+			return "vfx_impact"
+		"hurt":
+			return "hurt_from_enemy"
+		"draw":
+			return "card_draw"
+		"play", "hover", "ui", "reward", "win":
+			return "select"
+		_:
+			return cue
 
 
 func _next_sfx_player() -> AudioStreamPlayer:
