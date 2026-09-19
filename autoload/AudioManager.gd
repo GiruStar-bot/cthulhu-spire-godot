@@ -1,7 +1,6 @@
 extends Node
 ## audio.ts の「いつ、何を鳴らすか」を Godot の AudioStreamPlayer に置換する。
 ## BGM は GameState.goto_scene() から明示的に切り替え、効果音は AudioManager.play_sfx() で呼び出す。
-## Phase 1: UI SFX を Famicon/8-bit キュー (ui_*) に分離。旧 select.mp3 は残置（ロールバック用）。
 
 const SETTINGS_PATH := "user://cthulhu_spire_audio.cfg"
 const BGM_BUS := "BGM"
@@ -23,11 +22,6 @@ const SFX_PATHS := {
 	"step": "res://audio/sfx/step.mp3",
 	"lose": "res://audio/sfx/lose.mp3",
 	"select": "res://audio/sfx/select.mp3",
-	"ui_select": "res://audio/sfx/ui_select.wav",
-	"ui_hover": "res://audio/sfx/ui_hover.wav",
-	"ui_cancel": "res://audio/sfx/ui_cancel.wav",
-	"ui_error": "res://audio/sfx/ui_error.wav",
-	"ui_confirm": "res://audio/sfx/ui_confirm.wav",
 }
 
 var music_volume := 0.9
@@ -127,10 +121,8 @@ func play_sfx(cue: String) -> void:
 	player.stream = stream
 	player.pitch_scale = 1.0
 	player.volume_db = 0.0
-	if sample in ["ui_select", "ui_hover", "select"]:
+	if sample == "select":
 		player.volume_db = -3.0
-	if sample == "ui_hover":
-		player.volume_db = -6.0
 	player.play()
 
 
@@ -144,7 +136,7 @@ func play_cues(cues: Array) -> void:
 
 
 func play_ui() -> void:
-	play_sfx("ui_select")
+	play_sfx("select")
 
 
 func set_music_volume(value: float) -> void:
@@ -169,23 +161,9 @@ func get_sfx_volume() -> float:
 
 func _sample_for(cue: String) -> String:
 	match cue:
-		"hit":
-			return "attack"
-		"hover":
-			return "ui_hover"
-		"cancel":
-			return "ui_cancel"
-		"error":
-			return "ui_error"
-		"confirm":
-			return "ui_confirm"
-		"select", "ui":
-			return "ui_select"
-		# Phase 2 で分離予定。当面は UI select に寄せる。
-		"skill", "play", "draw", "reward", "win":
-			return "ui_select"
-		_:
-			return cue
+		"hit": return "attack"
+		"skill", "play", "draw", "hover", "ui", "reward", "win": return "select"
+		_: return cue
 
 
 func _next_sfx_player() -> AudioStreamPlayer:
@@ -224,8 +202,7 @@ func _apply_volumes() -> void:
 	if bgm_index >= 0:
 		AudioServer.set_bus_volume_db(bgm_index, linear_to_db(maxf(music_volume, 0.0001)))
 	if sfx_index >= 0:
-		# linear volume (旧実装の sfx_volume^2 * 0.8 は意図しない減衰だったため修正)
-		AudioServer.set_bus_volume_db(sfx_index, linear_to_db(maxf(sfx_volume, 0.0001)))
+		AudioServer.set_bus_volume_db(sfx_index, linear_to_db(maxf(sfx_volume * sfx_volume * 0.8, 0.0001)))
 
 
 func _load_settings() -> void:
