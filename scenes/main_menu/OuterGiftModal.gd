@@ -8,7 +8,8 @@ const ACCENT := Color(0.91, 0.627, 1.0)  ## #E8A0FF 祭礼キャンディ虹
 const PACK_ART_PRIMARY := "res://art/pixel/packs/pack_outer_nobackground.png"
 const PACK_ART_FALLBACK := "res://art/pixel/packs/pack_outer.jpg"
 const FRAME_ART := "res://art/pixel/ui/frame_card_outer_9.png"
-const NYAR_ART := "res://art/pixel/nyar.png"
+const NYAR_ART_PRIMARY := "res://art/pixel/ui/nyar_gift.png"
+const NYAR_ART_FALLBACK := "res://art/pixel/nyar.png"
 const PIXEL_BUTTON_SCENE := "res://scenes/ui/PixelButton.tscn"
 
 signal proceeded
@@ -20,6 +21,7 @@ var _root: Control
 func _ready() -> void:
 	layer = 80
 	_build()
+	AudioManager.play_sfx("gift_open")
 
 
 func _build() -> void:
@@ -49,7 +51,8 @@ func _build() -> void:
 	nyar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	nyar.modulate = Color(1, 1, 1, 0.42)
 	nyar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_soft_set_texture(nyar, NYAR_ART)
+	if not _soft_set_texture(nyar, NYAR_ART_PRIMARY):
+		_soft_set_texture(nyar, NYAR_ART_FALLBACK)
 	_root.add_child(nyar)
 
 	var center := VBoxContainer.new()
@@ -142,5 +145,6 @@ func _soft_set_texture(node: TextureRect, path: String) -> bool:
 
 
 func _on_proceed() -> void:
+	AudioManager.play_sfx("gift_confirm")
 	proceeded.emit()
 	queue_free()

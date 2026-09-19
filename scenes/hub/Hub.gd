@@ -14,6 +14,7 @@ const INSPECTOR_GHOST_DUR := 0.16
 const PACK_TILE_W := 176.0
 const PACK_ART_SIZE := Vector2(160, 240)
 
+@onready var background_art: TextureRect = $BackgroundArt
 @onready var player_name_label: Label = $Root/Header/PlayerNameLabel
 @onready var info_label: Label = $Root/Header/InfoLabel
 @onready var top_right_button: Button = $Root/Header/TopRightButton
@@ -222,12 +223,29 @@ func _ready() -> void:
 	prepare_equipment_summary_panel.visible = false
 	prepare_deck_select_panel.visible = false
 	body_nav.size_flags_vertical = 0
+	_apply_dream_hub_look()
 	_select_tab("descend")
 	_update_header()
 	call_deferred("_fit_nav_chrome")
 	if GameState.toast != "":
 		GameState.toast = ""
 
+
+
+## Dream Island: same Hub skeleton; swap BG only when realm is dream.
+func _apply_dream_hub_look() -> void:
+	if str(GameState.realm) != "dream":
+		return
+	if background_art == null:
+		return
+	var path := "res://art/pixel/bg/dream_hub.jpg"
+	if not ResourceLoader.exists(path):
+		path = "res://art/pixel/bg/dream_title.png"
+	if not ResourceLoader.exists(path):
+		return
+	var tex: Texture2D = load(path) as Texture2D
+	if tex != null:
+		background_art.texture = tex
 
 func _fit_nav_chrome() -> void:
 	if nav_frame == null or body_nav == null:
