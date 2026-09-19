@@ -150,7 +150,7 @@ const CARD_FRAME_BY_ARCHETYPE := {
 	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 15],
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 14],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
-	"all": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
+	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
 }
 
 const RUNE_CATEGORY_OF_EFFECT := {

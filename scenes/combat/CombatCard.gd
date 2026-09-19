@@ -16,7 +16,7 @@ const FRAME_BY_ARCHETYPE := {
 	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 14],
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 12],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
-	"all": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
+	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
 }
 ## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
 const MYTHOS_GLOW_COLOR := {

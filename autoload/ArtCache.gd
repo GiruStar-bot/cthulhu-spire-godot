@@ -16,6 +16,7 @@ const SHARED_UI_FRAMES: Array[String] = [
 	"res://art/pixel/ui/frame_card_elder_9.png",
 	"res://art/pixel/ui/frame_card_greatold_9.png",
 	"res://art/pixel/ui/frame_card_outer_9.png",
+	"res://art/pixel/ui/frame_card_all_9.png",
 ]
 
 var _cache: Dictionary = {}  ## path(String) -> Texture2D
