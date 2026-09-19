@@ -21,6 +21,7 @@ var _root: Control
 func _ready() -> void:
 	layer = 80
 	_build()
+	AudioManager.play_sfx("gift_open")
 
 
 func _build() -> void:
@@ -144,5 +145,6 @@ func _soft_set_texture(node: TextureRect, path: String) -> bool:
 
 
 func _on_proceed() -> void:
+	AudioManager.play_sfx("gift_confirm")
 	proceeded.emit()
 	queue_free()
