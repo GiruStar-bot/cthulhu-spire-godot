@@ -724,7 +724,18 @@ static func play_card(c: Dictionary, player: Dictionary, card_uid: String, targe
 		c.log.append("女神の加護: ブロック%d、筋力%d。" % [bb, bs])
 	_finish_play(c, card, true if d.get("exhaust") else false)
 	_check_over(c, player)
-	var sfx: Array = ["attack"] if d.get("type") == "attack" else ["skill"]
+	var sfx: Array = []
+	if d.get("type") == "attack":
+		var vfx_kind: String = str(d.get("vfx", "impact"))
+		match vfx_kind:
+			"slash":
+				sfx.append("vfx_slash")
+			"arrow":
+				sfx.append("vfx_arrow")
+			_:
+				sfx.append("vfx_impact")
+	else:
+		sfx.append("skill")
 	return {"error": null, "sfx": sfx}
 
 
@@ -767,7 +778,7 @@ static func _apply_enemy_intent(intent: Dictionary, e: Dictionary, c: Dictionary
 			total_dealt += reduced_hp
 			c.floaters.append(_floater("-%d" % n, "dmg", "player"))
 			if hp > 0:
-				sfx.append("hurt")
+				sfx.append("hurt_from_enemy")
 			if blocked > 0:
 				sfx.append("block")
 			if reduced_hp > 0 and float(c.equipmentStats.get("thornDamage", 0)) > 0:
