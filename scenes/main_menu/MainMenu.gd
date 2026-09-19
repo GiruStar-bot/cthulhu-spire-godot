@@ -21,6 +21,8 @@ extends Control
 
 var _logo_base_y: float
 
+const _OUTER_GIFT_MODAL := preload("res://scenes/main_menu/OuterGiftModal.gd")
+
 
 func _ready() -> void:
 	play_button.pressed.connect(_on_play_pressed)
@@ -77,7 +79,7 @@ func _on_play_pressed() -> void:
 func _show_outer_gift_modal() -> void:
 	if get_node_or_null("OuterGiftModal") != null:
 		return
-	var modal := OuterGiftModal.new()
+	var modal = _OUTER_GIFT_MODAL.new()
 	modal.name = "OuterGiftModal"
 	modal.proceeded.connect(_on_outer_gift_proceeded, CONNECT_ONE_SHOT)
 	add_child(modal)
