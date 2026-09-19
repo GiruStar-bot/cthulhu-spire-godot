@@ -107,7 +107,8 @@ func play_bgm_for_scene(scene_name: String) -> void:
 			play_bgm("none")
 			play_sfx("lose")
 		"dream_gate": play_bgm("none")
-		"dream_title": play_bgm("title")
+		"dream_title": play_bgm("dream_title")
+		"dream_hub": play_bgm("dream_hub")
 		_: play_bgm("none")
 
 
