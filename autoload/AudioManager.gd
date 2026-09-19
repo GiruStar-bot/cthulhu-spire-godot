@@ -113,8 +113,8 @@ func play_bgm_for_scene(scene_name: String) -> void:
 			play_bgm("none")
 			play_sfx("reward")
 		"defeat", "shatter":
+			# lose SFX is already played in Combat._check_result(); do not double-fire here
 			play_bgm("none")
-			play_sfx("lose")
 		"dream_gate": play_bgm("none")
 		"dream_title": play_bgm("dream_title")
 		"dream_hub": play_bgm("dream_hub")
