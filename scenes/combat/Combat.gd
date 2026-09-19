@@ -170,7 +170,12 @@ func _play_card(card_uid: String, target_id) -> void:
 	if selected_card != null:
 		def_id = str(selected_card.get("defId", ""))
 	var hp_before: int = int(player.hp)
-	AudioManager.play_sfx(_sfx_cue_for_card(def_id, card_type))
+	# CombatLogic.play_card が返す sfx（攻撃は vfx_* / それ以外は skill）をそのまま再生
+	var card_sfx: Array = played.get("sfx", [])
+	if card_sfx.is_empty():
+		AudioManager.play_sfx("attack" if card_type == "attack" else "skill")
+	else:
+		AudioManager.play_cues(card_sfx)
 	targeting_uid = ""
 	GameState.apply_player_hook(player)
 	_refresh()
