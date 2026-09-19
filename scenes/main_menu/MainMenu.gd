@@ -87,6 +87,8 @@ func _show_outer_gift_modal() -> void:
 
 func _on_outer_gift_proceeded() -> void:
 	GameState.realm = "dream"
+	## 外宇宙贈り物＝スターター確定。Dream Hub で FIRST DESCENT を出さない。
+	GameState.mark_starter_chosen()
 	## デッキ付与は後続。プレースホルダが空ならスキップ（クラッシュしない）。
 	var ids: Array = GameState.OUTER_STARTER_IDS_PLACEHOLDER.duplicate()
 	if not ids.is_empty():

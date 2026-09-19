@@ -232,20 +232,28 @@ func _ready() -> void:
 
 
 
-## Dream Island: same Hub skeleton; swap BG only when realm is dream.
+## Dream Island: same Hub skeleton; swap BG + light island labels when realm is dream.
+## Theme（金石板ルック）差し替えは後続。まずは機能ロック／ラベル優先。
 func _apply_dream_hub_look() -> void:
 	if str(GameState.realm) != "dream":
 		return
-	if background_art == null:
-		return
-	var path := "res://art/pixel/bg/dream_hub.jpg"
-	if not ResourceLoader.exists(path):
-		path = "res://art/pixel/bg/dream_title.png"
-	if not ResourceLoader.exists(path):
-		return
-	var tex: Texture2D = load(path) as Texture2D
-	if tex != null:
-		background_art.texture = tex
+	if background_art != null:
+		var path := "res://art/pixel/bg/dream_hub.jpg"
+		if not ResourceLoader.exists(path):
+			path = "res://art/pixel/bg/dream_title.png"
+		if ResourceLoader.exists(path):
+			var tex: Texture2D = load(path) as Texture2D
+			if tex != null:
+				background_art.texture = tex
+	## ナビ：島向けラベル。探索タブ自体は開けるが主ボタンは封印（dim）。
+	## 祝福/休憩ナビは未実装のため追加しない。
+	if nav_buttons.has("descend") and nav_buttons["descend"]:
+		nav_buttons["descend"].text = "探索（封印）"
+		nav_buttons["descend"].modulate = Color(1, 1, 1, 0.55)
+	if nav_buttons.has("deck") and nav_buttons["deck"]:
+		nav_buttons["deck"].text = "デッキ"
+	if nav_buttons.has("shop") and nav_buttons["shop"]:
+		nav_buttons["shop"].text = "ショップ"
 
 func _fit_nav_chrome() -> void:
 	if nav_frame == null or body_nav == null:
@@ -501,7 +509,11 @@ func _update_descend_panel() -> void:
 			_deck_count(),
 			CollectionData.DECK_LIMIT,
 		]
-		if _should_show_starter_pick():
+		if str(GameState.realm) == "dream":
+			## Dream 探索は後続。誤って waking ランを開始しない。
+			primary_action_button.text = "探索（封印）"
+			primary_action_button.disabled = true
+		elif _should_show_starter_pick():
 			primary_action_button.text = "最初のデッキを選ぶ"
 			primary_action_button.disabled = false
 		else:
@@ -619,6 +631,9 @@ func _deck_count() -> int:
 
 func _on_primary_action_pressed() -> void:
 	if GameState.floor <= 0:
+		if str(GameState.realm) == "dream":
+			GameState.toast = "夢の島の探索はまだ開けない。"
+			return
 		if _should_show_starter_pick():
 			_select_tab("deck")
 			return
@@ -1383,6 +1398,9 @@ func _on_sell_confirm_pressed() -> void:
 
 func _should_show_starter_pick() -> bool:
 	if GameState.floor > 0:
+		return false
+	## Dream Island：外宇宙贈り物でスターター済み。FIRST DESCENT は出さない。
+	if str(GameState.realm) == "dream":
 		return false
 	if not GameState.starter_chosen:
 		return true
