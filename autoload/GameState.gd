@@ -312,9 +312,12 @@ func begin(tree: SceneTree) -> void:
 	goto_scene(tree, "hub")
 
 
-## store.ts の toTitle()
+## store.ts の toTitle()。Dream Island 中は waking タイトルへ戻さない。
 func to_title(tree: SceneTree) -> void:
-	goto_scene(tree, "title")
+	if realm == "dream":
+		goto_scene(tree, "dream_title")
+	else:
+		goto_scene(tree, "title")
 
 
 ## store.ts の startRun()。

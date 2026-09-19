@@ -97,7 +97,11 @@ func _on_bgm_finished() -> void:
 func play_bgm_for_scene(scene_name: String) -> void:
 	match scene_name:
 		"title": play_bgm("title")
-		"hub", "rest": play_bgm("rest")
+		"hub", "rest":
+			if scene_name == "hub" and str(GameState.realm) == "dream":
+				play_bgm("dream_hub")
+			else:
+				play_bgm("rest")
 		"combat":
 			var kind := str(GameState.combat.get("kind", "combat")) if GameState.combat is Dictionary else "combat"
 			play_bgm("boss" if kind == "boss" else "combat")
