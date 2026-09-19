@@ -168,17 +168,24 @@ const POOL_TAG_BORDER := {
 	"effect": Color("452267"),
 }
 
-## Hub デッキ棚（縦カードパネル）。アイコン欠落は soft fallback。
+## Hub デッキ棚（正四角タイル）。顔は deck_tile_*。pack fallback なし。
 const DECK_SHELF_COLORS := {
 	"fanatic": Color("6B1F22"),
 	"knight": Color("5C6570"),
 	"poison": Color("2F5C3A"),
 	"deep": Color("1F4A5C"),
 	"outer": Color("3A2A55"),
+	"elder": Color("4A4538"),
+	"offering": Color("5C4A2E"),
+	"shadow": Color("2A2438"),
+	"greatold": Color("3A2850"),
+	"all": Color("3A3548"),
+	"none": Color("2A2430"),
 }
 const DECK_SHELF_DEFAULT_COLOR := Color("2A2430")
-const DECK_SHELF_ICON_FMT := "res://art/pixel/ui/deck_icon_%s.png"
-const DECK_SHELF_TILE := Vector2(120, 168)
+const DECK_SHELF_TILE_FMT := "res://art/pixel/ui/deck_tile_%s.png"
+const DECK_SHELF_TILE := Vector2(128, 128)
+const DECK_SHELF_ARCHETYPE_MIN := 4  ## 同一属性がこの枚数以上で属性タイル、未満は none
 
 var _deck_mode: String = "list"  ## DeckHubScreen.tsx の mode: "list" | "edit"
 var _deck_renaming: bool = false
@@ -1537,7 +1544,7 @@ func _on_starter_deck_picked(archetype: String) -> void:
 	_update_header()
 
 
-## DeckListScreen.tsx の topArchetypeOfCounts()
+## DeckListScreen.tsx の topArchetypeOfCounts() — 4枚未満は none（混成／未染色）
 func _top_archetype_of_counts(counts: Dictionary) -> Dictionary:
 	var tally: Dictionary = {}
 	for card_id in counts.keys():
@@ -1553,12 +1560,12 @@ func _top_archetype_of_counts(counts: Dictionary) -> Dictionary:
 		if best_archetype == "" or count > best_count:
 			best_archetype = archetype
 			best_count = count
-	if best_archetype == "":
-		return {}
+	if best_archetype == "" or best_count < DECK_SHELF_ARCHETYPE_MIN:
+		return {"archetype": "none", "count": best_count}
 	return {"archetype": best_archetype, "count": best_count}
 
 
-## DeckListScreen.tsx の「禁書目録」一覧 — 縦カードパネル棚（カードプール風グリッド）
+## DeckListScreen.tsx の「禁書目録」一覧 — 正四角デッキ束タイル棚
 func _rebuild_deck_list() -> void:
 	for child in deck_list_container.get_children():
 		child.queue_free()
@@ -1577,7 +1584,9 @@ func _rebuild_deck_list() -> void:
 	for name in names:
 		var counts: Dictionary = CollectionData.decks.get(name, {})
 		var top := _top_archetype_of_counts(counts)
-		var arch := str(top.get("archetype", "")) if not top.is_empty() else ""
+		var arch := str(top.get("archetype", "none"))
+		if arch == "":
+			arch = "none"
 		shelf.add_child(_make_deck_shelf_tile(str(name), arch, CollectionData.deck_size(counts)))
 
 
@@ -1615,17 +1624,14 @@ func _make_deck_shelf_tile(deck_name: String, archetype: String, total: int) -> 
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon_path := DECK_SHELF_ICON_FMT % archetype if archetype != "" else ""
+	var tile_id := archetype if archetype != "" else "none"
+	var icon_path := DECK_SHELF_TILE_FMT % tile_id
 	var tex: Texture2D = null
-	if icon_path != "" and ResourceLoader.exists(icon_path):
+	if ResourceLoader.exists(icon_path):
 		tex = load(icon_path) as Texture2D
-	if tex == null and archetype != "":
-		## soft fallback: pack art
-		var pack_path := "res://art/pixel/packs/pack_%s_nobackground.png" % archetype
-		if ResourceLoader.exists(pack_path):
-			tex = load(pack_path) as Texture2D
-		elif ResourceLoader.exists("res://art/pixel/packs/pack_%s.jpg" % archetype):
-			tex = load("res://art/pixel/packs/pack_%s.jpg" % archetype) as Texture2D
+	elif tile_id != "none" and ResourceLoader.exists(DECK_SHELF_TILE_FMT % "none"):
+		## missing attr tile → none only (never pack art)
+		tex = load(DECK_SHELF_TILE_FMT % "none") as Texture2D
 	if tex != null:
 		icon.texture = tex
 	tile.add_child(icon)
