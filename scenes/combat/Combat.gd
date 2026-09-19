@@ -1105,11 +1105,15 @@ func _decorate_panel(panel: Panel) -> void:
 	VitalsHud.attach_panel_frame(panel)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.07, 0.065, 0.055, 0.92)
-	style.content_margin_left = 18
-	style.content_margin_right = 18
-	style.content_margin_top = 14
-	style.content_margin_bottom = 14
+	var inset: int = VitalsHud.FRAME_CONTENT_INSET
+	style.content_margin_left = inset
+	style.content_margin_right = inset
+	style.content_margin_top = inset
+	style.content_margin_bottom = inset
 	panel.add_theme_stylebox_override("panel", style)
+	# StyleBoxFlat.content_margin does not inset Controls — pad LogScroll inside the stone frame.
+	if panel == log_panel and log_scroll != null:
+		VitalsHud.apply_framed_content_inset(log_scroll, inset)
 
 
 func _open_pile(which: String) -> void:
