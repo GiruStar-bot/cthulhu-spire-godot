@@ -59,7 +59,36 @@ func _start_drift() -> void:
 	tween.tween_property(logo_container, "position:y", _logo_base_y, 3.1)
 
 
+func _is_dream_title() -> bool:
+	var path := str(scene_file_path)
+	if path.ends_with("DreamTitle.tscn"):
+		return true
+	return name == "DreamTitle"
+
+
 func _on_play_pressed() -> void:
+	if _is_dream_title():
+		_show_outer_gift_modal()
+		return
+	GameState.begin(get_tree())
+
+
+## Dream Island：外宇宙贈り物モーダル → 進むで begin（通常タイトルは直 begin）。
+func _show_outer_gift_modal() -> void:
+	if get_node_or_null("OuterGiftModal") != null:
+		return
+	var modal := OuterGiftModal.new()
+	modal.name = "OuterGiftModal"
+	modal.proceeded.connect(_on_outer_gift_proceeded, CONNECT_ONE_SHOT)
+	add_child(modal)
+
+
+func _on_outer_gift_proceeded() -> void:
+	GameState.realm = "dream"
+	## デッキ付与は後続。プレースホルダが空ならスキップ（クラッシュしない）。
+	var ids: Array = GameState.OUTER_STARTER_IDS_PLACEHOLDER.duplicate()
+	if not ids.is_empty():
+		GameState.pending_outer_starter = ids
 	GameState.begin(get_tree())
 
 

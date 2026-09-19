@@ -53,6 +53,14 @@ var shells: int = 0
 var equipment_presets: Dictionary = {}
 var starter_chosen: bool = false
 
+## "waking" | "dream"。DreamTitle 外宇宙贈り物フローで "dream" をセットする。
+var realm: String = "waking"
+## 外宇宙スターター付与予約（シェル段階では中身はプレースホルダ／空）。
+var pending_outer_starter: Array = []
+
+## 後続で Cards.get_card 検証してから付与する想定。空＝付与スキップ（クラッシュ防止）。
+const OUTER_STARTER_IDS_PLACEHOLDER: Array = []
+
 # --- GameStore 相当（ラン中のみ有効） ---
 var scene: String = "title"
 var seed: int = 0
