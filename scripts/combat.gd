@@ -725,7 +725,13 @@ static func play_card(c: Dictionary, player: Dictionary, card_uid: String, targe
 	_finish_play(c, card, true if d.get("exhaust") else false)
 	_check_over(c, player)
 	var sfx: Array = []
-	if d.get("type") == "attack":
+	var def_id: String = str(d.get("id", card.defId))
+	# Per-card faithful SFX
+	if def_id == "cats_paw":
+		sfx.append("cat_hiss")
+	elif def_id == "migo_gun":
+		sfx.append("electric")
+	elif d.get("type") == "attack":
 		var vfx_kind: String = str(d.get("vfx", "impact"))
 		match vfx_kind:
 			"slash":
