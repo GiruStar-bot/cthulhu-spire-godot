@@ -208,6 +208,14 @@ func _end_turn() -> void:
 	_check_result()
 
 
+
+func _play_draw_sfx(hand_before: int) -> void:
+	var hand_now: int = int(state.hand.size()) if state.get("hand") else 0
+	var gained: int = hand_now - hand_before
+	if gained <= 0:
+		return
+	for _i in range(gained):
+		AudioManager.play_sfx("paper_draw")
 func _on_hand_pressed(card_uid: String) -> void:
 	if resolving:
 		return
