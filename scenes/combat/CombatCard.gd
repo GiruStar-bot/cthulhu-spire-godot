@@ -123,9 +123,16 @@ func _gui_input(event: InputEvent) -> void:
 
 func _load_texture_safe(path: String) -> Texture2D:
 	var resolved: String = Cards.resolve_art(path)
-	if resolved.is_empty() or not ResourceLoader.exists(resolved, "Texture2D"):
+	if resolved.is_empty():
 		return load(FALLBACK_TEX) as Texture2D
-	var resource: Resource = ResourceLoader.load(resolved, "Texture2D")
+	## ArtCache Autoload があればキャッシュ経由（begin ウォーム済みを再利用）
+	if ArtCache != null:
+		var cached: Texture2D = ArtCache.get_texture(resolved)
+		if cached != null:
+			return cached
+	if not ResourceLoader.exists(resolved, "Texture2D"):
+		return load(FALLBACK_TEX) as Texture2D
+	var resource: Resource = ResourceLoader.load(resolved, "Texture2D", ResourceLoader.CACHE_MODE_REUSE)
 	if resource is Texture2D:
 		return resource as Texture2D
 	push_warning("Texture2Dとして読み込めませんでした: %s" % path)

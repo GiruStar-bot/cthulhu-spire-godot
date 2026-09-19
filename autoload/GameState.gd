@@ -291,6 +291,7 @@ func goto_scene(tree: SceneTree, next_scene: String) -> void:
 
 
 ## store.ts の begin()：プレイ開始（タイトル→拠点）。プロフィールを再読込しランテーブルを生成する。
+## 所持カード／枠テクスチャを ArtCache でウォームしてから Hub へ遷移する（売却・デッキの冷ロード回避）。
 func begin(tree: SceneTree) -> void:
 	_load_profile()
 	seed = randi()
@@ -298,6 +299,8 @@ func begin(tree: SceneTree) -> void:
 	run_floors = []
 	floor = 0
 	toast = ""
+	## CollectionData は Autoload 済み。同期ウォーム（所持枚数が多くてもフレーム数枚程度）。
+	ArtCache.warm_for_collection()
 	goto_scene(tree, "hub")
 
 

@@ -118,6 +118,7 @@ var _pack_open: Control = null
 # SellScreen.tsx 相当の状態
 var _sell_tab: String = "card"  ## "card" | "equipment" | "rune"
 var _sell_card_selections: Dictionary = {}  ## base_card_id -> 選択数
+var _sell_card_row_nodes: Dictionary = {}  ## base_card_id -> {qty_label, minus_btn, plus_btn, sellable}
 var _sell_equipment_uids: Dictionary = {}  ## uid -> true
 var _sell_rune_ids: Dictionary = {}  ## id -> true
 
@@ -903,9 +904,14 @@ func _make_pack_tile(archetype: String, ticket_count: int) -> PanelContainer:
 ## カード/装備/チケット用の実画像サムネイル。
 ## TextureRectで art を表示し、CombatCard.gd と同一の NinePatchRect 枠を重ねる。
 func _load_texture_safe(path: String) -> Texture2D:
-	if path.is_empty() or not ResourceLoader.exists(path, "Texture2D"):
+	if path.is_empty():
 		return null
-	var resource: Resource = ResourceLoader.load(path, "Texture2D")
+	## ArtCache Autoload 経由（未登録時のみフォールバック直ロード）
+	if ArtCache != null:
+		return ArtCache.get_texture(path)
+	if not ResourceLoader.exists(path, "Texture2D"):
+		return null
+	var resource: Resource = ResourceLoader.load(path, "Texture2D", ResourceLoader.CACHE_MODE_REUSE)
 	if resource is Texture2D:
 		return resource as Texture2D
 	push_warning("Texture2Dとして読み込めませんでした: %s" % path)
@@ -1039,13 +1045,51 @@ func _sell_qty_for(base_card_id: String, sellable: int) -> int:
 
 
 ## SellScreen.tsx の setCardQty()
+## ±／サムネトグルはグリッド全体を queue_free+再構築せず、該当行の数量ラベルだけ更新する。
 func _set_sell_card_qty(base_card_id: String, qty: int, max_qty: int) -> void:
 	var clamped: int = max(0, min(max_qty, qty))
 	if clamped <= 0:
 		_sell_card_selections.erase(base_card_id)
 	else:
 		_sell_card_selections[base_card_id] = clamped
-	_refresh_sell_tab()
+	if _sell_card_row_nodes.has(base_card_id):
+		_sync_sell_card_row(base_card_id, max_qty)
+		_update_sell_footer()
+	else:
+		_refresh_sell_tab()
+
+
+func _on_sell_card_thumb_pressed(base_card_id: String, sellable: int) -> void:
+	var qty: int = _sell_qty_for(base_card_id, sellable)
+	_set_sell_card_qty(base_card_id, 0 if qty > 0 else sellable, sellable)
+
+
+func _on_sell_card_minus_pressed(base_card_id: String, sellable: int) -> void:
+	var qty: int = _sell_qty_for(base_card_id, sellable)
+	_set_sell_card_qty(base_card_id, qty - 1, sellable)
+
+
+func _on_sell_card_plus_pressed(base_card_id: String, sellable: int) -> void:
+	var qty: int = _sell_qty_for(base_card_id, sellable)
+	_set_sell_card_qty(base_card_id, qty + 1, sellable)
+
+
+func _sync_sell_card_row(base_card_id: String, sellable: int) -> void:
+	if not _sell_card_row_nodes.has(base_card_id):
+		return
+	var row: Dictionary = _sell_card_row_nodes[base_card_id]
+	var qty: int = _sell_qty_for(base_card_id, sellable)
+	var qty_label: Label = row["qty_label"]
+	var minus_btn: Button = row["minus_btn"]
+	var plus_btn: Button = row["plus_btn"]
+	qty_label.text = "%d/%d" % [qty, sellable]
+	minus_btn.disabled = qty <= 0
+	plus_btn.disabled = qty >= sellable
+
+
+func _update_sell_footer() -> void:
+	sell_total_label.text = "選択中 %d点 · 獲得予定 貝殻%d" % [_sell_total_selected(), _sell_total_value()]
+	sell_confirm_button.disabled = _sell_total_selected() == 0
 
 
 func _sell_card_total_count() -> int:
@@ -1091,6 +1135,7 @@ func _sell_total_selected() -> int:
 
 
 func _refresh_sell_tab() -> void:
+	_sell_card_row_nodes.clear()
 	for key in ["card", "equipment", "rune"]:
 		var btn: Button = sell_card_tab_button if key == "card" else (sell_equipment_tab_button if key == "equipment" else sell_rune_tab_button)
 		btn.disabled = key == _sell_tab
@@ -1125,7 +1170,7 @@ func _refresh_sell_tab() -> void:
 			thumb_btn.custom_minimum_size = Vector2(0, 82)
 			thumb_btn.clip_contents = true
 			thumb_btn.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
-			thumb_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, 0 if qty > 0 else sellable, sellable))
+			thumb_btn.pressed.connect(_on_sell_card_thumb_pressed.bind(base_card_id, sellable))
 			var art_path := str(def.get("art", ""))
 			var sell_art := _make_art_thumbnail(art_path, str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(0, 82))
 			sell_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1150,7 +1195,7 @@ func _refresh_sell_tab() -> void:
 			var minus_btn := Button.new()
 			minus_btn.text = "-"
 			minus_btn.disabled = qty <= 0
-			minus_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, qty - 1, sellable))
+			minus_btn.pressed.connect(_on_sell_card_minus_pressed.bind(base_card_id, sellable))
 			qty_row.add_child(minus_btn)
 			var qty_label := Label.new()
 			qty_label.text = "%d/%d" % [qty, sellable]
@@ -1161,9 +1206,15 @@ func _refresh_sell_tab() -> void:
 			var plus_btn := Button.new()
 			plus_btn.text = "+"
 			plus_btn.disabled = qty >= sellable
-			plus_btn.pressed.connect(_set_sell_card_qty.bind(base_card_id, qty + 1, sellable))
+			plus_btn.pressed.connect(_on_sell_card_plus_pressed.bind(base_card_id, sellable))
 			qty_row.add_child(plus_btn)
 			cell.add_child(qty_row)
+			_sell_card_row_nodes[base_card_id] = {
+				"qty_label": qty_label,
+				"minus_btn": minus_btn,
+				"plus_btn": plus_btn,
+				"sellable": sellable,
+			}
 
 			var price_label := Label.new()
 			price_label.text = "貝殻%d/枚" % unit_price
@@ -1217,8 +1268,7 @@ func _refresh_sell_tab() -> void:
 
 			sell_list_container.add_child(btn)
 
-	sell_total_label.text = "選択中 %d点 · 獲得予定 貝殻%d" % [_sell_total_selected(), _sell_total_value()]
-	sell_confirm_button.disabled = _sell_total_selected() == 0
+	_update_sell_footer()
 
 
 func _on_sell_tab_selected(tab_name: String) -> void:
@@ -1231,7 +1281,8 @@ func _on_sell_equipment_toggled(pressed: bool, uid: String) -> void:
 		_sell_equipment_uids[uid] = true
 	else:
 		_sell_equipment_uids.erase(uid)
-	_refresh_sell_tab()
+	## トグルボタン自身が選択状態を持つためグリッド再構築不要
+	_update_sell_footer()
 
 
 func _on_sell_rune_toggled(pressed: bool, rid: String) -> void:
@@ -1239,7 +1290,7 @@ func _on_sell_rune_toggled(pressed: bool, rid: String) -> void:
 		_sell_rune_ids[rid] = true
 	else:
 		_sell_rune_ids.erase(rid)
-	_refresh_sell_tab()
+	_update_sell_footer()
 
 
 ## SellScreen.tsx の selectAll()
