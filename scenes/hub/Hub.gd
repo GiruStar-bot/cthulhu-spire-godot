@@ -965,6 +965,9 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 	var frame_data: Array = CARD_FRAME_BY_ARCHETYPE.get(archetype, CARD_FRAME_BY_RARITY.get(rarity, CARD_FRAME_BY_RARITY["common"]))
 	var frame := NinePatchRect.new()
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.draw_center = false
+	frame.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
+	frame.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE_FIT
 	frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var frame_path := str(frame_data[0])
