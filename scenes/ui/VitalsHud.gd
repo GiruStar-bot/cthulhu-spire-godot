@@ -8,6 +8,10 @@ const FRAME_PANEL := "res://art/ui/frame_panel.png"
 ## 画像の透明余白を含めた柱は約62px。表示は石の見え方を優先して16pxへ縮小する。
 const FRAME_SLICE := 62
 const FRAME_DISPLAY := 16
+## Scaled texture has ~4px transparent outer pad; expand frame so visible stone sits on the fill edge.
+const FRAME_OUTSET := 4
+## Godot 4 StyleBoxFlat.content_margin does NOT inset child Controls — use this for offsets/MarginContainer.
+const FRAME_CONTENT_INSET := 22  # FRAME_DISPLAY + 6
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ICON_STR := "res://art/pixel/status/strength.png"
 const ICON_POISON := "res://art/pixel/status/poison.png"
@@ -73,7 +77,8 @@ func _build() -> void:
 	if custom_minimum_size.x < 8.0:
 		custom_minimum_size = Vector2(232, 96)
 	_decorate()
-	var pad: int = 18 if show_frame else 8
+	# StyleBoxFlat.content_margin does not pad children; inset the content root explicitly.
+	var pad: int = FRAME_CONTENT_INSET if show_frame else 8
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, pad)
 	col.add_theme_constant_override("separation", 4)
@@ -261,10 +266,11 @@ func _apply_frame_visible() -> void:
 	var style := StyleBoxFlat.new()
 	if show_frame:
 		style.bg_color = Color(0.07, 0.065, 0.055, 0.92)
-		style.content_margin_left = 18
-		style.content_margin_right = 18
-		style.content_margin_top = 14
-		style.content_margin_bottom = 14
+		# Kept in sync with FRAME_CONTENT_INSET; real inset is the content VBox pad.
+		style.content_margin_left = FRAME_CONTENT_INSET
+		style.content_margin_right = FRAME_CONTENT_INSET
+		style.content_margin_top = FRAME_CONTENT_INSET
+		style.content_margin_bottom = FRAME_CONTENT_INSET
 	else:
 		style.bg_color = Color(0, 0, 0, 0)
 		style.content_margin_left = 4
@@ -297,6 +303,11 @@ static func attach_panel_frame(host: Control) -> NinePatchRect:
 	var frame := NinePatchRect.new()
 	frame.name = "PanelFrame"
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Push stone outside the fill rect so transparent patch pad does not let bg bleed past the frame.
+	frame.offset_left = -float(FRAME_OUTSET)
+	frame.offset_top = -float(FRAME_OUTSET)
+	frame.offset_right = float(FRAME_OUTSET)
+	frame.offset_bottom = float(FRAME_OUTSET)
 	frame.texture = panel_frame_texture()
 	frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	frame.draw_center = false
@@ -310,6 +321,16 @@ static func attach_panel_frame(host: Control) -> NinePatchRect:
 	host.add_child(frame)
 	host.move_child(frame, 0)
 	return frame
+
+
+## Apply FULL_RECT child insets so text/scroll sit inside the stone (StyleBox content_margin alone is not enough).
+static func apply_framed_content_inset(control: Control, inset: int = -1) -> void:
+	var pad: int = FRAME_CONTENT_INSET if inset < 0 else inset
+	control.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	control.offset_left = float(pad)
+	control.offset_top = float(pad)
+	control.offset_right = -float(pad)
+	control.offset_bottom = -float(pad)
 
 
 func _set_bar(fill: ColorRect, value_label: Label, current: int, maximum: int) -> void:
