@@ -73,12 +73,15 @@ var _hit_tweens: Dictionary = {}
 var _float_tweens: Dictionary = {}
 var _prev_hp: int = -1
 var _prev_sanity: int = -1
+var _prev_block: int = -1
 var _fx_canvas: CanvasLayer
 var _vertigo_rect: ColorRect
 var _vertigo_mat: ShaderMaterial
 var _vertigo_tween: Tween
 var _shield: Polygon2D
 var _shield_tween: Tween
+var _hurt_flash: ColorRect
+var _hurt_tween: Tween
 var _vfx_layer: Node2D
 var _draw_in_tweens: Dictionary = {}
 
@@ -140,6 +143,7 @@ func _begin_combat() -> void:
 	message_label.text = ""
 	_prev_hp = int(player.hp)
 	_prev_sanity = int(player.sanity)
+	_prev_block = int(state.get("block", 0))
 
 
 func _apply_biome_art(enemy_ids: Array) -> void:
@@ -1321,6 +1325,12 @@ func _ensure_fx() -> void:
 	_shield.polygon = _octagon_points(118.0)
 	_shield.modulate.a = 0.0
 	_fx_canvas.add_child(_shield)
+	_hurt_flash = ColorRect.new()
+	_hurt_flash.name = "HurtFlash"
+	_hurt_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_hurt_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hurt_flash.color = Color(0.72, 0.08, 0.06, 0.0)
+	_fx_canvas.add_child(_hurt_flash)
 
 
 func _octagon_points(radius: float) -> PackedVector2Array:
@@ -1338,13 +1348,19 @@ func _run_player_hit_fx() -> void:
 		return
 	var hp_now: int = int(player.hp)
 	var san_now: int = int(player.sanity)
-	if _prev_hp >= 0 and hp_now < _prev_hp:
+	var block_now: int = int(state.get("block", 0)) if not state.is_empty() else 0
+	## HitShield = 防御成功（block消費）。完全／部分ブロックどちらも。
+	if _prev_block >= 0 and block_now < _prev_block:
 		_fx_shield()
+	## HP減は痛み用（毒・貫通・無防御被弾）。盾とは分離。
+	if _prev_hp >= 0 and hp_now < _prev_hp:
+		_fx_player_hurt()
 	if _prev_sanity >= 0 and san_now < _prev_sanity:
 		_fx_vertigo()
 		AudioManager.play_sfx("hurt_sanity")
 	_prev_hp = hp_now
 	_prev_sanity = san_now
+	_prev_block = block_now
 
 
 func _fx_vertigo() -> void:
@@ -1404,6 +1420,18 @@ func _fx_shield() -> void:
 	_shield_tween.set_parallel(true)
 	_shield_tween.tween_property(_shield, "scale", Vector2(1.18, 1.18), 0.32).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_shield_tween.tween_property(_shield, "modulate:a", 0.0, 0.32).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+## HP減用の被弾フラッシュ。盾（ブロック成功）とは別チャンネル。
+func _fx_player_hurt() -> void:
+	_ensure_fx()
+	if _hurt_flash == null or not is_instance_valid(_hurt_flash):
+		return
+	_hurt_flash.color = Color(0.72, 0.08, 0.06, 0.38)
+	if _hurt_tween != null and is_instance_valid(_hurt_tween):
+		_hurt_tween.kill()
+	_hurt_tween = create_tween()
+	_hurt_tween.tween_property(_hurt_flash, "color:a", 0.0, 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
 func _fx_shock_living() -> void:
