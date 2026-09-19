@@ -166,13 +166,17 @@ func _play_card(card_uid: String, target_id) -> void:
 	if played.get("error"):
 		message_label.text = str(played.error)
 		return
-	AudioManager.play_sfx("attack" if card_type == "attack" else "skill")
-	targeting_uid = ""
-	GameState.apply_player_hook(player)
-	_refresh()
 	var def_id: String = ""
 	if selected_card != null:
 		def_id = str(selected_card.get("defId", ""))
+	var hp_before: int = int(player.hp)
+	AudioManager.play_sfx(_sfx_cue_for_card(def_id, card_type))
+	targeting_uid = ""
+	GameState.apply_player_hook(player)
+	_refresh()
+	# 自傷（hpCost 等）は敵被弾と別キュー
+	if int(player.hp) < hp_before:
+		AudioManager.play_sfx("hurt_self")
 	if SHOCK_CARDS.has(def_id):
 		_fx_shock_living()
 	_fx_card_vfx(def_id, target_id)
@@ -185,9 +189,15 @@ func _play_card(card_uid: String, target_id) -> void:
 func _end_turn() -> void:
 	targeting_uid = ""
 	AudioManager.play_sfx("step")
-	CombatLogic.end_turn(state, player, Callable(GameState, "_rand"))
+	var hp_before: int = int(player.hp)
+	var turn_sfx: Array = CombatLogic.end_turn(state, player, Callable(GameState, "_rand"))
 	GameState.apply_player_hook(player)
 	_refresh()
+	AudioManager.play_cues(turn_sfx)
+	# 毒・冷気など、敵ヒット以外のHP減
+	var had_enemy_hit := "hurt_from_enemy" in turn_sfx or "hurt" in turn_sfx
+	if int(player.hp) < hp_before and not had_enemy_hit:
+		AudioManager.play_sfx("hurt_self")
 	_check_result()
 
 
@@ -1313,6 +1323,7 @@ func _run_player_hit_fx() -> void:
 		_fx_shield()
 	if _prev_sanity >= 0 and san_now < _prev_sanity:
 		_fx_vertigo()
+		AudioManager.play_sfx("hurt_sanity")
 	_prev_hp = hp_now
 	_prev_sanity = san_now
 
