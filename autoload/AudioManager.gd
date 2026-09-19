@@ -34,6 +34,7 @@ const SFX_PATHS := {
 	"gift_confirm": "res://audio/sfx/sfx_gift_confirm.wav",
 	"gift_talk": "res://audio/sfx/sfx_gift_talk.wav",
 	"gift_reveal": "res://audio/sfx/sfx_gift_reveal.wav",
+	"gift_type": "res://audio/sfx/sfx_gift_type.wav",
 	"vfx_impact": "res://audio/sfx/sfx_vfx_impact.wav",
 	"vfx_slash": "res://audio/sfx/sfx_vfx_slash.wav",
 	"vfx_arrow": "res://audio/sfx/sfx_vfx_arrow.wav",
