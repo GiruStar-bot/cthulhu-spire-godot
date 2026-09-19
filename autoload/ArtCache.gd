@@ -1,4 +1,4 @@
-﻿extends Node
+extends Node
 
 ## 所持カード／UI枠テクスチャのキャッシュ。Hub 売却・デッキ一覧が毎回
 ## ResourceLoader.load で冷えるのを防ぐ。GameState.begin 後に warm_for_collection()。

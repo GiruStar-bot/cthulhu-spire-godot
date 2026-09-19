@@ -1,4 +1,4 @@
-﻿class_name CombatCard
+class_name CombatCard
 extends Button
 ## CardView.tsx の表示専用移植。
 ## フレームは CSS border-image（枠のみ）相当。イラストはヘッダーと本文の間に全面表示する。

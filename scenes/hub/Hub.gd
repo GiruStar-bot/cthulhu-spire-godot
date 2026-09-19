@@ -1,4 +1,4 @@
-﻿extends Control
+extends Control
 
 ## Godot向けHub画面。単一画面＋サイドナビで、探索準備・ロードアウト・
 ## 売買・パック開封を一貫して操作する。ゲームロジックと永続データは
