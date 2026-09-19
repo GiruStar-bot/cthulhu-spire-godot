@@ -168,6 +168,18 @@ const POOL_TAG_BORDER := {
 	"effect": Color("452267"),
 }
 
+## Hub デッキ棚（縦カードパネル）。アイコン欠落は soft fallback。
+const DECK_SHELF_COLORS := {
+	"fanatic": Color("6B1F22"),
+	"knight": Color("5C6570"),
+	"poison": Color("2F5C3A"),
+	"deep": Color("1F4A5C"),
+	"outer": Color("3A2A55"),
+}
+const DECK_SHELF_DEFAULT_COLOR := Color("2A2430")
+const DECK_SHELF_ICON_FMT := "res://art/pixel/ui/deck_icon_%s.png"
+const DECK_SHELF_TILE := Vector2(120, 168)
+
 var _deck_mode: String = "list"  ## DeckHubScreen.tsx の mode: "list" | "edit"
 var _deck_renaming: bool = false
 var _deck_filter_archetypes: Dictionary = {}
@@ -1546,7 +1558,7 @@ func _top_archetype_of_counts(counts: Dictionary) -> Dictionary:
 	return {"archetype": best_archetype, "count": best_count}
 
 
-## DeckListScreen.tsx の「禁書目録」一覧（本のようなタイル一覧、簡易UI版）
+## DeckListScreen.tsx の「禁書目録」一覧 — 縦カードパネル棚（カードプール風グリッド）
 func _rebuild_deck_list() -> void:
 	for child in deck_list_container.get_children():
 		child.queue_free()
@@ -1556,19 +1568,90 @@ func _rebuild_deck_list() -> void:
 		empty_label.text = "デッキがありません。"
 		deck_list_container.add_child(empty_label)
 		return
+	var shelf := HFlowContainer.new()
+	shelf.name = "DeckShelfFlow"
+	shelf.add_theme_constant_override("h_separation", 10)
+	shelf.add_theme_constant_override("v_separation", 10)
+	shelf.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	deck_list_container.add_child(shelf)
 	for name in names:
 		var counts: Dictionary = CollectionData.decks.get(name, {})
-		var total := CollectionData.deck_size(counts)
 		var top := _top_archetype_of_counts(counts)
-		var top_text := "印はまだ定まらない"
-		if not top.is_empty():
-			top_text = "%sの印 · %d枚" % [str(Cards.ARCHETYPE_LABELS.get(top.archetype, top.archetype)), int(top.count)]
-		var btn := Button.new()
-		btn.text = "%s\n%d/%d枚　｜　%s" % [str(name), total, CollectionData.DECK_LIMIT, top_text]
-		btn.custom_minimum_size = Vector2(0, 76)
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.pressed.connect(_on_deck_list_open.bind(str(name)))
-		deck_list_container.add_child(btn)
+		var arch := str(top.get("archetype", "")) if not top.is_empty() else ""
+		shelf.add_child(_make_deck_shelf_tile(str(name), arch, CollectionData.deck_size(counts)))
+
+
+func _make_deck_shelf_tile(deck_name: String, archetype: String, total: int) -> Button:
+	var tile := Button.new()
+	tile.custom_minimum_size = DECK_SHELF_TILE
+	tile.clip_contents = true
+	tile.tooltip_text = "%s（%d/%d枚）" % [deck_name, total, CollectionData.DECK_LIMIT]
+	tile.pressed.connect(_on_deck_list_open.bind(deck_name))
+	var empty := StyleBoxEmpty.new()
+	tile.add_theme_stylebox_override("normal", empty)
+	tile.add_theme_stylebox_override("hover", empty)
+	tile.add_theme_stylebox_override("pressed", empty)
+	tile.add_theme_stylebox_override("disabled", empty)
+	tile.add_theme_stylebox_override("focus", empty)
+
+	var bg := Panel.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = DECK_SHELF_COLORS.get(archetype, DECK_SHELF_DEFAULT_COLOR)
+	sb.set_corner_radius_all(0)
+	sb.set_border_width_all(0)  ## no gold border
+	bg.add_theme_stylebox_override("panel", sb)
+	tile.add_child(bg)
+
+	var icon := TextureRect.new()
+	icon.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	icon.anchor_bottom = 0.72
+	icon.offset_left = 10
+	icon.offset_top = 10
+	icon.offset_right = -10
+	icon.offset_bottom = -4
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon_path := DECK_SHELF_ICON_FMT % archetype if archetype != "" else ""
+	var tex: Texture2D = null
+	if icon_path != "" and ResourceLoader.exists(icon_path):
+		tex = load(icon_path) as Texture2D
+	if tex == null and archetype != "":
+		## soft fallback: pack art
+		var pack_path := "res://art/pixel/packs/pack_%s_nobackground.png" % archetype
+		if ResourceLoader.exists(pack_path):
+			tex = load(pack_path) as Texture2D
+		elif ResourceLoader.exists("res://art/pixel/packs/pack_%s.jpg" % archetype):
+			tex = load("res://art/pixel/packs/pack_%s.jpg" % archetype) as Texture2D
+	if tex != null:
+		icon.texture = tex
+	tile.add_child(icon)
+
+	var name_bar := ColorRect.new()
+	name_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	name_bar.offset_top = -36
+	name_bar.color = Color(0, 0, 0, 0.55)
+	name_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(name_bar)
+
+	var name_label := Label.new()
+	name_label.text = deck_name
+	name_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	name_label.offset_left = 6
+	name_label.offset_top = -32
+	name_label.offset_right = -6
+	name_label.offset_bottom = -4
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.add_theme_font_size_override("font_size", 12)
+	name_label.add_theme_color_override("font_color", Color.WHITE)
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(name_label)
+	return tile
 
 
 ## DeckBuilderScreen.tsx のデッキ名表示/名前変更/削除ボタン行の状態更新
