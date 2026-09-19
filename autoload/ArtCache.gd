@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 ## 所持カード／UI枠テクスチャのキャッシュ。Hub 売却・デッキ一覧が毎回
 ## ResourceLoader.load で冷えるのを防ぐ。GameState.begin 後に warm_for_collection()。
@@ -16,6 +16,7 @@ const SHARED_UI_FRAMES: Array[String] = [
 	"res://art/pixel/ui/frame_card_elder_9.png",
 	"res://art/pixel/ui/frame_card_greatold_9.png",
 	"res://art/pixel/ui/frame_card_outer_9.png",
+	"res://art/pixel/ui/frame_card_all_9.png",
 ]
 
 var _cache: Dictionary = {}  ## path(String) -> Texture2D

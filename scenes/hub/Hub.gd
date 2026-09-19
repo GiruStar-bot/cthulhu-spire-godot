@@ -1,4 +1,4 @@
-extends Control
+﻿extends Control
 
 ## Godot向けHub画面。単一画面＋サイドナビで、探索準備・ロードアウト・
 ## 売買・パック開封を一貫して操作する。ゲームロジックと永続データは
@@ -150,7 +150,7 @@ const CARD_FRAME_BY_ARCHETYPE := {
 	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 15],
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 14],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
-	"all": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
+	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
 }
 
 const RUNE_CATEGORY_OF_EFFECT := {
