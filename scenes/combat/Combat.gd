@@ -170,15 +170,15 @@ func _play_card(card_uid: String, target_id) -> void:
 	if selected_card != null:
 		def_id = str(selected_card.get("defId", ""))
 	var hp_before: int = int(player.hp)
-	# CombatLogic.play_card が返す sfx（攻撃は vfx_* / それ以外は skill）をそのまま再生
-	var card_sfx: Array = played.get("sfx", [])
-	if card_sfx.is_empty():
-		AudioManager.play_sfx("attack" if card_type == "attack" else "skill")
-	else:
-		AudioManager.play_cues(card_sfx)
+	var definition: Dictionary = Cards.get_card(def_id) if def_id != "" else {}
+	var vfx_kind: String = str(definition.get("vfx", "impact"))
+	# カード固有 SFX（ねこの手・電撃銃など）を優先。なければ vfx / skill
+	AudioManager.play_sfx(AudioManager.resolve_card_sfx(def_id, card_type, vfx_kind))
 	targeting_uid = ""
+	var hand_before: int = int(state.hand.size()) if state.get("hand") else 0
 	GameState.apply_player_hook(player)
 	_refresh()
+	_play_draw_sfx(hand_before)
 	# 自傷（hpCost 等）は敵被弾と別キュー
 	if int(player.hp) < hp_before:
 		AudioManager.play_sfx("hurt_self")
@@ -195,10 +195,12 @@ func _end_turn() -> void:
 	targeting_uid = ""
 	AudioManager.play_sfx("step")
 	var hp_before: int = int(player.hp)
+	var hand_before: int = int(state.hand.size()) if state.get("hand") else 0
 	var turn_sfx: Array = CombatLogic.end_turn(state, player, Callable(GameState, "_rand"))
 	GameState.apply_player_hook(player)
 	_refresh()
 	AudioManager.play_cues(turn_sfx)
+	_play_draw_sfx(hand_before)
 	# 毒・冷気など、敵ヒット以外のHP減
 	var had_enemy_hit := "hurt_from_enemy" in turn_sfx or "hurt" in turn_sfx
 	if int(player.hp) < hp_before and not had_enemy_hit:
