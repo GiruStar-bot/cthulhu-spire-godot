@@ -26,10 +26,19 @@ const SFX_PATHS := {
 	"lose": "res://audio/sfx/lose.mp3",
 	"select": "res://audio/sfx/select.mp3",
 	"skill": "res://audio/sfx/sfx_skill.wav",
-	"card_draw": "res://audio/sfx/sfx_card_draw.wav",
+	"card_draw": "res://audio/sfx/sfx_paper_draw.wav",
+	"paper_draw": "res://audio/sfx/sfx_paper_draw.wav",
 	"vfx_impact": "res://audio/sfx/sfx_vfx_impact.wav",
 	"vfx_slash": "res://audio/sfx/sfx_vfx_slash.wav",
 	"vfx_arrow": "res://audio/sfx/sfx_vfx_arrow.wav",
+	"cat_hiss": "res://audio/sfx/sfx_cat_hiss.wav",
+	"electric": "res://audio/sfx/sfx_electric.wav",
+}
+
+# Per-card SFX (text/image faithful). Checked before vfx bucket.
+const CARD_SFX_OVERRIDES := {
+	"cats_paw": "cat_hiss",
+	"migo_gun": "electric",
 }
 
 var music_volume := 0.9
@@ -118,6 +127,20 @@ func stop_bgm() -> void:
 	play_bgm("none")
 
 
+
+func resolve_card_sfx(def_id: String, card_type: String, vfx_kind: String = "") -> String:
+	if CARD_SFX_OVERRIDES.has(def_id):
+		return str(CARD_SFX_OVERRIDES[def_id])
+	if card_type != "attack":
+		return "skill"
+	match vfx_kind:
+		"slash":
+			return "vfx_slash"
+		"arrow":
+			return "vfx_arrow"
+		_:
+			return "vfx_impact"
+
 func play_sfx(cue: String) -> void:
 	var sample := _sample_for(cue)
 	var path := str(SFX_PATHS.get(sample, ""))
@@ -176,7 +199,7 @@ func _sample_for(cue: String) -> String:
 		"hurt":
 			return "hurt_from_enemy"
 		"draw":
-			return "card_draw"
+			return "paper_draw"
 		"play", "hover", "ui", "reward", "win":
 			return "select"
 		_:
