@@ -135,10 +135,13 @@ static func _base_draw_count(c: Dictionary) -> int:
 
 
 ## combat.ts drawCards()
-static func draw_cards(c: Dictionary, n: int, rand: Callable, player = null) -> void:
+## Returns true if combat is still ongoing after draws.
+static func draw_cards(c: Dictionary, n: int, rand: Callable, player = null) -> bool:
 	var hand_limit: int = 12 if c.equipmentStats.get("expandedHand") else 10
 	var drawn := 0
 	while drawn < n:
+		if c.result != "ongoing":
+			return false
 		if c.hand.size() >= hand_limit:
 			break
 		if c.draw.size() == 0:
@@ -154,8 +157,17 @@ static func draw_cards(c: Dictionary, n: int, rand: Callable, player = null) -> 
 			_run_effects(d.onDraw, c, player, null, rand, card)
 			c.floaters.append(_floater(str(d.name), "info", "player"))
 			c.log.append("%sを引いた。" % d.name)
+			## onDraw で正気／HPが0になったら即打ち切り（全ドロー完了まで待たない）
+			_check_over(c, player)
+			if c.result != "ongoing":
+				c.hand.append(card)
+				drawn += 1
+				return false
 		c.hand.append(card)
 		drawn += 1
+	if player != null:
+		_check_over(c, player)
+	return c.result == "ongoing"
 
 
 static func _add_to_discard(c: Dictionary, card: Dictionary) -> void:
@@ -405,12 +417,12 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				c.floaters.append(_floater("+%d" % bn, "block", "player"))
 				c.log.append("%sでブロック%dを得た。" % [Cards.get_card(str(card.defId)).name if card != null else "防御", bn])
 			"draw":
-				draw_cards(c, int(e.n), rand)
+				draw_cards(c, int(e.n), rand, player)
 			"drawToHandLimit":
 				var hand_limit: int = 12 if c.equipmentStats.get("expandedHand") else 10
 				var need: int = maxi(0, hand_limit - int(c.hand.size()))
 				if need > 0:
-					draw_cards(c, need, rand)
+					draw_cards(c, need, rand, player)
 			"energy":
 				c.energy = int(c.energy) + int(e.n)
 			"strength":
@@ -746,6 +758,9 @@ static func play_card(c: Dictionary, player: Dictionary, card_uid: String, targe
 
 
 static func _check_over(c: Dictionary, player: Dictionary) -> void:
+	## Idempotent: already over → no double log / phase thrash
+	if str(c.get("result", "ongoing")) != "ongoing":
+		return
 	if int(player.hp) <= 0:
 		c.result = "lose"
 		c.phase = "over"
@@ -895,6 +910,8 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 		player.hp = mini(int(player.maxHp), int(player.hp) + heal_n)
 		c.floaters.append(_floater("+%d" % heal_n, "heal", "player"))
 	for e in living(c):
+		if str(c.get("result", "ongoing")) != "ongoing":
+			break
 		if int(e.poison) > 0:
 			e.hp = maxi(0, int(e.hp) - int(e.poison))
 			c.floaters.append(_floater("毒%d" % int(e.poison), "dmg", str(e.uid)))
@@ -905,6 +922,10 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 			_enemy_act(e, c, player, rand, sfx)
 			if int(c.thornsVulnerable) > 0 and e.get("hadAttackThisTurn"):
 				e.vulnerable = int(e.vulnerable) + int(c.thornsVulnerable)
+		## 1体ごとに判定（正気0のまま後続敵を動かさない）
+		_check_over(c, player)
+		if str(c.get("result", "ongoing")) != "ongoing":
+			break
 		if int(e.weak) > 0:
 			e.weak = int(e.weak) - 1
 		if int(e.vulnerable) > 0:
