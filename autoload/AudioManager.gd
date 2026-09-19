@@ -13,6 +13,8 @@ const BGM_PATHS := {
 	"boss": "res://audio/music/boss.mp3",
 	"rest": "res://audio/music/rest.mp3",
 	"event": "res://audio/music/event.mp3",
+	"dream_title": "res://audio/music/bgm_dream_title.mp3",
+	"dream_hub": "res://audio/music/bgm_dream_title.mp3",
 }
 
 const SFX_PATHS := {
