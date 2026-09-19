@@ -13,6 +13,8 @@ const BIOMES := {
 	"colour": {"id": "colour", "name": "色の井戸", "art": "res://art/pixel/bg/colour.jpg"},
 	"shrine": {"id": "shrine", "name": "教団の間", "art": "res://art/pixel/bg/shrine.jpg"},
 	"beyond": {"id": "beyond", "name": "時空の狭間", "art": "res://art/pixel/bg/beyond.jpg"},
+	## dream_hub.jpg が無い場合は dream_title.png にフォールバック
+	"dream_hub": {"id": "dream_hub", "name": "夢の島拠点", "art": "res://art/pixel/bg/dream_title.png"},
 }
 
 const DEPTH := ["reef", "street", "mu", "fold", "throne"]
