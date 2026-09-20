@@ -124,7 +124,7 @@ static func shop_label() -> String:
 	return "鍛冶屋"
 
 
-const CARD_SELL_PRICE := {"starter": 2, "common": 5, "uncommon": 10, "rare": 20}
+const CARD_SELL_PRICE := {"common": 5, "uncommon": 10, "rare": 20}
 
 
 ## smith.ts の cardSellPrice()

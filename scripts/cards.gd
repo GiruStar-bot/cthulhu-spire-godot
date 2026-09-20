@@ -51,7 +51,7 @@ const CARDS := {
 		"vfx": "impact",
 		"archetype": "generic",
 		"cost": 1,
-		"rarity": "starter",
+		"rarity": "common",
 		"owner": "investigator",
 		"text": "6ダメージ。",
 		"upgradedText": "9ダメージ。",
@@ -78,7 +78,7 @@ const CARDS := {
 		"aiTag": "defense",
 		"archetype": "knight",
 		"cost": 1,
-		"rarity": "starter",
+		"rarity": "common",
 		"owner": "investigator",
 		"text": "ブロック5を得る。",
 		"upgradedText": "ブロック8を得る。",
@@ -105,7 +105,7 @@ const CARDS := {
 		"aiTag": "effect",
 		"archetype": "outer",
 		"cost": 1,
-		"rarity": "starter",
+		"rarity": "common",
 		"owner": "investigator",
 		"text": "2枚引く。正気を2失う。",
 		"upgradedText": "3枚引く。正気を2失う。",
@@ -141,7 +141,7 @@ const CARDS := {
 		"vfx": "impact",
 		"archetype": "generic",
 		"cost": 1,
-		"rarity": "starter",
+		"rarity": "common",
 		"owner": "cultist",
 		"text": "7ダメージ。",
 		"upgradedText": "10ダメージ。",
@@ -168,7 +168,7 @@ const CARDS := {
 		"aiTag": "defense",
 		"archetype": "knight",
 		"cost": 1,
-		"rarity": "starter",
+		"rarity": "common",
 		"owner": "cultist",
 		"text": "ブロック5を得る。",
 		"upgradedText": "ブロック8を得る。",
@@ -195,7 +195,7 @@ const CARDS := {
 		"aiTag": "effect",
 		"archetype": "outer",
 		"cost": 0,
-		"rarity": "starter",
+		"rarity": "common",
 		"owner": "cultist",
 		"text": "1枚引く。正気を2失う。",
 		"upgradedText": "2枚引く。正気を2失う。",
@@ -4489,7 +4489,7 @@ static func scale_n(n: int, card = null) -> int:
 static func reward_pool(owner: String) -> Array:
 	var out: Array = []
 	for c in CARDS.values():
-		if c.get("rarity") == "starter" or c.get("rarity") == "status":
+		if c.get("rarity") == "status":
 			continue
 		if c.get("grimoire") or c.get("shop") or c.get("enemyOnly") or c.get("packOnly"):
 			continue
@@ -4507,7 +4507,7 @@ static func archetype_card_pool(owner: String, archetype: String) -> Array:
 	for c in CARDS.values():
 		if c.get("archetype") != archetype:
 			continue
-		if c.get("rarity") == "starter" or c.get("rarity") == "status":
+		if c.get("rarity") == "status":
 			continue
 		if c.get("grimoire") or c.get("enemyOnly") or c.get("packOnly"):
 			continue

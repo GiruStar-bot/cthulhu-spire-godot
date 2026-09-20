@@ -10,8 +10,8 @@ const AI_CATEGORY_WEIGHTS := {
 }
 
 const TIER_RARITIES := {
-	"mob": ["starter", "common"],
-	"elite": ["starter", "common", "uncommon"],
+	"mob": ["common"],
+	"elite": ["common", "uncommon"],
 }
 
 
