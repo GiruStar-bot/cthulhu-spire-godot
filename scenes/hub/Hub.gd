@@ -129,12 +129,12 @@ var _sell_rune_ids: Dictionary = {}  ## id -> true
 # ============================================================
 
 const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all"]
-const DECK_FILTERABLE_RARITIES := ["starter", "common", "uncommon", "rare", "legendary"]
+const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
-const DECK_RARITY_ORDER := ["starter", "common", "uncommon", "rare", "legendary", "status"]
+const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
 const DECK_SORT_MODES := ["cost", "rarity", "owned", "archetype"]
 const DECK_SORT_LABELS := {"cost": "コスト順", "rarity": "レア度順", "owned": "所持数順", "archetype": "ジャンル順"}
-const RARITY_LABELS := {"starter": "スターター", "common": "コモン", "uncommon": "アンコモン", "rare": "レア", "status": "状態"}
+const RARITY_LABELS := {"common": "コモン", "uncommon": "アンコモン", "rare": "レア", "status": "状態"}
 const AI_TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "効果"}
 
 const EQUIPMENT_SLOT_LABELS := {"head": "頭", "chest": "胸", "arms": "腕", "legs": "脚", "feet": "足"}
