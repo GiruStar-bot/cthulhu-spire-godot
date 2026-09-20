@@ -4297,6 +4297,63 @@ const CARDS := {
 			{"t": "clearStatus"},
 		],
 	},
+	## ---- テスト用カード（基盤機構の動作確認用） ----
+	"test_black_sheep": {
+		"id": "test_black_sheep",
+		"name": "黒羊（テスト）",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "generic",
+		"cost": 0,
+		"rarity": "common",
+		"owner": "investigator",
+		"subArchetypes": ["earth"],
+		"vanishOnUse": true,
+		"text": "（テスト）使用後に完全に消滅する。サブ属性「地」。",
+		"upgradedText": "（テスト）使用後に完全に消滅する。サブ属性「地」。",
+		"art": "",
+		"target": "none",
+		"effects": [],
+		"upgradedEffects": [],
+	},
+	"test_shield": {
+		"id": "test_shield",
+		"name": "盾（テスト）",
+		"type": "skill",
+		"aiTag": "defense",
+		"archetype": "generic",
+		"cost": 0,
+		"rarity": "common",
+		"owner": "investigator",
+		"unplayable": true,
+		"handPresenceEffect": {"block": 10},
+		"text": "（テスト）手札にある間、防御+10。プレイ不可。",
+		"upgradedText": "（テスト）手札にある間、防御+15。プレイ不可。",
+		"art": "",
+		"target": "none",
+		"effects": [],
+		"upgradedEffects": [],
+	},
+	"test_seek_earth": {
+		"id": "test_seek_earth",
+		"name": "地召喚（テスト）",
+		"type": "skill",
+		"aiTag": "effect",
+		"archetype": "generic",
+		"cost": 1,
+		"rarity": "common",
+		"owner": "investigator",
+		"text": "（テスト）デッキ/捨て札からサブ属性「地」カードを2枚手札に加える。",
+		"upgradedText": "（テスト）デッキ/捨て札からサブ属性「地」カードを3枚手札に加える。",
+		"art": "",
+		"target": "none",
+		"effects": [
+			{"t": "seekBySubArchetype", "sub": "earth", "n": 2},
+		],
+		"upgradedEffects": [
+			{"t": "seekBySubArchetype", "sub": "earth", "n": 3},
+		],
+	},
 }
 
 
@@ -4359,6 +4416,11 @@ static func get_card(id: String) -> Dictionary:
 static func has_tag(def: Dictionary, tag: String) -> bool:
 	var tags = def.get("tags", [])
 	return tags is Array and tags.has(tag)
+
+
+static func has_sub_archetype(def: Dictionary, sub: String) -> bool:
+	var subs = def.get("subArchetypes", [])
+	return subs is Array and subs.has(sub)
 
 
 ## 未収録のカードイラストを、同系統の既存 jpg へ逃がす。

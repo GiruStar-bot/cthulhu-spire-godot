@@ -165,6 +165,7 @@ static func draw_cards(c: Dictionary, n: int, rand: Callable, player = null) -> 
 				return false
 		c.hand.append(card)
 		drawn += 1
+	_recalc_hand_presence(c)
 	if player != null:
 		_check_over(c, player)
 	return c.result == "ongoing"
@@ -172,6 +173,49 @@ static func draw_cards(c: Dictionary, n: int, rand: Callable, player = null) -> 
 
 static func _add_to_discard(c: Dictionary, card: Dictionary) -> void:
 	c.discard.append(card)
+
+
+## 手札常駐効果カードの合計ブロック値を再計算する
+static func _recalc_hand_presence(c: Dictionary) -> void:
+	var block_sum: int = 0
+	for h in c.hand:
+		var hd: Dictionary = Cards.get_card(str(h.defId))
+		var hpe = hd.get("handPresenceEffect", null)
+		if hpe is Dictionary:
+			block_sum += int(hpe.get("block", 0))
+	c.handPresenceBlock = block_sum
+
+
+## subArchetypes でカードを draw/discard から手札に引き込む
+static func _seek_by_sub_archetype(c: Dictionary, sub: String, need: int, rand: Callable) -> int:
+	var moved: int = 0
+	moved += _pull_sub_archetype_from(c, "draw", sub, need - moved, rand)
+	if moved < need:
+		moved += _pull_sub_archetype_from(c, "discard", sub, need - moved, rand)
+	return moved
+
+
+static func _pull_sub_archetype_from(c: Dictionary, pile_key: String, sub: String, need: int, rand: Callable) -> int:
+	if need <= 0:
+		return 0
+	var pile: Array = c[pile_key]
+	var hits: Array = []
+	var rest: Array = []
+	for card_inst in pile:
+		var card_def: Dictionary = Cards.get_card(str(card_inst.defId))
+		var subs = card_def.get("subArchetypes", [])
+		if subs is Array and subs.has(sub):
+			hits.append(card_inst)
+		else:
+			rest.append(card_inst)
+	hits = Mulberry32.shuffle(hits, rand)
+	var take: int = mini(need, hits.size())
+	for i in take:
+		c.hand.append(hits[i])
+	var leftover: Array = hits.slice(take)
+	leftover.append_array(rest)
+	c[pile_key] = leftover
+	return take
 
 
 static func _spawn_combat_card(def_id: String) -> Dictionary:
@@ -277,6 +321,7 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		"energy": base_energy + int(player.get("extraEnergyNext", 0)) + int(eq.get("energyPerTurn", 0)),
 		"maxEnergy": base_energy,
 		"block": 0,
+		"handPresenceBlock": 0,
 		"strength": int(round(float(eq.get("strength", 0)))),
 		"dexterity": 0,
 		"weak": 0,
@@ -628,6 +673,12 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				var need: int = int(e.n)
 				var moved: int = _seek_tagged(c, tag, need, rand)
 				c.log.append("デッキから「%s」を%d枚加えた。" % [tag, moved])
+			"seekBySubArchetype":
+				var sub: String = str(e.get("sub", ""))
+				var sub_need: int = int(e.n)
+				var sub_moved: int = _seek_by_sub_archetype(c, sub, sub_need, rand)
+				_recalc_hand_presence(c)
+				c.log.append("デッキから「%s」属性カードを%d枚加えた。" % [sub, sub_moved])
 			"bastBlessing":
 				c.bastBlessing = 1
 				c.bastBlock = Cards.scale_n(int(e.get("block", 5)), card)
@@ -652,6 +703,8 @@ static func change_sanity(player: Dictionary, c: Dictionary, delta: int) -> void
 
 
 static func _finish_play(c: Dictionary, card: Dictionary, def_exhaust: bool) -> void:
+	if Cards.get_card(str(card.defId)).get("vanishOnUse"):
+		return
 	if typeof(card.get("charges")) == TYPE_INT:
 		card.charges = int(card.charges) - 1
 		if int(card.charges) > 0:
@@ -717,6 +770,7 @@ static func play_card(c: Dictionary, player: Dictionary, card_uid: String, targe
 	if d.get("target") == "enemy" and living(c).size() > 1 and not target_id:
 		return {"error": "対象を選んでください。", "sfx": empty}
 	c.hand.remove_at(idx)
+	_recalc_hand_presence(c)
 	c.xSpent = cost if d.get("xCost") else 0
 	c.energy = int(c.energy) - cost
 	c.cardsPlayed = int(c.cardsPlayed) + 1
@@ -789,8 +843,11 @@ static func _apply_enemy_intent(intent: Dictionary, e: Dictionary, c: Dictionary
 			if int(player.sanity) <= 0:
 				n += 2
 			n = _incoming(n, c)
-			var blocked: int = mini(int(c.block), n)
-			c.block = int(c.block) - blocked
+			var hand_block: int = int(c.get("handPresenceBlock", 0))
+			var total_shield: int = int(c.block) + hand_block
+			var blocked: int = mini(total_shield, n)
+			var reg_block_used: int = mini(int(c.block), blocked)
+			c.block = int(c.block) - reg_block_used
 			if blocked > 0:
 				c.blockLost = int(c.blockLost) + blocked
 			var hp: int = n - blocked
@@ -884,6 +941,7 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 		else:
 			_add_to_discard(c, card)
 	c.hand = kept
+	_recalc_hand_presence(c)
 	if int(c.weak) > 0:
 		c.weak = int(c.weak) - 1
 	if int(c.vulnerable) > 0:
