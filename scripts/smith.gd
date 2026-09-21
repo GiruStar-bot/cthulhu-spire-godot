@@ -20,7 +20,7 @@ const SHOP_POOL := {
 		"normal": ["short_bow", "hunter_bow", "crossbow"],
 		"mid": ["bone_bow", "fanatic_dart"],
 		"genius": ["migo_gun", "elder_staff"],
-		"god": ["hastur_bow", "blackwood_bow"],
+		"god": ["wind_gods_bow", "blackwood_bow"],
 		"taboo": ["hunter_shot", "yog_gun"],
 	},
 	"heavy": {
@@ -44,7 +44,7 @@ const SHOP_PRICE := {
 	"deep_spear": 25, "star_sword": 32, "spawn_blade": 80, "cthugha_blade": 75,
 	"nyar_fake": 130, "azathoth_end": 999,
 	"short_bow": 3, "hunter_bow": 8, "crossbow": 11, "bone_bow": 16, "fanatic_dart": 14,
-	"migo_gun": 35, "elder_staff": 28, "hastur_bow": 75, "blackwood_bow": 65,
+	"migo_gun": 35, "elder_staff": 28, "wind_gods_bow": 75, "blackwood_bow": 65,
 	"hunter_shot": 150, "yog_gun": 140,
 	"iron_shield": 8, "tower_shield": 12, "chain_mail": 7, "deep_scale": 18, "shoggoth_plate": 15,
 	"yith_shell": 35, "dagon_shield": 40, "cthulhu_mail": 80, "tsathoggua_shield": 70,

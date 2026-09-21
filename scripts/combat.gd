@@ -229,7 +229,9 @@ static func _insert_into_draw(c: Dictionary, card: Dictionary, rand: Callable) -
 	c.draw.insert(idx, card)
 
 
-static func _double_effect_numbers(effects: Array) -> Array:
+static func _scale_effect_numbers(effects: Array, mul: float) -> Array:
+	if mul == 1.0:
+		return effects
 	var out: Array = []
 	for item in effects:
 		if typeof(item) != TYPE_DICTIONARY:
@@ -237,15 +239,151 @@ static func _double_effect_numbers(effects: Array) -> Array:
 			continue
 		var copy: Dictionary = item.duplicate(true)
 		if copy.has("n"):
-			copy.n = int(copy.n) * 2
+			copy.n = int(round(float(int(copy.n)) * mul))
 		if copy.has("block"):
-			copy.block = int(copy.block) * 2
+			copy.block = int(round(float(int(copy.block)) * mul))
 		if copy.has("strength"):
-			copy.strength = int(copy.strength) * 2
+			copy.strength = int(round(float(int(copy.strength)) * mul))
 		if copy.has("then"):
-			copy.then = _double_effect_numbers(copy.then)
+			copy.then = _scale_effect_numbers(copy.then, mul)
 		out.append(copy)
 	return out
+
+
+static func _double_effect_numbers(effects: Array) -> Array:
+	return _scale_effect_numbers(effects, 2.0)
+
+
+static func _card_sub_effect_mul(c: Dictionary, def: Dictionary) -> float:
+	var m: float = 1.0
+	var table: Dictionary = c.get("subEffectMul", {})
+	var subs = def.get("subArchetypes", [])
+	if not (subs is Array):
+		return 1.0
+	for sub in subs:
+		m = maxf(m, float(table.get(str(sub), 1.0)))
+	return m
+
+
+static func _card_sub_damage_mul(c: Dictionary, card) -> float:
+	if card == null:
+		return 1.0
+	var def: Dictionary = Cards.get_card(str(card.defId))
+	var m: float = 1.0
+	var table: Dictionary = c.get("subDamageMul", {})
+	var subs = def.get("subArchetypes", [])
+	if not (subs is Array):
+		return 1.0
+	for sub in subs:
+		m = maxf(m, float(table.get(str(sub), 1.0)))
+	return m
+
+
+static func _hand_limit(c: Dictionary) -> int:
+	return 12 if c.equipmentStats.get("expandedHand") else 10
+
+
+static func _count_id_in_piles(c: Dictionary, def_id: String) -> int:
+	var n: int = 0
+	for pile_key in ["hand", "draw", "discard"]:
+		for inst in c[pile_key]:
+			if str(inst.get("defId", "")) == def_id:
+				n += 1
+	return n
+
+
+static func _count_sub_in_hand(c: Dictionary, sub: String) -> int:
+	var n: int = 0
+	for inst in c.hand:
+		var def: Dictionary = Cards.get_card(str(inst.get("defId", "")))
+		if Cards.has_sub_archetype(def, sub):
+			n += 1
+	return n
+
+
+## 手札→山札→捨て札の順で defId 一致カードを消滅させる（vanish）
+static func _consume_id(c: Dictionary, def_id: String, need: int) -> int:
+	var taken: int = 0
+	for pile_key in ["hand", "draw", "discard"]:
+		if taken >= need:
+			break
+		var pile: Array = c[pile_key]
+		var kept: Array = []
+		for inst in pile:
+			if taken < need and str(inst.get("defId", "")) == def_id:
+				taken += 1
+			else:
+				kept.append(inst)
+		c[pile_key] = kept
+	return taken
+
+
+static func _vanish_sub_from_hand(c: Dictionary, sub: String, need: int) -> int:
+	var taken: int = 0
+	var kept: Array = []
+	for inst in c.hand:
+		var def: Dictionary = Cards.get_card(str(inst.get("defId", "")))
+		if taken < need and Cards.has_sub_archetype(def, sub):
+			taken += 1
+		else:
+			kept.append(inst)
+	c.hand = kept
+	return taken
+
+
+static func _discard_sub_from_hand(c: Dictionary, sub: String, need: int) -> int:
+	var taken: int = 0
+	var kept: Array = []
+	for inst in c.hand:
+		var def: Dictionary = Cards.get_card(str(inst.get("defId", "")))
+		if taken < need and Cards.has_sub_archetype(def, sub):
+			taken += 1
+			_add_to_discard(c, inst)
+		else:
+			kept.append(inst)
+	c.hand = kept
+	return taken
+
+
+static func _seek_by_id(c: Dictionary, def_id: String, need: int, rand: Callable) -> int:
+	var moved: int = 0
+	moved += _pull_id_from(c, "draw", def_id, need - moved, rand)
+	if moved < need:
+		moved += _pull_id_from(c, "discard", def_id, need - moved, rand)
+	return moved
+
+
+static func _pull_id_from(c: Dictionary, pile_key: String, def_id: String, need: int, rand: Callable) -> int:
+	if need <= 0:
+		return 0
+	var pile: Array = c[pile_key]
+	var hits: Array = []
+	var rest: Array = []
+	for card_inst in pile:
+		if str(card_inst.get("defId", "")) == def_id:
+			hits.append(card_inst)
+		else:
+			rest.append(card_inst)
+	hits = Mulberry32.shuffle(hits, rand)
+	var take: int = mini(need, hits.size())
+	for i in take:
+		c.hand.append(hits[i])
+	var leftover: Array = hits.slice(take)
+	leftover.append_array(rest)
+	c[pile_key] = leftover
+	return take
+
+
+static func _run_turn_start_effects(c: Dictionary, player: Dictionary, rand: Callable) -> void:
+	var hooks: Array = c.get("turnStartEffects", [])
+	if hooks.is_empty():
+		return
+	for hook in hooks:
+		if str(c.get("result", "ongoing")) != "ongoing":
+			break
+		if typeof(hook) != TYPE_DICTIONARY:
+			continue
+		_run_effects([hook], c, player, null, rand, null)
 
 
 static func _seek_tagged(c: Dictionary, tag: String, need: int, rand: Callable) -> int:
@@ -354,6 +492,9 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		"equipmentStats": eq,
 		"synergy": compute_deck_synergy(deck),
 		"playedThisTurn": {},
+		"subEffectMul": {},
+		"subDamageMul": {},
+		"turnStartEffects": [],
 	}
 	c.strength = int(c.strength) + int(player.get("extraStrength", 0))
 	if Cards.count_all_in_deck(deck) >= Cards.ALL_SET_COUNT:
@@ -420,8 +561,12 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 	var work: Array = effects
 	if card != null:
 		var cdef: Dictionary = Cards.get_card(str(card.defId))
+		var mul: float = 1.0
 		if Cards.has_tag(cdef, "cat") and "goddessContract" in c.powers:
-			work = _double_effect_numbers(effects)
+			mul *= 2.0
+		mul *= _card_sub_effect_mul(c, cdef)
+		if mul != 1.0:
+			work = _scale_effect_numbers(effects, mul)
 	for e in work:
 		var t: String = str(e.get("t", ""))
 		match t:
@@ -435,6 +580,9 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				if float(c.nextAttackMul) != 1.0:
 					n = int(floor(float(n) * float(c.nextAttackMul)))
 					c.nextAttackMul = 1
+				var dmul: float = _card_sub_damage_mul(c, card)
+				if dmul != 1.0:
+					n = int(round(float(n) * dmul))
 				var dealt := _apply_to_enemy(tgt, n, c, rand)
 				var cname: String = Cards.get_card(str(card.defId)).name if card != null else "攻撃"
 				c.log.append("%sで%sに%dダメージ。" % [cname, Enemies.get_enemy(str(tgt.defId)).name, dealt])
@@ -446,6 +594,9 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				if float(c.nextAttackMul) != 1.0:
 					n2 = int(floor(float(n2) * float(c.nextAttackMul)))
 					c.nextAttackMul = 1
+				var dmul2: float = _card_sub_damage_mul(c, card)
+				if dmul2 != 1.0:
+					n2 = int(round(float(n2) * dmul2))
 				for tgt2 in living(c):
 					_apply_to_enemy(tgt2, n2, c, rand)
 				c.log.append("%sが敵全体を襲った。" % (Cards.get_card(str(card.defId)).name if card != null else "攻撃"))
@@ -665,9 +816,15 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 			"addToHand":
 				var hand_n: int = int(e.get("n", 1))
 				var hand_id: String = str(e.get("id", ""))
+				var added_h: int = 0
+				var hlim: int = _hand_limit(c)
 				for _j in hand_n:
+					if c.hand.size() >= hlim:
+						break
 					c.hand.append(_spawn_combat_card(hand_id))
-				c.log.append("%sを%d枚手札に加えた。" % [Cards.get_card(hand_id).get("name", hand_id), hand_n])
+					added_h += 1
+				_recalc_hand_presence(c)
+				c.log.append("%sを%d枚手札に加えた。" % [Cards.get_card(hand_id).get("name", hand_id), added_h])
 			"seekTagged":
 				var tag: String = str(e.get("tag", "cat"))
 				var need: int = int(e.n)
@@ -684,6 +841,96 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				c.bastBlock = Cards.scale_n(int(e.get("block", 5)), card)
 				c.bastStr = Cards.scale_n(int(e.get("strength", 1)), card)
 				c.log.append("このターン、猫を使うたびブロック%d、筋力%dを得る。" % [int(c.bastBlock), int(c.bastStr)])
+			"addToHandLimit":
+				var fill_id: String = str(e.get("id", ""))
+				var fill_lim: int = _hand_limit(c)
+				var filled: int = 0
+				while c.hand.size() < fill_lim:
+					c.hand.append(_spawn_combat_card(fill_id))
+					filled += 1
+				_recalc_hand_presence(c)
+				c.log.append("%sを%d枚手札に加えた。" % [Cards.get_card(fill_id).get("name", fill_id), filled])
+			"consumeId":
+				var cid: String = str(e.get("id", ""))
+				var cneed: int = int(e.get("n", 1))
+				var cgot: int = _consume_id(c, cid, cneed)
+				_recalc_hand_presence(c)
+				c.log.append("%sを%d枚消滅させた。" % [Cards.get_card(cid).get("name", cid), cgot])
+			"discardSubHand":
+				var dsub: String = str(e.get("sub", ""))
+				var dneed: int = int(e.get("n", 1))
+				var dgot: int = _discard_sub_from_hand(c, dsub, dneed)
+				_recalc_hand_presence(c)
+				c.log.append("「%s」カードを%d枚捨てた。" % [dsub, dgot])
+			"vanishSubHand":
+				var vsub: String = str(e.get("sub", ""))
+				var vneed: int = int(e.get("n", 1))
+				var vgot: int = _vanish_sub_from_hand(c, vsub, vneed)
+				_recalc_hand_presence(c)
+				c.log.append("「%s」カードを%d枚消滅させた。" % [vsub, vgot])
+			"seekById":
+				var sid: String = str(e.get("id", ""))
+				var sneed: int = int(e.get("n", 1))
+				var smoved: int = _seek_by_id(c, sid, sneed, rand)
+				_recalc_hand_presence(c)
+				c.log.append("デッキから「%s」を%d枚加えた。" % [Cards.get_card(sid).get("name", sid), smoved])
+			"subEffectMul":
+				var esub: String = str(e.get("sub", ""))
+				var emul: float = float(e.get("n", 2))
+				var emap: Dictionary = c.get("subEffectMul", {})
+				emap[esub] = maxf(float(emap.get(esub, 1.0)), emul)
+				c.subEffectMul = emap
+				c.log.append("このターン、「%s」の効果が%.0f倍になる。" % [esub, emul])
+			"subDamageMul":
+				var dmgsub: String = str(e.get("sub", ""))
+				var dmgmul: float = float(e.get("n", 2))
+				var dmap: Dictionary = c.get("subDamageMul", {})
+				dmap[dmgsub] = maxf(float(dmap.get(dmgsub, 1.0)), dmgmul)
+				c.subDamageMul = dmap
+				c.log.append("このターン、「%s」のダメージが%.0f倍になる。" % [dmgsub, dmgmul])
+			"turnStartHook":
+				## Codex「鉄の鎧」（毎ターン防御+5）も {"t":"turnStartHook","hook":"block","n":5} で乗せる
+				var hooks: Array = c.get("turnStartEffects", [])
+				hooks.append({
+					"t": str(e.get("hook", "addToHand")),
+					"id": str(e.get("id", "")),
+					"n": int(e.get("n", 1)),
+				})
+				c.turnStartEffects = hooks
+				c.log.append("以降、ターン開始時に効果が追加された。")
+			"weakAllSides":
+				var wn: int = int(e.get("n", 1))
+				c.weak = int(c.weak) + wn
+				for tgt_w in living(c):
+					tgt_w.weak = int(tgt_w.weak) + wn
+				c.log.append("敵味方全体に弱体%dを付与した。" % wn)
+			"hpToOne":
+				player.hp = 1
+				c.floaters.append(_floater("1", "dmg", "player"))
+				c.log.append("体力が1になった。")
+			"enemyHpPercent":
+				var pct: float = float(e.get("n", 10)) / 100.0
+				for tgt_p in living(c):
+					var nhp: int = maxi(1, int(floor(float(int(tgt_p.hp)) * (1.0 - pct))))
+					tgt_p.hp = nhp
+					c.floaters.append(_floater("削", "dmg", str(tgt_p.uid)))
+				c.log.append("敵の現在体力が%d%%減少した。" % int(e.get("n", 10)))
+			"flamePact":
+				var fire_n: int = _count_sub_in_hand(c, "fire")
+				if fire_n >= 6:
+					_discard_sub_from_hand(c, "fire", 6)
+					_recalc_hand_presence(c)
+					c.log.append("炎の主が応える。")
+					var lord_def: Dictionary = Cards.get_card("flame_lord")
+					var lord_fx: Array = lord_def.get("effects", [])
+					_run_effects(lord_fx, c, player, target_id, rand, null)
+				else:
+					_discard_sub_from_hand(c, "fire", fire_n)
+					_recalc_hand_presence(c)
+					c.log.append("炎の神が目を開ける。")
+					var god_def: Dictionary = Cards.get_card("flame_god")
+					var god_fx: Array = god_def.get("effects", [])
+					_run_effects(god_fx, c, player, target_id, rand, null)
 
 
 ## combat.ts changeSanity()
@@ -738,7 +985,28 @@ static func can_play(c: Dictionary, card: Dictionary) -> bool:
 		var used: Dictionary = c.get("playedThisTurn", {})
 		if used.has(str(card.defId)):
 			return false
+	if not _meets_play_reqs(c, d, str(card.get("uid", ""))):
+		return false
 	return int(_evaluate_card_effect(card).cost) <= int(c.energy)
+
+
+static func _meets_play_reqs(c: Dictionary, d: Dictionary, exclude_uid: String = "") -> bool:
+	var req_id: String = str(d.get("requireId", ""))
+	if req_id != "":
+		if _count_id_in_piles(c, req_id) < int(d.get("requireN", 1)):
+			return false
+	var req_sub: String = str(d.get("requireSubInHand", ""))
+	if req_sub != "":
+		var n: int = 0
+		for inst in c.hand:
+			if exclude_uid != "" and str(inst.get("uid", "")) == exclude_uid:
+				continue
+			var inst_def: Dictionary = Cards.get_card(str(inst.get("defId", "")))
+			if Cards.has_sub_archetype(inst_def, req_sub):
+				n += 1
+		if n < int(d.get("requireSubN", 1)):
+			return false
+	return true
 
 
 ## combat.ts playCard()
@@ -767,6 +1035,8 @@ static func play_card(c: Dictionary, player: Dictionary, card_uid: String, targe
 		var used: Dictionary = c.get("playedThisTurn", {})
 		if used.has(str(card.defId)):
 			return {"error": "このカードは今ターン既に使った。", "sfx": empty}
+	if not _meets_play_reqs(c, d, str(card.get("uid", ""))):
+		return {"error": "使用条件を満たしていない。", "sfx": empty}
 	if d.get("target") == "enemy" and living(c).size() > 1 and not target_id:
 		return {"error": "対象を選んでください。", "sfx": empty}
 	c.hand.remove_at(idx)
@@ -925,6 +1195,8 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 		return sfx
 	c.phase = "enemy"
 	c.bastBlessing = 0
+	c.subEffectMul = {}
+	c.subDamageMul = {}
 	var kept: Array = []
 	var hand: Array = c.hand.duplicate()
 	c.hand = []
@@ -1014,6 +1286,9 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 		c.block = 0
 	c.energy = maxi(0, int(c.maxEnergy) + int(c.energyNext) + int(c.equipmentStats.get("energyPerTurn", 0)))
 	c.energyNext = 0
+	_run_turn_start_effects(c, player, rand)
+	if str(c.get("result", "ongoing")) != "ongoing":
+		return sfx
 	var draw_n: int = maxi(0, _base_draw_count(c) - int(c.skipDraw))
 	c.skipDraw = 0
 	if "echo" in c.powers:
