@@ -180,9 +180,12 @@ static func _recalc_hand_presence(c: Dictionary) -> void:
 	var block_sum: int = 0
 	for h in c.hand:
 		var hd: Dictionary = Cards.get_card(str(h.defId))
-		var hpe = hd.get("handPresenceEffect", null)
+		var hpe: Variant = hd.get("handPresenceEffect", null)
+		var upgraded_hpe: Variant = hd.get("upgradedHandPresenceEffect", null)
+		if h.get("upgraded", false) and upgraded_hpe is Dictionary:
+			hpe = upgraded_hpe
 		if hpe is Dictionary:
-			block_sum += int(hpe.get("block", 0))
+			block_sum += int((hpe as Dictionary).get("block", 0))
 	c.handPresenceBlock = block_sum
 
 
@@ -339,6 +342,46 @@ static func _discard_sub_from_hand(c: Dictionary, sub: String, need: int) -> int
 		if taken < need and Cards.has_sub_archetype(def, sub):
 			taken += 1
 			_add_to_discard(c, inst)
+		else:
+			kept.append(inst)
+	c.hand = kept
+	return taken
+
+
+## 指定順に各サブ属性を満たす、重複しない手札カードのインデックスを返す。
+## 複数の属性を持つカードも、同一の消費条件には1枚としてしか使えない。
+static func _sub_hand_indices(c: Dictionary, subs: Array, exclude_uid: String = "") -> Array:
+	var picked: Array = []
+	for sub_value in subs:
+		var sub: String = str(sub_value)
+		var found_index: int = -1
+		for i in c.hand.size():
+			if i in picked:
+				continue
+			var inst: Dictionary = c.hand[i]
+			if exclude_uid != "" and str(inst.get("uid", "")) == exclude_uid:
+				continue
+			var def: Dictionary = Cards.get_card(str(inst.get("defId", "")))
+			if Cards.has_sub_archetype(def, sub):
+				found_index = i
+				break
+		if found_index < 0:
+			return []
+		picked.append(found_index)
+	return picked
+
+
+static func _discard_subs_from_hand(c: Dictionary, subs: Array) -> int:
+	var picked: Array = _sub_hand_indices(c, subs)
+	if picked.size() != subs.size():
+		return 0
+	var kept: Array = []
+	var taken: int = 0
+	for i in c.hand.size():
+		var inst: Dictionary = c.hand[i]
+		if i in picked:
+			_add_to_discard(c, inst)
+			taken += 1
 		else:
 			kept.append(inst)
 	c.hand = kept
@@ -862,6 +905,11 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				var dgot: int = _discard_sub_from_hand(c, dsub, dneed)
 				_recalc_hand_presence(c)
 				c.log.append("「%s」カードを%d枚捨てた。" % [dsub, dgot])
+			"discardSubsHand":
+				var dsubs: Array = e.get("subs", [])
+				var dsubs_got: int = _discard_subs_from_hand(c, dsubs)
+				_recalc_hand_presence(c)
+				c.log.append("複数属性のカードを%d枚捨てた。" % dsubs_got)
 			"vanishSubHand":
 				var vsub: String = str(e.get("sub", ""))
 				var vneed: int = int(e.get("n", 1))
@@ -1005,6 +1053,11 @@ static func _meets_play_reqs(c: Dictionary, d: Dictionary, exclude_uid: String =
 			if Cards.has_sub_archetype(inst_def, req_sub):
 				n += 1
 		if n < int(d.get("requireSubN", 1)):
+			return false
+	var req_subs: Array = d.get("requireSubsInHand", [])
+	if not req_subs.is_empty():
+		var picked: Array = _sub_hand_indices(c, req_subs, exclude_uid)
+		if picked.size() != req_subs.size():
 			return false
 	return true
 
