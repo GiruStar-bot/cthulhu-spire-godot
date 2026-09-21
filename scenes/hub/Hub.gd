@@ -128,7 +128,7 @@ var _sell_rune_ids: Dictionary = {}  ## id -> true
 # （DeckBuilderScreen.tsx / EquipmentScreen.tsx 相当）
 # ============================================================
 
-const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all"]
+const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all", "earth", "wind", "fire"]
 const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
 const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
