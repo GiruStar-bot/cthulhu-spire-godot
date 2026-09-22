@@ -128,7 +128,7 @@ var _sell_rune_ids: Dictionary = {}  ## id -> true
 # （DeckBuilderScreen.tsx / EquipmentScreen.tsx 相当）
 # ============================================================
 
-const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all", "earth", "wind", "fire"]
+const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all", "earth", "wind", "fire", "magic"]
 const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
 const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
@@ -152,6 +152,12 @@ const CARD_FRAME_BY_ARCHETYPE := {
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 14],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
 	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
+	"knight": ["res://art/pixel/ui/frame_card_knight_9.png", 15],
+	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 14],
+	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 16],
+	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 15],
+	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 17],
+	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 14],
 }
 
 const RUNE_CATEGORY_OF_EFFECT := {
@@ -1023,7 +1029,7 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 	frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var frame_path := str(frame_data[0])
-	var frame_texture := _load_texture_safe(frame_path)
+	var frame_texture := CombatCard.ninepatch_texture(frame_path)
 	if frame_texture != null:
 		frame.texture = frame_texture
 		var margin := int(frame_data[1])
