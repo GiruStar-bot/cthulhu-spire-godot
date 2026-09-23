@@ -34,8 +34,9 @@ const INITIAL_PACK_TICKETS := 10
 
 ## packTickets.ts PACK_TICKET_ARCHETYPES / PACK_TICKET_LABELS
 ## 毒・狂信・供物・影のパックは凍結のあと削除した。
+## 風・火は旧支配者パック、地（豊穣）は外宇宙パックの強制枠から出る。魔導に専用パックは無い。
 const PACK_TICKET_ARCHETYPES := [
-	"knight", "outer", "elder", "deep", "greatold", "wind", "fire", "earth", "magic", "all",
+	"knight", "outer", "elder", "deep", "greatold", "all",
 ]
 
 const PACK_TICKET_LABELS := {
@@ -44,10 +45,6 @@ const PACK_TICKET_LABELS := {
 	"elder": "旧神",
 	"deep": "深き者",
 	"greatold": "大いなるもの",
-	"wind": "風",
-	"fire": "火",
-	"earth": "豊穣",
-	"magic": "魔導",
 	"all": "全",
 }
 

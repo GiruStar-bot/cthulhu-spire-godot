@@ -126,9 +126,11 @@ var _sell_rune_ids: Dictionary = {}  ## id -> true
 # ============================================================
 # デッキ編成/装備タブの検索・フィルター・ソート
 # （DeckBuilderScreen.tsx / EquipmentScreen.tsx 相当）
+# ここに無いフレーム（風・火・豊穣・魔導）は専用パックを持たない。
+# カード自体の archetype と枠画像は別定数のまま残す。
 # ============================================================
 
-const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "deep", "greatold", "all", "earth", "wind", "fire", "magic"]
+const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "deep", "greatold", "all"]
 const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
 const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
@@ -890,7 +892,7 @@ func _refresh_commerce() -> void:
 		back_btn.pressed.connect(_select_tab.bind("descend"))
 		back_row.add_child(back_btn)
 		var desc := Label.new()
-		desc.text = "属性チケットを消費して開封する。最初に各属性10枚ある。"
+		desc.text = "属性チケットを消費して開封する。専用パックは各10枚から始まる。"
 		desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		desc.add_theme_font_size_override("font_size", 12)
 		desc.add_theme_color_override("font_color", Color(0.72, 0.68, 0.58, 1))
@@ -936,8 +938,8 @@ func _on_clear_pack_result() -> void:
 	_last_pack_result = []
 	_refresh_commerce()
 
-## store.ts の openArchetypePack()。前半2枚は weightedArchetypeCard()（当該アーキタイプ保証＋
-## レアリティ62/28/10%＋未所持優遇）、後半2枚は weightedCard()（同じ重み付けの自由枠）で選ぶ。
+## store.ts の openArchetypePack()。前半2枚は属性プール（旧支配者は風・火、外宇宙は豊穣を混ぜる。
+## レアリティ62/28/10%＋未所持優遇）、後半2枚は weightedCard()（同じ重み付けの自由枠。魔導はここだけ）で選ぶ。
 ## owner は実ソース同様 `character ?? starterPath(stats)`（ラン中でなければ暫定キャラで判定）。
 func _open_pack(archetype: String) -> void:
 	if _pack_open != null and is_instance_valid(_pack_open):
@@ -953,8 +955,13 @@ func _open_pack(archetype: String) -> void:
 		CollectionData.add_loot_card(all_id)
 		revealed.append(all_id)
 	else:
+		var forced_archetypes: Array = [archetype]
+		if archetype == "greatold":
+			forced_archetypes = ["greatold", "wind", "fire"]
+		elif archetype == "outer":
+			forced_archetypes = ["outer", "earth"]
 		for i in range(2):
-			var forced: Dictionary = Cards.weighted_archetype_card(owner, archetype, rand)
+			var forced: Dictionary = Cards.weighted_archetype_cards(owner, forced_archetypes, rand)
 			var def_id: String = str(forced.get("defId", ""))
 			CollectionData.add_loot_card(def_id)
 			revealed.append(def_id)
@@ -1099,6 +1106,10 @@ func _make_pack_tile(archetype: String, ticket_count: int) -> PanelContainer:
 	var sub := Label.new()
 	if archetype == "all":
 		sub.text = "開封で1枚（銀の鍵／崩壊／全能／超越者）"
+	elif archetype == "greatold":
+		sub.text = "4枚中2枚が旧支配者・風・火"
+	elif archetype == "outer":
+		sub.text = "4枚中2枚が外宇宙・豊穣"
 	else:
 		sub.text = "4枚中2枚が%s確定" % label_name
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
