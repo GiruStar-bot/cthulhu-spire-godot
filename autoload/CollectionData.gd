@@ -28,15 +28,10 @@ var active_deck: String = DEFAULT_DECK_NAME
 var rune_registry: Dictionary = {}  ## ルーンid -> ルーンDictionary（装備に装着中でも参照可能に）
 var pack_tickets: Dictionary = {}  ## アーキタイプ -> 所持枚数
 
-## useCollectionStore.ts の STARTER_CARDS（起動時に一度だけ所持カードへ投入する）
+## 起動時に所持へ入れる初期カード。
+## 打撃・守り・研究・囁き・洞察・鞭・包帯はカード定義ごと削除済み。残るのは掃討のみ。
+## 新しい初期セットは別タスク。
 const STARTER_CARDS := [
-	{"id": "strike", "count": 4},
-	{"id": "ward", "count": 4},
-	{"id": "study", "count": 2},
-	{"id": "whisper", "count": 2},
-	{"id": "insight", "count": 2},
-	{"id": "lash", "count": 2},
-	{"id": "dressing", "count": 2},
 	{"id": "sweep", "count": 2},
 ]
 
@@ -61,48 +56,23 @@ const PACK_TICKET_LABELS := {
 	"all": "全",
 }
 
-## useCollectionStore.ts STARTER_DECKS（最初の一度きりの4流派）
+## 最初の4流派。削除済みIDは外した。新カードでの再編成は別タスク。
+## 毒は構成カードが全て削除対象だったため空（プレースホルダーは置かない）。
 const STARTER_ARCHETYPES := ["fanatic", "knight", "poison", "deep"]
 
 const STARTER_DECKS := {
 	"fanatic": [
-		{"id": "strike", "count": 4},
-		{"id": "ward", "count": 2},
-		{"id": "study", "count": 2},
-		{"id": "whisper", "count": 2},
-		{"id": "precise", "count": 2},
-		{"id": "offering", "count": 4},
-		{"id": "rite", "count": 2},
-		{"id": "tome", "count": 1},
 		{"id": "thecall", "count": 1},
 	],
 	"knight": [
-		{"id": "ward", "count": 4},
-		{"id": "sigil", "count": 4},
 		{"id": "chant", "count": 4},
-		{"id": "ironwill", "count": 4},
-		{"id": "bash", "count": 2},
 		{"id": "laststand", "count": 2},
 	],
 	"poison": [
-		{"id": "strike", "count": 4},
-		{"id": "ward", "count": 2},
-		{"id": "study", "count": 2},
-		{"id": "whisper", "count": 2},
-		{"id": "precise", "count": 2},
-		{"id": "lash", "count": 2},
-		{"id": "corrosive_strike", "count": 4},
-		{"id": "pus_mist", "count": 2},
 	],
 	"deep": [
-		{"id": "strike", "count": 4},
-		{"id": "ward", "count": 2},
-		{"id": "study", "count": 2},
-		{"id": "whisper", "count": 2},
 		{"id": "sweep", "count": 4},
 		{"id": "adapted_scales", "count": 4},
-		{"id": "deep_breath", "count": 1},
-		{"id": "deep_ones_blessing", "count": 1},
 	],
 }
 

@@ -191,6 +191,26 @@ func buy_card_pack() -> Array:
 	return result
 
 
+## 拠点の売却価格。鍛冶屋（scripts/smith.gd）は廃止し、ここからは呼ばない。
+func card_sell_price(card_def: Dictionary) -> int:
+	var rarity: String = str(card_def.get("rarity", ""))
+	if rarity == "common":
+		return 5
+	if rarity == "uncommon":
+		return 10
+	if rarity == "rare":
+		return 20
+	return 0
+
+
+func equipment_sell_price(inst: Dictionary) -> int:
+	return int(inst.get("tier", 1)) * 5
+
+
+func rune_sell_price(rune: Dictionary) -> int:
+	return int(rune.get("value", 0)) * 3
+
+
 ## store.ts の sellItems({cardIds, equipmentUids, runeIds})。装着中の装備・ソケット中の
 ## ルーンは（呼び出し元が既に除外している前提だが）念のためここでも除外する。
 ## 合計0円なら何もしない。
@@ -210,7 +230,7 @@ func sell_items(card_ids: Array, equipment_uids: Array, rune_ids: Array) -> void
 	for id in card_ids:
 		for c in CollectionData.inventory.cards:
 			if str(c.get("instance_id", "")) == str(id):
-				total += Smith.card_sell_price(Cards.get_card(str(c.get("base_card_id", ""))))
+				total += card_sell_price(Cards.get_card(str(c.get("base_card_id", ""))))
 				sell_card_ids.append(str(id))
 				break
 
@@ -220,7 +240,7 @@ func sell_items(card_ids: Array, equipment_uids: Array, rune_ids: Array) -> void
 			continue
 		for inst in CollectionData.inventory.equipment:
 			if str(inst.get("uid", "")) == str(uid):
-				total += Smith.equipment_sell_price(inst)
+				total += equipment_sell_price(inst)
 				sell_equipment_uids.append(str(uid))
 				break
 
@@ -230,7 +250,7 @@ func sell_items(card_ids: Array, equipment_uids: Array, rune_ids: Array) -> void
 			continue
 		for rune in CollectionData.inventory.runes:
 			if str(rune.get("id", "")) == str(rid):
-				total += Smith.rune_sell_price(rune)
+				total += rune_sell_price(rune)
 				sell_rune_ids.append(str(rid))
 				break
 
@@ -421,7 +441,8 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		goto_scene(tree, "combat")
 	elif kind == "rest":
 		rest_mode = "hub"
-		village = {"smith": Smith.make_smith(rng)}
+		## 鍛冶屋廃止。酒場の beerSold だけこの辞書に載せる。
+		village = {}
 		goto_scene(tree, "rest")
 	else:
 		var ev: Dictionary = Events.pick_event(Callable(self, "_rand"))
@@ -687,16 +708,13 @@ func _rand() -> float:
 	return rng.next_float()
 
 
-## cardEvaluator.ts loadoutDeck() 相当。未編成なら調査員スターターを使う。
+## cardEvaluator.ts loadoutDeck() 相当。
+## 未編成のときの旧フォールバック（打撃・守り・研究／鞭・印章・囁き）は定義ごと削除した。
+## 空のまま戦闘へ入れる。新しい初期デッキは別タスク。
 func loadout_deck() -> Array:
 	var out: Array = []
 	var counts: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
 	if counts.is_empty():
-		var starter: Array = ["strike", "strike", "strike", "strike", "strike", "ward", "ward", "ward", "ward", "study"]
-		if character == "cultist":
-			starter = ["lash", "lash", "lash", "lash", "lash", "sigil", "sigil", "sigil", "sigil", "whisper"]
-		for id in starter:
-			out.append(Cards.make_card(str(id)))
 		return out
 	for card_id in counts.keys():
 		if not Cards.CARDS.has(card_id):
