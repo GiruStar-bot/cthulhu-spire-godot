@@ -37,6 +37,7 @@ static func empty_profile() -> Dictionary:
 		"shells": 0,
 		"equipment_presets": {},
 		"starter_chosen": false,
+		"collection_saved": false,
 	}
 
 

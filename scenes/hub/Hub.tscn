@@ -807,7 +807,7 @@ clip_contents = true
 [node name="DeckBackToListButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 44)
-text = "記録して戻る"
+text = "戻る"
 
 [node name="EquipmentPanel" type="VBoxContainer" parent="Root/Body/Content"]
 layout_mode = 1

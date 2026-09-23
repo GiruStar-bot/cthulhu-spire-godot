@@ -28,8 +28,8 @@ var active_deck: String = DEFAULT_DECK_NAME
 var rune_registry: Dictionary = {}  ## ルーンid -> ルーンDictionary（装備に装着中でも参照可能に）
 var pack_tickets: Dictionary = {}  ## アーキタイプ -> 所持枚数
 
-## 初期デッキは廃止。コレクションは未永続なので、起動のたびにここが初期状態になる。
-## 有効な属性パックを10枚ずつ配る。"all" はボス報酬のみで初期配布しない。
+## 初期デッキは廃止。新規プロフィールだけ初期チケットを配る。
+## セーブに collection_saved があれば起動時は復元し、ここでは作り直さない。
 const INITIAL_PACK_TICKETS := 10
 
 ## packTickets.ts PACK_TICKET_ARCHETYPES / PACK_TICKET_LABELS
@@ -54,16 +54,23 @@ const PACK_TICKET_LABELS := {
 ## リリース前のデバッグ用。全カードを所持して編成検証できるようにする。
 const DEBUG_OWN_ALL_CARDS := true
 
+## セーブから復元済みなら _ready は初期化しない。GameState._load_profile が先に立てる。
+var restored_from_profile: bool = false
+var profile_seeded: bool = false
 
-## useCollectionStore.ts の seedInventory()。CollectionDataには永続化がまだ無いため
-## （フェーズB以降で対応）、起動の度に毎回これで初期化する。
-func _ready() -> void:
-	inventory.cards = []
+
+## 新規プロフィール、またはコレクションを持たない旧セーブの初期状態。
+func seed_new_profile() -> void:
+	restored_from_profile = false
+	inventory = {"cards": [], "runes": [], "equipment": []}
+	decks = {DEFAULT_DECK_NAME: {}}
+	active_deck = DEFAULT_DECK_NAME
+	pack_tickets = {}
+	rune_registry = {}
 	_seed_initial_pack_tickets()
 	if DEBUG_OWN_ALL_CARDS:
 		_grant_all_cards_for_debug()
 		pack_tickets["all"] = maxi(int(pack_tickets.get("all", 0)), 3)
-
 	var runes: Array = []
 	for effect in Runes.RUNE_CATALOG.keys():
 		for i in range(2):
@@ -72,6 +79,79 @@ func _ready() -> void:
 			runes.append(rune)
 			rune_registry[rune.id] = rune
 	inventory.runes = runes
+	profile_seeded = true
+
+
+func _ready() -> void:
+	if restored_from_profile:
+		profile_seeded = true
+		return
+	seed_new_profile()
+	GameState._persist_profile()
+
+
+func export_save() -> Dictionary:
+	return {
+		"decks": decks.duplicate(true),
+		"active_deck": active_deck,
+		"inventory": inventory.duplicate(true),
+		"pack_tickets": pack_tickets.duplicate(true),
+		"rune_registry": rune_registry.duplicate(true),
+	}
+
+
+## 旧セーブはキーが無い。欠損は空として扱い、呼び出し側が新規初期化を選ぶ。
+func apply_save(data: Dictionary) -> void:
+	var saved_decks: Dictionary = {}
+	var raw_decks = data.get("decks", {})
+	if typeof(raw_decks) == TYPE_DICTIONARY:
+		saved_decks = raw_decks
+	decks = {}
+	for deck_name in saved_decks.keys():
+		var clean: Dictionary = {}
+		var raw_counts = saved_decks[deck_name]
+		if typeof(raw_counts) == TYPE_DICTIONARY:
+			for card_id in raw_counts.keys():
+				clean[str(card_id)] = int(raw_counts[card_id])
+		decks[str(deck_name)] = clean
+	if decks.is_empty():
+		decks[DEFAULT_DECK_NAME] = {}
+	var saved_active: String = str(data.get("active_deck", DEFAULT_DECK_NAME))
+	if decks.has(saved_active):
+		active_deck = saved_active
+	else:
+		active_deck = str(decks.keys()[0])
+
+	var inv: Dictionary = {}
+	var raw_inv = data.get("inventory", {})
+	if typeof(raw_inv) == TYPE_DICTIONARY:
+		inv = raw_inv
+	var cards = inv.get("cards", [])
+	var runes = inv.get("runes", [])
+	var equipment = inv.get("equipment", [])
+	inventory = {
+		"cards": cards if typeof(cards) == TYPE_ARRAY else [],
+		"runes": runes if typeof(runes) == TYPE_ARRAY else [],
+		"equipment": equipment if typeof(equipment) == TYPE_ARRAY else [],
+	}
+
+	pack_tickets = {}
+	var raw_tickets = data.get("pack_tickets", {})
+	if typeof(raw_tickets) == TYPE_DICTIONARY:
+		for key in raw_tickets.keys():
+			pack_tickets[str(key)] = int(raw_tickets[key])
+
+	rune_registry = {}
+	var raw_reg = data.get("rune_registry", {})
+	if typeof(raw_reg) == TYPE_DICTIONARY and not raw_reg.is_empty():
+		for rid in raw_reg.keys():
+			rune_registry[str(rid)] = raw_reg[rid]
+	else:
+		for rune in inventory.runes:
+			if typeof(rune) == TYPE_DICTIONARY:
+				rune_registry[str(rune.get("id", ""))] = rune
+	restored_from_profile = true
+	profile_seeded = true
 
 
 ## 有効な属性パックを初期枚数だけ配る。全パックは対象外。
@@ -195,6 +275,10 @@ func remove_from_deck(card_id: String) -> void:
 ## cardEvaluator.ts の loadoutError()。問題なければ空文字を返す。
 func loadout_error() -> String:
 	var deck: Dictionary = decks.get(active_deck, {})
+	return loadout_error_for(deck)
+
+
+static func loadout_error_for(deck: Dictionary) -> String:
 	var n := deck_size(deck)
 	if n <= 0:
 		return "デッキが空です。パックを開いてデッキを組んでください。"
