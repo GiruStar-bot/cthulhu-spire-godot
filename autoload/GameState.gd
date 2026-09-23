@@ -113,10 +113,22 @@ func _load_profile() -> void:
 	shells = p.shells
 	equipment_presets = p.equipment_presets
 	starter_chosen = p.starter_chosen
+	## 旧セーブにコレクションキーは無い。collection_saved が真のときだけ復元する。
+	if p.get("collection_saved", false) == true:
+		CollectionData.apply_save({
+			"decks": p.get("decks", {}),
+			"active_deck": p.get("active_deck", CollectionData.DEFAULT_DECK_NAME),
+			"inventory": p.get("inventory", {}),
+			"pack_tickets": p.get("pack_tickets", {}),
+			"rune_registry": p.get("rune_registry", {}),
+		})
+	elif CollectionData.profile_seeded:
+		CollectionData.seed_new_profile()
 
 
 ## store.ts の persist(profile) 相当。呼び出し箇所は実ソースの各アクションのpersist()呼び出しに対応。
 func _persist_profile() -> void:
+	var collection: Dictionary = CollectionData.export_save()
 	Profile.save_profile({
 		"player_name": player_name,
 		"stats": stats,
@@ -133,6 +145,12 @@ func _persist_profile() -> void:
 		"shells": shells,
 		"equipment_presets": equipment_presets,
 		"starter_chosen": starter_chosen,
+		"collection_saved": true,
+		"decks": collection.get("decks", {}),
+		"active_deck": collection.get("active_deck", CollectionData.DEFAULT_DECK_NAME),
+		"inventory": collection.get("inventory", {}),
+		"pack_tickets": collection.get("pack_tickets", {}),
+		"rune_registry": collection.get("rune_registry", {}),
 	})
 
 
