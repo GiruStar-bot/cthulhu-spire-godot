@@ -17,12 +17,13 @@ const FRAME_BY_ARCHETYPE := {
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 12],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
 	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
-	"knight": ["res://art/pixel/ui/frame_card_knight_9.png", 14],
-	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 13],
-	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 15],
-	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 14],
-	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 16],
-	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 13],
+	"knight": ["res://art/pixel/ui/frame_card_knight_9.png", 12],
+	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 11],
+	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 13],
+	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 12],
+	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 20],
+	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 11],
+	"deep": ["res://art/pixel/ui/frame_card_deep_9.png", 15],
 }
 ## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
 const MYTHOS_GLOW_COLOR := {
@@ -37,11 +38,14 @@ const TAG_TONES := {
 	"effect": Color("452267"),
 }
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
-## 既存9-slice枠は 96px 幅。1152px の新規枠は NinePatch の patch_margin が
+## 既存9-slice枠は 96px 幅。それより広い枠は NinePatch の patch_margin が
 ## 画面ピクセル直結のため、この幅へ焼いてから載せる。
 const FRAME_CANONICAL_W := 96
+## 余白判定。これ未満のアルファは枠の外（透明パディング）とみなす。
+const FRAME_ALPHA_CUT := 0.10
 
 static var _ninepatch_tex_cache: Dictionary = {}
+static var _ninepatch_margin_cache: Dictionary = {}
 
 var card_uid: String = ""
 var _interactive: bool = true
@@ -151,7 +155,8 @@ func _load_texture_safe(path: String) -> Texture2D:
 
 
 ## NinePatchRect の patch_margin はテクスチャ画素 = 画面画素。
-## 1152×1728 の枠は 96×144 に焼いて既存枠と同じマージンが使えるようにする。
+## 96px より広い枠は 96px 幅へ縮小し、外側の透明余白を切り落としてから載せる。
+## 余白を残すと枠がカード端から浮いて内側に縮んで見える。
 ## 既存の 96px 枠は ArtCache / ResourceLoader のまま（見た目を変えない）。
 static func ninepatch_texture(path: String) -> Texture2D:
 	if path.is_empty():
@@ -183,9 +188,103 @@ static func ninepatch_texture(path: String) -> Texture2D:
 		var nh: int = maxi(1, int(round(float(img.get_height()) * float(FRAME_CANONICAL_W) / float(src_w))))
 		img.resize(FRAME_CANONICAL_W, nh, Image.INTERPOLATE_LANCZOS)
 		img.fix_alpha_edges()
+		img = _crop_frame_padding(img)
+		_ninepatch_margin_cache[path] = _measure_frame_margin(img)
 	var baked: Texture2D = ImageTexture.create_from_image(img)
 	_ninepatch_tex_cache[path] = baked
 	return baked
+
+
+## 縮小した枠だけ、実測した枠厚を返す。96px 既存枠は fallback（手調整値）のまま。
+static func ninepatch_margin(path: String, fallback: int) -> int:
+	if path.is_empty():
+		return fallback
+	if not _ninepatch_margin_cache.has(path):
+		ninepatch_texture(path)
+	if _ninepatch_margin_cache.has(path):
+		return int(_ninepatch_margin_cache[path])
+	return fallback
+
+
+static func _crop_frame_padding(img: Image) -> Image:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var min_x: int = w
+	var min_y: int = h
+	var max_x: int = -1
+	var max_y: int = -1
+	for y in h:
+		for x in w:
+			if img.get_pixel(x, y).a < FRAME_ALPHA_CUT:
+				continue
+			if x < min_x:
+				min_x = x
+			if y < min_y:
+				min_y = y
+			if x > max_x:
+				max_x = x
+			if y > max_y:
+				max_y = y
+	if max_x < 0:
+		return img
+	if min_x == 0 and min_y == 0 and max_x == w - 1 and max_y == h - 1:
+		return img
+	return img.get_region(Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1))
+
+
+## 四辺の中央で、端から内側の透明窓までの画素を測り、一番厚い辺に合わせる。
+static func _measure_frame_margin(img: Image) -> int:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var cap: int = int(mini(w, h) / 2) - 1
+	if cap < 4:
+		return maxi(1, cap)
+	var sides: Array = [
+		_side_thickness(img, true, true),
+		_side_thickness(img, true, false),
+		_side_thickness(img, false, true),
+		_side_thickness(img, false, false),
+	]
+	var thick: int = 4
+	for s in sides:
+		if int(s) > thick:
+			thick = int(s)
+	return clampi(thick, 4, cap)
+
+
+static func _side_thickness(img: Image, horizontal: bool, from_start: bool) -> int:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var runs: Array = []
+	if horizontal:
+		var y0: int = int(float(h) * 0.42)
+		var y1: int = int(float(h) * 0.58)
+		for y in range(y0, y1):
+			runs.append(_inward_run(img, y, true, from_start))
+	else:
+		var x0: int = int(float(w) * 0.42)
+		var x1: int = int(float(w) * 0.58)
+		for x in range(x0, x1):
+			runs.append(_inward_run(img, x, false, from_start))
+	if runs.is_empty():
+		return 4
+	runs.sort()
+	return int(runs[int(runs.size() / 2)])
+
+
+static func _inward_run(img: Image, fixed: int, horizontal: bool, from_start: bool) -> int:
+	var length: int = img.get_width() if horizontal else img.get_height()
+	var seen: bool = false
+	for i in length:
+		var pos: int = i if from_start else (length - 1 - i)
+		var a: float = img.get_pixel(pos if horizontal else fixed, fixed if horizontal else pos).a
+		if not seen:
+			if a >= FRAME_ALPHA_CUT:
+				seen = true
+			continue
+		if a < FRAME_ALPHA_CUT:
+			return i
+	return 4
 
 
 static func _imported_texture(path: String) -> Texture2D:
@@ -382,7 +481,7 @@ func _apply_frame(definition: Dictionary) -> void:
 	_frame.visible = true
 	_fallback_outline.visible = false
 	_frame.texture = ninepatch_texture(str(frame_data[0]))
-	_frame_margin = int(frame_data[1])
+	_frame_margin = ninepatch_margin(str(frame_data[0]), int(frame_data[1]))
 	_frame.patch_margin_left = _frame_margin
 	_frame.patch_margin_top = _frame_margin
 	_frame.patch_margin_right = _frame_margin

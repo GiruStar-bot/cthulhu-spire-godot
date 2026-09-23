@@ -154,12 +154,13 @@ const CARD_FRAME_BY_ARCHETYPE := {
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 14],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
 	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
-	"knight": ["res://art/pixel/ui/frame_card_knight_9.png", 15],
-	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 14],
-	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 16],
-	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 15],
-	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 17],
-	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 14],
+	"knight": ["res://art/pixel/ui/frame_card_knight_9.png", 12],
+	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 11],
+	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 13],
+	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 12],
+	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 20],
+	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 11],
+	"deep": ["res://art/pixel/ui/frame_card_deep_9.png", 15],
 }
 
 const RUNE_CATEGORY_OF_EFFECT := {
@@ -1222,7 +1223,7 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 	var frame_texture := CombatCard.ninepatch_texture(frame_path)
 	if frame_texture != null:
 		frame.texture = frame_texture
-		var margin := int(frame_data[1])
+		var margin: int = CombatCard.ninepatch_margin(frame_path, int(frame_data[1]))
 		frame.patch_margin_left = margin
 		frame.patch_margin_top = margin
 		frame.patch_margin_right = margin
