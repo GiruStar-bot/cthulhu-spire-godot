@@ -852,7 +852,7 @@ func _commerce_card_result(definition: Dictionary, fallback_id: String) -> void:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 60)
 	row.add_theme_constant_override("separation", 10)
-	row.add_child(_make_art_thumbnail(str(definition.get("art", "")), str(definition.get("archetype", "")), str(definition.get("rarity", "common")), Vector2(46, 56)))
+	row.add_child(_make_art_thumbnail(Cards.card_art({}, definition), str(definition.get("archetype", "")), str(definition.get("rarity", "common")), Vector2(46, 56)))
 	var label := Label.new()
 	label.text = "・%s" % str(definition.get("name", fallback_id))
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1232,7 +1232,7 @@ func _refresh_sell_tab() -> void:
 			thumb_btn.clip_contents = true
 			thumb_btn.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
 			thumb_btn.pressed.connect(_on_sell_card_thumb_pressed.bind(base_card_id, sellable))
-			var art_path := str(def.get("art", ""))
+			var art_path: String = Cards.card_art({}, def)
 			var sell_art := _make_art_thumbnail(art_path, str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(0, 82))
 			sell_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			thumb_btn.add_child(sell_art)
@@ -1791,7 +1791,7 @@ func _rebuild_deck_contents(deck: Dictionary) -> void:
 		row.add_theme_constant_override("separation", 8)
 		row.gui_input.connect(_on_deck_row_gui.bind(str(card_id), row))
 
-		var thumb: Control = _make_art_strip(str(def.get("art", "")), Vector2(72, 32))
+		var thumb: Control = _make_art_strip(Cards.card_art({}, def), Vector2(72, 32))
 		thumb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(thumb)
@@ -1926,7 +1926,7 @@ func _make_pool_thumb(card_id: String, def: Dictionary, card_name: String, owned
 	card_button.add_theme_stylebox_override("disabled", empty)
 	card_button.add_theme_stylebox_override("focus", empty)
 
-	var art := _make_art_strip(str(def.get("art", "")), Vector2(88, 124))
+	var art := _make_art_strip(Cards.card_art({}, def), Vector2(88, 124))
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	card_button.add_child(art)
 

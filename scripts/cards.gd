@@ -4301,7 +4301,7 @@ const CARDS := {
 		"cost": 2, "rarity": "common", "owner": "shared",
 		"text": "正気度4を失う。体力4回復。4枚ドロー。",
 		"upgradedText": "正気度4を失う。体力4回復。4枚ドロー。",
-		"flavor": "", "art": "", "target": "none",
+		"flavor": "", "art": "res://art/pixel/cards/death.jpg", "target": "none",
 		"effects": [{"t": "sanity", "n": -4}, {"t": "heal", "n": 4}, {"t": "draw", "n": 4}],
 		"upgradedEffects": [{"t": "sanity", "n": -4}, {"t": "heal", "n": 4}, {"t": "draw", "n": 4}],
 	},
@@ -4311,7 +4311,7 @@ const CARDS := {
 		"cost": 1, "rarity": "common", "owner": "shared",
 		"text": "正気度6を失う。デッキから「混沌」カードを3枚手札に加える。",
 		"upgradedText": "正気度6を失う。デッキから「混沌」カードを3枚手札に加える。",
-		"flavor": "", "art": "", "target": "none",
+		"flavor": "", "art": "res://art/pixel/cards/chaos_slumber.jpg", "target": "none",
 		"effects": [{"t": "sanity", "n": -6}, {"t": "seekBySubArchetype", "sub": "chaos", "n": 3}],
 		"upgradedEffects": [{"t": "sanity", "n": -6}, {"t": "seekBySubArchetype", "sub": "chaos", "n": 3}],
 	},
@@ -4321,7 +4321,7 @@ const CARDS := {
 		"cost": 0, "rarity": "common", "owner": "shared",
 		"text": "正気度2を失う。敵全体に10ダメージ。",
 		"upgradedText": "正気度2を失う。敵全体に10ダメージ。",
-		"flavor": "", "art": "", "target": "all",
+		"flavor": "", "art": "res://art/pixel/cards/snore.jpg", "target": "all",
 		"effects": [{"t": "sanity", "n": -2}, {"t": "damageAll", "n": 10}],
 		"upgradedEffects": [{"t": "sanity", "n": -2}, {"t": "damageAll", "n": 10}],
 	},
@@ -4331,7 +4331,7 @@ const CARDS := {
 		"cost": 0, "rarity": "common", "owner": "shared",
 		"text": "正気度2を失う。敵単体に16ダメージ。",
 		"upgradedText": "正気度2を失う。敵単体に16ダメージ。",
-		"flavor": "", "art": "", "target": "enemy",
+		"flavor": "", "art": "res://art/pixel/cards/turn_over.jpg", "target": "enemy",
 		"effects": [{"t": "sanity", "n": -2}, {"t": "damage", "n": 16}],
 		"upgradedEffects": [{"t": "sanity", "n": -2}, {"t": "damage", "n": 16}],
 	},
@@ -4341,7 +4341,7 @@ const CARDS := {
 		"cost": 0, "rarity": "common", "owner": "shared",
 		"text": "正気度10を失う。体力を全回復する。",
 		"upgradedText": "正気度10を失う。体力を全回復する。",
-		"flavor": "", "art": "", "target": "none",
+		"flavor": "", "art": "res://art/pixel/cards/dreaming.jpg", "target": "none",
 		"effects": [{"t": "sanity", "n": -10}, {"t": "healFull"}],
 		"upgradedEffects": [{"t": "sanity", "n": -10}, {"t": "healFull"}],
 	},
@@ -4351,7 +4351,7 @@ const CARDS := {
 		"cost": 3, "rarity": "common", "owner": "shared",
 		"text": "防御30を得る。",
 		"upgradedText": "防御30を得る。",
-		"flavor": "", "art": "", "target": "none",
+		"flavor": "", "art": "res://art/pixel/cards/jester_gods_service.jpg", "target": "none",
 		"effects": [{"t": "block", "n": 30}],
 		"upgradedEffects": [{"t": "block", "n": 30}],
 	},
@@ -4370,7 +4370,7 @@ const CARDS := {
 		"cost": 1, "rarity": "common", "owner": "shared",
 		"text": "デッキから「豊穣」カードを3枚手札に加える。",
 		"upgradedText": "デッキから「豊穣」カードを3枚手札に加える。",
-		"flavor": "", "art": "", "target": "none",
+		"flavor": "", "art": "res://art/pixel/cards/darkness.jpg", "target": "none",
 		"effects": [{"t": "seekBySubArchetype", "sub": "fertility", "n": 3}],
 		"upgradedEffects": [{"t": "seekBySubArchetype", "sub": "fertility", "n": 3}],
 	},
@@ -4380,7 +4380,7 @@ const CARDS := {
 		"cost": 1, "rarity": "common", "owner": "shared",
 		"text": "手札に「黒羊」を4枚加える。以降、毎ターン開始時に「黒羊」を1枚手札に加える。",
 		"upgradedText": "手札に「黒羊」を4枚加える。以降、毎ターン開始時に「黒羊」を1枚手札に加える。",
-		"flavor": "", "art": "", "target": "none",
+		"flavor": "", "art": "res://art/pixel/cards/spawn.jpg", "target": "none",
 		"effects": [
 			{"t": "addToHand", "id": "black_sheep", "n": 4},
 			{"t": "turnStartHook", "hook": "addToHand", "id": "black_sheep", "n": 1},
@@ -4397,7 +4397,7 @@ const CARDS := {
 		"requireId": "black_sheep", "requireN": 1,
 		"text": "「黒羊」を1枚消滅させて使用可能。正気度3を失う。体力20回復。",
 		"upgradedText": "「黒羊」を1枚消滅させて使用可能。正気度3を失う。体力20回復。",
-		"flavor": "", "art": "", "target": "none",
+		"flavor": "", "art": "res://art/pixel/cards/nourishment.jpg", "target": "none",
 		"effects": [
 			{"t": "consumeId", "id": "black_sheep", "n": 1},
 			{"t": "sanity", "n": -3},
@@ -4416,7 +4416,7 @@ const CARDS := {
 		"requireId": "black_sheep", "requireN": 2,
 		"text": "「黒羊」を2枚消滅させて使用可能。敵全体に40ダメージ。",
 		"upgradedText": "「黒羊」を2枚消滅させて使用可能。敵全体に40ダメージ。",
-		"flavor": "", "art": "", "target": "all",
+		"flavor": "", "art": "res://art/pixel/cards/earthquake.jpg", "target": "all",
 		"effects": [
 			{"t": "consumeId", "id": "black_sheep", "n": 2},
 			{"t": "damageAll", "n": 40},
@@ -4433,7 +4433,7 @@ const CARDS := {
 		"requireId": "black_sheep", "requireN": 1,
 		"text": "「黒羊」を1枚消滅させて使用可能。敵単体に22ダメージ。",
 		"upgradedText": "「黒羊」を1枚消滅させて使用可能。敵単体に22ダメージ。",
-		"flavor": "", "art": "", "target": "enemy",
+		"flavor": "", "art": "res://art/pixel/cards/charge.jpg", "target": "enemy",
 		"effects": [
 			{"t": "consumeId", "id": "black_sheep", "n": 1},
 			{"t": "damage", "n": 22},
@@ -4450,7 +4450,7 @@ const CARDS := {
 		"text": "「黒羊」を手札上限まで加える。この戦闘中、ターン開始時に「黒羊」を追加で1枚加える。",
 		"upgradedText": "「黒羊」を手札上限まで加える。この戦闘中、ターン開始時に「黒羊」を追加で1枚加える。",
 		"flavor": "千の落とし子が、同時に産声をあげる。",
-		"art": "", "target": "none",
+		"art": "res://art/pixel/cards/mother_goddess.jpg", "target": "none",
 		"effects": [
 			{"t": "addToHandLimit", "id": "black_sheep"},
 			{"t": "turnStartHook", "hook": "addToHand", "id": "black_sheep", "n": 1},
@@ -4769,7 +4769,7 @@ const CARDS := {
 		"cost": 1, "rarity": "common", "owner": "shared",
 		"text": "デッキから「武器」カードを2枚手札に加える。",
 		"upgradedText": "デッキから「武器」カードを2枚手札に加える。",
-		"flavor": "錆びた扉の奥で、刃だけが眠らない。", "art": "", "target": "none",
+		"flavor": "錆びた扉の奥で、刃だけが眠らない。", "art": "res://art/pixel/cards/armory.jpg", "target": "none",
 		"effects": [{"t": "seekBySubArchetype", "sub": "weapon", "n": 2}],
 		"upgradedEffects": [{"t": "seekBySubArchetype", "sub": "weapon", "n": 2}],
 	},
@@ -4779,7 +4779,7 @@ const CARDS := {
 		"cost": 1, "rarity": "rare", "owner": "shared",
 		"text": "正気度4を失う。敵単体に20ダメージ。",
 		"upgradedText": "正気度4を失う。敵単体に25ダメージ。",
-		"flavor": "鞘に納めても、刃鳴りは止まらない。", "art": "", "target": "enemy",
+		"flavor": "鞘に納めても、刃鳴りは止まらない。", "art": "res://art/pixel/cards/muramasa.jpg", "target": "enemy",
 		"effects": [{"t": "sanity", "n": -4}, {"t": "damage", "n": 20}],
 		"upgradedEffects": [{"t": "sanity", "n": -4}, {"t": "damage", "n": 25}],
 	},
@@ -4800,7 +4800,10 @@ const CARDS := {
 		"fixedForgeUpgrade": true,
 		"text": "敵単体に8ダメージ。",
 		"upgradedText": "敵単体に16ダメージ。",
-		"flavor": "磨かれれば、ようやく刃になる。", "art": "", "target": "enemy",
+		"flavor": "磨かれれば、ようやく刃になる。",
+		"art": "res://art/pixel/cards/dull_blade_base.jpg",
+		"upgradedArt": "res://art/pixel/cards/dull_blade_upgraded.jpg",
+		"target": "enemy",
 		"effects": [{"t": "damage", "n": 8}],
 		"upgradedEffects": [{"t": "damage", "n": 16}],
 	},
@@ -4939,11 +4942,27 @@ static func get_card(id: String) -> Dictionary:
 	var d: Dictionary = CARDS[id]
 	var art: String = str(d.get("art", ""))
 	var resolved: String = resolve_art(art)
-	if resolved != art:
+	var upgraded_art: String = str(d.get("upgradedArt", ""))
+	var resolved_up: String = resolve_art(upgraded_art) if not upgraded_art.is_empty() else ""
+	if resolved != art or (not upgraded_art.is_empty() and resolved_up != upgraded_art):
 		var copy: Dictionary = d.duplicate()
 		copy["art"] = resolved
+		if not upgraded_art.is_empty():
+			copy["upgradedArt"] = resolved_up
 		return copy
 	return d
+
+
+## 表示用イラスト。強化済みかつ upgradedArt があればそちら。無ければ art。空なら呼び出し側が card_back へフォールバック。
+static func card_art(card: Dictionary, def: Dictionary) -> String:
+	var upgraded: bool = false
+	if not card.is_empty():
+		upgraded = card.get("upgraded", false) and true
+	if upgraded:
+		var upgraded_art: String = str(def.get("upgradedArt", ""))
+		if not upgraded_art.is_empty():
+			return resolve_art(upgraded_art)
+	return resolve_art(str(def.get("art", "")))
 
 
 static func has_tag(def: Dictionary, tag: String) -> bool:

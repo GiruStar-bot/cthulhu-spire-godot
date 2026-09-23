@@ -177,6 +177,8 @@ func _collect_owned_art_paths() -> Array:
 			continue
 		var art: String = str(def.get("art", ""))
 		_add_path(paths, seen, art)
+		var upgraded_art: String = str(def.get("upgradedArt", ""))
+		_add_path(paths, seen, upgraded_art)
 
 	## 装備に art フィールドが付いている場合のみ（現行定義は未設定でも安全）
 	for inst in CollectionData.inventory.equipment:

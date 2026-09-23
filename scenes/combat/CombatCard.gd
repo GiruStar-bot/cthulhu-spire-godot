@@ -80,7 +80,7 @@ func configure(card: Dictionary, definition: Dictionary, playable: bool, selecte
 		_build()
 	_interactive = interactive
 	card_uid = str(card.get("uid", ""))
-	var art_path: String = str(definition.get("art", ""))
+	var art_path: String = Cards.card_art(card, definition)
 	_art.texture = _load_texture_safe(art_path)
 	var ai_tag: String = str(definition.get("aiTag", ""))
 	_header.color = TAG_TONES.get(ai_tag, Color("312d26"))
