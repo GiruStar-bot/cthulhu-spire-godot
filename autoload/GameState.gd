@@ -687,16 +687,13 @@ func _rand() -> float:
 	return rng.next_float()
 
 
-## cardEvaluator.ts loadoutDeck() 相当。未編成なら調査員スターターを使う。
+## cardEvaluator.ts loadoutDeck() 相当。
+## 未編成のときの旧フォールバック（打撃・守り・研究／鞭・印章・囁き）は定義ごと削除した。
+## 空のまま戦闘へ入れる。新しい初期デッキは別タスク。
 func loadout_deck() -> Array:
 	var out: Array = []
 	var counts: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
 	if counts.is_empty():
-		var starter: Array = ["strike", "strike", "strike", "strike", "strike", "ward", "ward", "ward", "ward", "study"]
-		if character == "cultist":
-			starter = ["lash", "lash", "lash", "lash", "lash", "sigil", "sigil", "sigil", "sigil", "whisper"]
-		for id in starter:
-			out.append(Cards.make_card(str(id)))
 		return out
 	for card_id in counts.keys():
 		if not Cards.CARDS.has(card_id):
