@@ -2081,6 +2081,16 @@ static func archetype_card_pool(owner: String, archetype: String) -> Array:
 	return out
 
 
+## 複数アーキタイプのパック強制枠。空の属性は飛ばし、全部空なら呼び出し側が reward_pool に逃がす。
+static func archetype_card_pool_multi(owner: String, archetypes: Array) -> Array:
+	var out: Array = []
+	for archetype in archetypes:
+		var part: Array = archetype_card_pool(owner, str(archetype))
+		for card in part:
+			out.append(card)
+	return out
+
+
 ## store.ts の weightedCard() が両関数で共有するレアリティ→プール絞り込みロジック
 static func _rarity_sliced_pool(pool: Array, rand: Callable) -> Array:
 	var roll: float = rand.call()
@@ -2107,9 +2117,15 @@ static func weighted_card(owner: String, rand: Callable) -> Dictionary:
 
 ## store.ts の weightedArchetypeCard(owner, archetype, rand)
 static func weighted_archetype_card(owner: String, archetype: String, rand: Callable) -> Dictionary:
-	var pool := archetype_card_pool(owner, archetype)
+	return weighted_archetype_cards(owner, [archetype], rand)
+
+
+## 旧支配者（greatold+wind+fire）と外宇宙（outer+earth）の混合強制枠。
+## 単一属性は weighted_archetype_card がこの関数へ渡す。プールが空なら reward_pool に逃がす。
+static func weighted_archetype_cards(owner: String, archetypes: Array, rand: Callable) -> Dictionary:
+	var pool: Array = archetype_card_pool_multi(owner, archetypes)
 	var base_pool: Array = pool if not pool.is_empty() else reward_pool(owner)
-	var candidates := _rarity_sliced_pool(base_pool, rand)
+	var candidates: Array = _rarity_sliced_pool(base_pool, rand)
 	var owned: Array = CollectionData.inventory.cards
 	var def: Dictionary = Mulberry32.weighted_pick_by(candidates, func(c):
 		var n := 0

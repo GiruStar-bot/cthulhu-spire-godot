@@ -9,7 +9,7 @@ extends Node
 ## の戻り値) / scripts/runes.gd (Runes.roll_rune の戻り値) を正とする。ここで再定義しない。
 
 const DECK_LIMIT := 20  ## 1デッキの最大枚数
-const COPY_LIMIT := 4  ## 同カードの最大所持枚数（デッキ内）
+const COPY_LIMIT := 3  ## 同一カードを1デッキに入れられる上限
 const MIN_RUN_DECK := 10  ## 潜航開始に必要な最低枚数（cardEvaluator.ts）
 const DEFAULT_DECK_NAME := "デッキ1"
 
@@ -34,8 +34,9 @@ const INITIAL_PACK_TICKETS := 10
 
 ## packTickets.ts PACK_TICKET_ARCHETYPES / PACK_TICKET_LABELS
 ## 毒・狂信・供物・影のパックは凍結のあと削除した。
+## 風・火は旧支配者パック、地（豊穣）は外宇宙パックの強制枠から出る。魔導に専用パックは無い。
 const PACK_TICKET_ARCHETYPES := [
-	"knight", "outer", "elder", "deep", "greatold", "wind", "fire", "earth", "magic", "all",
+	"knight", "outer", "elder", "deep", "greatold", "all",
 ]
 
 const PACK_TICKET_LABELS := {
@@ -44,10 +45,6 @@ const PACK_TICKET_LABELS := {
 	"elder": "旧神",
 	"deep": "深き者",
 	"greatold": "大いなるもの",
-	"wind": "風",
-	"fire": "火",
-	"earth": "豊穣",
-	"magic": "魔導",
 	"all": "全",
 }
 
