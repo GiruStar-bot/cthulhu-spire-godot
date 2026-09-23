@@ -17,6 +17,12 @@ const FRAME_BY_ARCHETYPE := {
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 12],
 	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
 	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
+	"knight": ["res://art/pixel/ui/frame_card_knight_9.png", 14],
+	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 13],
+	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 15],
+	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 14],
+	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 16],
+	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 13],
 }
 ## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
 const MYTHOS_GLOW_COLOR := {
@@ -31,6 +37,11 @@ const TAG_TONES := {
 	"effect": Color("452267"),
 }
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
+## 既存9-slice枠は 96px 幅。1152px の新規枠は NinePatch の patch_margin が
+## 画面ピクセル直結のため、この幅へ焼いてから載せる。
+const FRAME_CANONICAL_W := 96
+
+static var _ninepatch_tex_cache: Dictionary = {}
 
 var card_uid: String = ""
 var _interactive: bool = true
@@ -137,6 +148,57 @@ func _load_texture_safe(path: String) -> Texture2D:
 		return resource as Texture2D
 	push_warning("Texture2Dとして読み込めませんでした: %s" % path)
 	return load(FALLBACK_TEX) as Texture2D
+
+
+## NinePatchRect の patch_margin はテクスチャ画素 = 画面画素。
+## 1152×1728 の枠は 96×144 に焼いて既存枠と同じマージンが使えるようにする。
+## 既存の 96px 枠は ArtCache / ResourceLoader のまま（見た目を変えない）。
+static func ninepatch_texture(path: String) -> Texture2D:
+	if path.is_empty():
+		return load(FALLBACK_TEX) as Texture2D
+	if _ninepatch_tex_cache.has(path):
+		return _ninepatch_tex_cache[path] as Texture2D
+	var img := Image.new()
+	var loaded_ok: bool = false
+	var abs_path: String = ProjectSettings.globalize_path(path)
+	if not abs_path.is_empty() and FileAccess.file_exists(abs_path):
+		loaded_ok = img.load(abs_path) == OK
+	if loaded_ok and img.get_width() <= FRAME_CANONICAL_W * 2:
+		var imported: Texture2D = _imported_texture(path)
+		if imported != null:
+			_ninepatch_tex_cache[path] = imported
+			return imported
+	if not loaded_ok:
+		var imported2: Texture2D = _imported_texture(path)
+		if imported2 != null:
+			_ninepatch_tex_cache[path] = imported2
+			return imported2
+		var fb: Texture2D = load(FALLBACK_TEX) as Texture2D
+		_ninepatch_tex_cache[path] = fb
+		return fb
+	if img.is_compressed():
+		img.decompress()
+	var src_w: int = img.get_width()
+	if src_w > FRAME_CANONICAL_W * 2:
+		var nh: int = maxi(1, int(round(float(img.get_height()) * float(FRAME_CANONICAL_W) / float(src_w))))
+		img.resize(FRAME_CANONICAL_W, nh, Image.INTERPOLATE_LANCZOS)
+		img.fix_alpha_edges()
+	var baked: Texture2D = ImageTexture.create_from_image(img)
+	_ninepatch_tex_cache[path] = baked
+	return baked
+
+
+static func _imported_texture(path: String) -> Texture2D:
+	if ArtCache != null:
+		var cached: Texture2D = ArtCache.get_texture(path)
+		if cached != null:
+			return cached
+	if not ResourceLoader.exists(path, "Texture2D"):
+		return null
+	var resource: Resource = ResourceLoader.load(path, "Texture2D", ResourceLoader.CACHE_MODE_REUSE)
+	if resource is Texture2D:
+		return resource as Texture2D
+	return null
 
 
 func _clear_theme_styles() -> void:
@@ -319,7 +381,7 @@ func _apply_frame(definition: Dictionary) -> void:
 		return
 	_frame.visible = true
 	_fallback_outline.visible = false
-	_frame.texture = _load_texture_safe(str(frame_data[0]))
+	_frame.texture = ninepatch_texture(str(frame_data[0]))
 	_frame_margin = int(frame_data[1])
 	_frame.patch_margin_left = _frame_margin
 	_frame.patch_margin_top = _frame_margin

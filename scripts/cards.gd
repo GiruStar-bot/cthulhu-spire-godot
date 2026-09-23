@@ -21,6 +21,7 @@ const ARCHETYPE_LABELS := {
 	"wind": "風",
 	"fire": "火",
 	"magic": "魔導",
+	"bastet": "猫",
 }
 
 const ART_FALLBACK := {
@@ -4901,7 +4902,7 @@ const CARD_FRAME_CLASSES := [
 	"frame-card-outer",
 ]
 
-const _MYTHOS_FRAME_ARCHETYPES := ["greatold", "elder", "outer"]
+const _MYTHOS_FRAME_ARCHETYPES := ["greatold", "elder", "outer", "all", "knight", "magic", "wind", "fire", "earth", "bastet"]
 
 const _AI_TRANSLATABLE := [
 	"damage",
