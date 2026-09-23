@@ -964,21 +964,26 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 					c.floaters.append(_floater("削", "dmg", str(tgt_p.uid)))
 				c.log.append("敵の現在体力が%d%%減少した。" % int(e.get("n", 10)))
 			"flamePact":
+				## 炎の主／炎の神は現象ではなく、1枚のカードとして手札に置く。
+				## 入手不可（unobtainable token）のまま。炎契約だけが生成する。
 				var fire_n: int = _count_sub_in_hand(c, "fire")
+				var pact_id: String = "flame_god"
 				if fire_n >= 6:
 					_discard_sub_from_hand(c, "fire", 6)
-					_recalc_hand_presence(c)
+					pact_id = "flame_lord"
 					c.log.append("炎の主が応える。")
-					var lord_def: Dictionary = Cards.get_card("flame_lord")
-					var lord_fx: Array = lord_def.get("effects", [])
-					_run_effects(lord_fx, c, player, target_id, rand, null)
 				else:
 					_discard_sub_from_hand(c, "fire", fire_n)
-					_recalc_hand_presence(c)
 					c.log.append("炎の神が目を開ける。")
-					var god_def: Dictionary = Cards.get_card("flame_god")
-					var god_fx: Array = god_def.get("effects", [])
-					_run_effects(god_fx, c, player, target_id, rand, null)
+				var hlim: int = _hand_limit(c)
+				if c.hand.size() < hlim:
+					c.hand.append(_spawn_combat_card(pact_id))
+					var pact_name: String = str(Cards.get_card(pact_id).get("name", pact_id))
+					c.log.append("%sを手札に加えた。" % pact_name)
+				else:
+					var full_name: String = str(Cards.get_card(pact_id).get("name", pact_id))
+					c.log.append("手札がいっぱいで%sを加えられなかった。" % full_name)
+				_recalc_hand_presence(c)
 
 
 ## combat.ts changeSanity()

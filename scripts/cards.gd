@@ -3046,7 +3046,7 @@ const CARDS := {
 		"text": "敵全体に6ダメージ。",
 		"upgradedText": "敵全体に6ダメージ。",
 		"flavor": "引き絞られた弦は、眠る者にも届く。",
-		"art": "",
+		"art": "res://art/pixel/cards/crossbow.jpg",
 		"target": "all",
 		"shop": true,
 		"effects": [
@@ -4501,6 +4501,8 @@ const CARDS := {
 		"effects": [{"t": "sanity", "n": 5}, {"t": "heal", "n": 5}],
 		"upgradedEffects": [{"t": "sanity", "n": 5}, {"t": "heal", "n": 5}],
 	},
+	## sea_pact はデッキから「水」を引く。海トークンはもう生成しない。
+	## 進行中の戦闘セーブが既に持っている場合に備え、定義だけ残す。
 	"sea": {
 		"id": "sea", "name": "海", "type": "skill", "aiTag": "defense",
 		"archetype": "deep", "subArchetypes": ["water"],
@@ -4516,18 +4518,18 @@ const CARDS := {
 		"id": "sea_pact", "name": "海契約", "type": "skill", "aiTag": "effect",
 		"archetype": "deep",
 		"cost": 0, "rarity": "common", "owner": "shared", "oncePerTurn": true,
-		"text": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。「海」カードを2枚手札に加える。1ターンに1度しか使用できない。",
-		"upgradedText": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。「海」カードを2枚手札に加える。1ターンに1度しか使用できない。",
+		"text": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。デッキから「水」カードを2枚手札に加える。1ターンに1度しか使用できない。",
+		"upgradedText": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。デッキから「水」カードを2枚手札に加える。1ターンに1度しか使用できない。",
 		"flavor": "", "art": "res://art/pixel/cards/sea_pact.jpg", "target": "none",
 		"effects": [
 			{"t": "sanity", "n": -5},
 			{"t": "subEffectMul", "sub": "water", "n": 2},
-			{"t": "addToHand", "id": "sea", "n": 2},
+			{"t": "seekBySubArchetype", "sub": "water", "n": 2},
 		],
 		"upgradedEffects": [
 			{"t": "sanity", "n": -5},
 			{"t": "subEffectMul", "sub": "water", "n": 2},
-			{"t": "addToHand", "id": "sea", "n": 2},
+			{"t": "seekBySubArchetype", "sub": "water", "n": 2},
 		],
 	},
 	"gill_breathing": {
@@ -4719,8 +4721,8 @@ const CARDS := {
 		"id": "flame_pact", "name": "炎契約", "type": "skill", "aiTag": "effect",
 		"archetype": "fire",
 		"cost": 0, "rarity": "common", "owner": "shared",
-		"text": "正気度6を失う。手札の「火」カードを6枚捨てて「炎の主」を使用する。",
-		"upgradedText": "正気度6を失う。手札の「火」カードを6枚捨てて「炎の主」を使用する。",
+		"text": "正気度6を失う。手札の「火」カードを6枚捨てて「炎の主」を手札に加える。",
+		"upgradedText": "正気度6を失う。手札の「火」カードを6枚捨てて「炎の主」を手札に加える。",
 		"flavor": "", "art": "res://art/pixel/cards/flame_pact.jpg", "target": "none",
 		"effects": [
 			{"t": "sanity", "n": -6},
@@ -4760,7 +4762,7 @@ const CARDS := {
 		"upgradedHandPresenceEffect": {"block": 15},
 		"text": "手札にある間、防御+10。",
 		"upgradedText": "手札にある間、防御+15。",
-		"flavor": "手を放さなければ、まだ守れる。", "art": "", "target": "none",
+		"flavor": "手を放さなければ、まだ守れる。", "art": "res://art/pixel/cards/buckler.jpg", "target": "none",
 		"effects": [], "upgradedEffects": [],
 	},
 	"armory": {
@@ -4789,7 +4791,7 @@ const CARDS := {
 		"cost": 2, "rarity": "uncommon", "owner": "shared",
 		"text": "毎ターン開始時、防御を+5する。",
 		"upgradedText": "毎ターン開始時、防御を+5する。",
-		"flavor": "鈍い鉄が、夜の牙を受け止める。", "art": "", "target": "none",
+		"flavor": "鈍い鉄が、夜の牙を受け止める。", "art": "res://art/pixel/cards/iron_armor.jpg", "target": "none",
 		"effects": [{"t": "turnStartHook", "hook": "block", "n": 5}],
 		"upgradedEffects": [{"t": "turnStartHook", "hook": "block", "n": 5}],
 	},
