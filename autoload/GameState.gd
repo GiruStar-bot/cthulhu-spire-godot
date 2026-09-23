@@ -341,13 +341,12 @@ func to_title(tree: SceneTree) -> void:
 
 
 ## store.ts の startRun()。
-## 実際はプレイヤー名・デッキ枚数のバリデーションを行うが、
-## 名前入力/デッキ編成の必須チェックUIが未実装のため、それらのバリデーションのみ省略する
-## （デッキが空でも実行は継続する。フェーズB以降で追加）。
-## runs加算・madness蓄積による正気0シャター判定・初回ルルイエ強制遭遇は実ソース通り実装する。
+## 名前入力UIは未実装のため名前チェックは省略する。
+## 初期デッキは廃止したので、スターター選択済みでも最低枚数を満たすまで潜航できない。
 func start_run(tree: SceneTree) -> void:
-	if CollectionData.deck_size(CollectionData.decks.get(CollectionData.active_deck, {})) < CollectionData.MIN_RUN_DECK and not starter_chosen:
-		toast = "最初のデッキを選んでください。"
+	var deck_err: String = CollectionData.loadout_error()
+	if deck_err != "":
+		toast = deck_err
 		return
 	runs += 1
 	_persist_profile()
@@ -841,18 +840,21 @@ func _encounter_archetype() -> String:
 
 
 ## store.ts rewardTicketArchetype()
+## 削除したパック（毒・狂信・供物・影）のチケットは出さない。偏りや敵属性がそれなら有効なパックへ逃がす。
 func _reward_ticket_archetype() -> String:
-	if not encounter_bias.is_empty():
-		return str(Mulberry32.pick(encounter_bias, rng))
-	var arch: String = _encounter_archetype()
-	if arch != "" and arch != "generic" and arch != "all":
-		return arch
 	var pool: Array = []
 	for a in CollectionData.PACK_TICKET_ARCHETYPES:
 		if str(a) != "all":
 			pool.append(str(a))
+	if not encounter_bias.is_empty():
+		var biased: String = str(Mulberry32.pick(encounter_bias, rng))
+		if pool.has(biased):
+			return biased
+	var arch: String = _encounter_archetype()
+	if pool.has(arch):
+		return arch
 	if pool.is_empty():
-		return "fanatic"
+		return "knight"
 	return str(Mulberry32.pick(pool, rng))
 
 

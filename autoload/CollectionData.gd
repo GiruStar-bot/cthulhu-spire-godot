@@ -28,67 +28,38 @@ var active_deck: String = DEFAULT_DECK_NAME
 var rune_registry: Dictionary = {}  ## ルーンid -> ルーンDictionary（装備に装着中でも参照可能に）
 var pack_tickets: Dictionary = {}  ## アーキタイプ -> 所持枚数
 
-## 起動時に所持へ入れる初期カード。
-## 打撃・守り・研究・囁き・洞察・鞭・包帯はカード定義ごと削除済み。残るのは掃討のみ。
-## 新しい初期セットは別タスク。
-const STARTER_CARDS := [
-	{"id": "sweep", "count": 2},
-]
-
-## リリース前のデバッグ用。全カードを所持して編成検証できるようにする。
-const DEBUG_OWN_ALL_CARDS := true
+## 初期デッキは廃止。コレクションは未永続なので、起動のたびにここが初期状態になる。
+## 有効な属性パックを10枚ずつ配る。"all" はボス報酬のみで初期配布しない。
+const INITIAL_PACK_TICKETS := 10
 
 ## packTickets.ts PACK_TICKET_ARCHETYPES / PACK_TICKET_LABELS
+## 毒・狂信・供物・影のパックは凍結のあと削除した。
 const PACK_TICKET_ARCHETYPES := [
-	"fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all",
+	"knight", "outer", "elder", "deep", "greatold", "wind", "fire", "earth", "magic", "all",
 ]
 
 const PACK_TICKET_LABELS := {
-	"fanatic": "狂信",
 	"knight": "騎士",
-	"poison": "毒",
 	"outer": "外宇宙",
 	"elder": "旧神",
 	"deep": "深き者",
-	"offering": "供物",
-	"shadow": "影",
 	"greatold": "大いなるもの",
+	"wind": "風",
+	"fire": "火",
+	"earth": "豊穣",
+	"magic": "魔導",
 	"all": "全",
 }
 
-## 最初の4流派。削除済みIDは外した。新カードでの再編成は別タスク。
-## 毒は構成カードが全て削除対象だったため空（プレースホルダーは置かない）。
-const STARTER_ARCHETYPES := ["fanatic", "knight", "poison", "deep"]
-
-const STARTER_DECKS := {
-	"fanatic": [
-		{"id": "thecall", "count": 1},
-	],
-	"knight": [
-		{"id": "chant", "count": 4},
-		{"id": "laststand", "count": 2},
-	],
-	"poison": [
-	],
-	"deep": [
-		{"id": "sweep", "count": 4},
-		{"id": "adapted_scales", "count": 4},
-	],
-}
+## リリース前のデバッグ用。全カードを所持して編成検証できるようにする。
+const DEBUG_OWN_ALL_CARDS := true
 
 
 ## useCollectionStore.ts の seedInventory()。CollectionDataには永続化がまだ無いため
 ## （フェーズB以降で対応）、起動の度に毎回これで初期化する。
 func _ready() -> void:
-	var cards: Array = []
-	for entry in STARTER_CARDS:
-		for i in int(entry.count):
-			cards.append({
-				"instance_id": "ci_%s_%s" % [str(Time.get_ticks_usec()), str(randi())],
-				"base_card_id": entry.id,
-				"origin": "starter",
-			})
-	inventory.cards = cards
+	inventory.cards = []
+	_seed_initial_pack_tickets()
 	if DEBUG_OWN_ALL_CARDS:
 		_grant_all_cards_for_debug()
 		pack_tickets["all"] = maxi(int(pack_tickets.get("all", 0)), 3)
@@ -101,6 +72,15 @@ func _ready() -> void:
 			runes.append(rune)
 			rune_registry[rune.id] = rune
 	inventory.runes = runes
+
+
+## 有効な属性パックを初期枚数だけ配る。全パックは対象外。
+func _seed_initial_pack_tickets() -> void:
+	for archetype in PACK_TICKET_ARCHETYPES:
+		var key: String = str(archetype)
+		if key == "all":
+			continue
+		pack_tickets[key] = INITIAL_PACK_TICKETS
 
 
 ## GameState.equipped[slot] に入れる装備インスタンスをこのインベントリから取得するヘルパー。
@@ -217,7 +197,7 @@ func loadout_error() -> String:
 	var deck: Dictionary = decks.get(active_deck, {})
 	var n := deck_size(deck)
 	if n <= 0:
-		return "デッキが空です。デッキ編成でカードを組んでください。"
+		return "デッキが空です。パックを開いてデッキを組んでください。"
 	if n < MIN_RUN_DECK:
 		return "デッキが%d枚未満です（現在 %d）。" % [MIN_RUN_DECK, n]
 	return ""
@@ -359,32 +339,6 @@ func add_pack_ticket(ticket: String) -> void:
 
 static func pack_ticket_art(ticket: String) -> String:
 	return "res://art/pixel/tickets/ticket_%s.png" % ticket
-
-
-## useCollectionStore.ts の chooseStarterDeck()。
-## DEBUG_OWN_ALL_CARDS の間は所持カードを消さず、選択した4流派の構成だけデッキへ載せる。
-func choose_starter_deck(archetype: String) -> void:
-	if not STARTER_DECKS.has(archetype):
-		return
-	var list: Array = STARTER_DECKS[archetype]
-	var counts: Dictionary = {}
-	var starter_cards: Array = []
-	for entry in list:
-		var card_id: String = str(entry.get("id", ""))
-		var n: int = int(entry.get("count", 0))
-		if not Cards.CARDS.has(card_id) or n <= 0:
-			continue
-		counts[card_id] = n
-		for i in n:
-			starter_cards.append({
-				"instance_id": "ci_%s_%s" % [str(Time.get_ticks_usec()), str(randi())],
-				"base_card_id": card_id,
-				"origin": "starter",
-			})
-	if not DEBUG_OWN_ALL_CARDS:
-		inventory.cards = starter_cards
-	decks[DEFAULT_DECK_NAME] = counts
-	active_deck = DEFAULT_DECK_NAME
 
 
 func _grant_all_cards_for_debug() -> void:

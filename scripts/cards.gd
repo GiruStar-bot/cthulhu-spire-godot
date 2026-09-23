@@ -83,33 +83,6 @@ const CARDS := {
 			},
 		],
 	},
-	"sweep": {
-		"id": "sweep",
-		"name": "闇の薙ぎ",
-		"type": "attack",
-		"aiTag": "attack",
-		"archetype": "deep",
-		"cost": 1,
-		"rarity": "common",
-		"owner": "cultist",
-		"text": "敵全体に5ダメージ。",
-		"upgradedText": "敵全体に8ダメージ。",
-		"flavor": "回廊は、見た目より長い。",
-		"art": "res://art/pixel/cards/sweep.jpg",
-		"target": "all",
-		"effects": [
-			{
-				"t": "damageAll",
-				"n": 5,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "damageAll",
-				"n": 8,
-			},
-		],
-	},
 	"echo": {
 		"id": "echo",
 		"name": "残響",
@@ -389,41 +362,6 @@ const CARDS := {
 		"upgradedEffects": [
 			{"t": "gainPower", "id": "goddessContract"},
 			{"t": "addToHand", "id": "cats_paw", "n": 4},
-		],
-	},
-	"calm_blessing": {
-		"id": "calm_blessing",
-		"name": "静穏の加護",
-		"type": "skill",
-		"aiTag": "defense",
-		"cost": 1,
-		"rarity": "uncommon",
-		"owner": "shared",
-		"retired": true,
-		"text": "3回復。ブロック5を得る。",
-		"upgradedText": "5回復。ブロック7を得る。",
-		"flavor": "古き神々は、時に慈悲深い。",
-		"art": "res://art/pixel/cards/calm_blessing.jpg",
-		"target": "none",
-		"effects": [
-			{
-				"t": "heal",
-				"n": 3,
-			},
-			{
-				"t": "block",
-				"n": 5,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "heal",
-				"n": 5,
-			},
-			{
-				"t": "block",
-				"n": 7,
-			},
 		],
 	},
 	"thecall": {
@@ -1082,41 +1020,6 @@ const CARDS := {
 			},
 		],
 	},
-	"ghoul_claw": {
-		"id": "ghoul_claw",
-		"name": "グールの爪剣",
-		"type": "attack",
-		"vfx": "slash",
-		"cost": 0,
-		"rarity": "rare",
-		"owner": "shared",
-		"text": "5ダメージ。毒2。",
-		"upgradedText": "5ダメージ。毒2。",
-		"flavor": "",
-		"art": "res://art/pixel/cards/ghoul_claw.jpg",
-		"target": "enemy",
-		"shop": true,
-		"effects": [
-			{
-				"t": "damage",
-				"n": 5,
-			},
-			{
-				"t": "poison",
-				"n": 2,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "damage",
-				"n": 5,
-			},
-			{
-				"t": "poison",
-				"n": 2,
-			},
-		],
-	},
 	"crossbow": {
 		"id": "crossbow",
 		"name": "クロスボウ",
@@ -1147,74 +1050,6 @@ const CARDS := {
 			},
 		],
 	},
-	"chain_mail": {
-		"id": "chain_mail",
-		"name": "鎖帷子",
-		"type": "skill",
-		"cost": 1,
-		"rarity": "rare",
-		"owner": "shared",
-		"text": "ブロック5。このターン、ブロックが残る。",
-		"upgradedText": "ブロック5。このターン、ブロックが残る。",
-		"flavor": "",
-		"art": "res://art/pixel/cards/chain_mail.jpg",
-		"target": "none",
-		"shop": true,
-		"effects": [
-			{
-				"t": "block",
-				"n": 5,
-			},
-			{
-				"t": "retainBlock",
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "block",
-				"n": 5,
-			},
-			{
-				"t": "retainBlock",
-			},
-		],
-	},
-	"yog_gate": {
-		"id": "yog_gate",
-		"name": "ヨグ＝ソトースの門",
-		"type": "skill",
-		"cost": 3,
-		"rarity": "rare",
-		"owner": "shared",
-		"text": "ブロック45。廃棄。次ターンエネルギー-2。",
-		"upgradedText": "ブロック45。廃棄。次ターンエネルギー-2。",
-		"flavor": "",
-		"art": "res://art/pixel/cards/yog_gate.jpg",
-		"target": "none",
-		"shop": true,
-		"effects": [
-			{
-				"t": "block",
-				"n": 45,
-			},
-			{
-				"t": "energyNext",
-				"n": -2,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "block",
-				"n": 45,
-			},
-			{
-				"t": "energyNext",
-				"n": -2,
-			},
-		],
-		"exhaust": true,
-		"archetype": "outer",
-	},
 	"buckler": {
 		"id": "buckler",
 		"name": "バックラー",
@@ -1238,40 +1073,6 @@ const CARDS := {
 			{
 				"t": "block",
 				"n": 4,
-			},
-		],
-	},
-	"leather": {
-		"id": "leather",
-		"name": "革の鎧",
-		"type": "skill",
-		"cost": 1,
-		"rarity": "rare",
-		"owner": "shared",
-		"text": "ブロック6。1枚引く。",
-		"upgradedText": "ブロック6。1枚引く。",
-		"flavor": "",
-		"art": "res://art/pixel/cards/leather.jpg",
-		"target": "none",
-		"shop": true,
-		"effects": [
-			{
-				"t": "block",
-				"n": 6,
-			},
-			{
-				"t": "draw",
-				"n": 1,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "block",
-				"n": 6,
-			},
-			{
-				"t": "draw",
-				"n": 1,
 			},
 		],
 	},
