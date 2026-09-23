@@ -1,11 +1,12 @@
 class_name Smith
 extends RefCounted
 
-## src/game/smith.ts 相当。SHOP_CARDS自体（鉄剣・鉄斧・ナイフ等）は cards.gd の
-## Cards.CARDS に既にマージ済み（Object.assign(CARDS, SHOP_CARDS)相当、cards.gd冒頭コメント
-## 参照）のため、ここでは鍛冶屋の品揃え生成ロジック（SHOP_POOL/SLOTS/rollShopRank/makeSmith等）
-## のみを移植する。
+## 【廃止・未使用】鍛冶屋は今回の更新で無効化した。このファイルの関数はどこからも呼ばない。
+## 品揃え生成と売却価格の式は、将来別の形で再設計するまで残すデッドコード。
+## 拠点の売却価格は GameState.card_sell_price / equipment_sell_price / rune_sell_price。
+## 酒場（Rest の inn）は対象外。
 ##
+## 元は src/game/smith.ts。SHOP_CARDS は cards.gd にマージ済みのため、ここは品揃え生成だけ。
 ## 参照: reference/cthulhu-spire-main/src/game/smith.ts
 
 const SHOP_POOL := {

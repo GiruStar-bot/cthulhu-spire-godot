@@ -1165,7 +1165,7 @@ func _sell_card_total_value() -> int:
 	for r in _sellable_card_rows():
 		var qty := _sell_qty_for(str(r.base_card_id), int(r.sellable))
 		if qty > 0:
-			total += qty * Smith.card_sell_price(Cards.get_card(str(r.base_card_id)))
+			total += qty * GameState.card_sell_price(Cards.get_card(str(r.base_card_id)))
 	return total
 
 
@@ -1173,7 +1173,7 @@ func _sell_equipment_total_value() -> int:
 	var total := 0
 	for inst in _sellable_equipment():
 		if _sell_equipment_uids.has(str(inst.get("uid", ""))):
-			total += Smith.equipment_sell_price(inst)
+			total += GameState.equipment_sell_price(inst)
 	return total
 
 
@@ -1181,7 +1181,7 @@ func _sell_rune_total_value() -> int:
 	var total := 0
 	for rune in _sellable_runes():
 		if _sell_rune_ids.has(str(rune.get("id", ""))):
-			total += Smith.rune_sell_price(rune)
+			total += GameState.rune_sell_price(rune)
 	return total
 
 
@@ -1219,7 +1219,7 @@ func _refresh_sell_tab() -> void:
 			var sellable: int = int(r.sellable)
 			var qty := _sell_qty_for(base_card_id, sellable)
 			var def := Cards.get_card(base_card_id)
-			var unit_price := Smith.card_sell_price(def)
+			var unit_price: int = GameState.card_sell_price(def)
 
 			var cell := VBoxContainer.new()
 			cell.custom_minimum_size = Vector2(128, 180)
@@ -1304,7 +1304,7 @@ func _refresh_sell_tab() -> void:
 			var btn := Button.new()
 			btn.toggle_mode = true
 			btn.button_pressed = selected
-			btn.text = "%s\n貝殻%d" % [Equipment.equipment_label(inst), Smith.equipment_sell_price(inst)]
+			btn.text = "%s\n貝殻%d" % [Equipment.equipment_label(inst), GameState.equipment_sell_price(inst)]
 			btn.toggled.connect(_on_sell_equipment_toggled.bind(uid))
 			cell.add_child(btn)
 
@@ -1324,7 +1324,7 @@ func _refresh_sell_tab() -> void:
 			btn.custom_minimum_size = Vector2(112, 64)
 			btn.toggle_mode = true
 			btn.button_pressed = selected
-			btn.text = "%s（値%s）\n貝殻%d" % [str(rune.get("effect", "?")), str(rune.get("value", "?")), Smith.rune_sell_price(rune)]
+			btn.text = "%s（値%s）\n貝殻%d" % [str(rune.get("effect", "?")), str(rune.get("value", "?")), GameState.rune_sell_price(rune)]
 			btn.toggled.connect(_on_sell_rune_toggled.bind(rid))
 
 			sell_list_container.add_child(btn)

@@ -117,6 +117,7 @@ horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="SmithHotspot" type="Button" parent="HubLayer"]
+visible = false
 layout_mode = 0
 offset_left = 700.0
 offset_top = 240.0

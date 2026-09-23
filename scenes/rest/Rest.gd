@@ -46,6 +46,13 @@ var _smith_rest_y: float = 0.0
 func _ready() -> void:
 	if GameState.rest_mode == "":
 		GameState.rest_mode = "hub"
+	## 鍛冶屋は廃止。建物ホットスポットは残すが、表示も入力も切る。
+	## 旧セーブが鍛冶屋・強化・潜航デッキ・売却にいた場合は村ハブへ戻す。
+	smith_hotspot.visible = false
+	smith_hotspot.disabled = true
+	smith_hotspot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if GameState.rest_mode in ["smith", "upgrade", "deck", "sell"]:
+		GameState.rest_mode = "hub"
 	tavern_hotspot.mouse_entered.connect(_on_building_hover.bind(tavern_hotspot, true))
 	tavern_hotspot.mouse_exited.connect(_on_building_hover.bind(tavern_hotspot, false))
 	smith_hotspot.mouse_entered.connect(_on_building_hover.bind(smith_hotspot, true))
@@ -134,8 +141,8 @@ func _refresh() -> void:
 	var is_hub: bool = mode == "hub" or mode == ""
 	hub_layer.visible = is_hub
 	inn_layer.visible = mode == "inn"
-	smith_layer.visible = mode == "smith"
-	sub_layer.visible = mode == "upgrade" or mode == "deck" or mode == "sell"
+	smith_layer.visible = false
+	sub_layer.visible = false
 	var payload: Dictionary = _vitals_payload()
 	hub_vitals.visible = true
 	hub_vitals.set_show_frame(true)
@@ -151,10 +158,6 @@ func _refresh() -> void:
 		_layout_hub_buildings()
 	elif mode == "inn":
 		_refresh_inn_room()
-	elif mode == "smith":
-		_refresh_smith_room()
-	else:
-		_refresh_sub_room(mode)
 
 
 func _refresh_inn_room() -> void:
@@ -232,11 +235,12 @@ func _is_taboo_smith() -> bool:
 	return _current_smith().get("taboo", false) and true
 
 
+## 鍛冶屋廃止につき未使用。商品陳列・購入・「焼く」は呼ばない。
 func _refresh_smith_room() -> void:
 	var smith: Dictionary = _current_smith()
 	var taboo: bool = _is_taboo_smith()
 	var rank: String = str(smith.get("rank", "normal"))
-	smith_rank.text = "受け取れ" if taboo else Smith.rank_label(rank)
+	smith_rank.text = rank
 	smith_forge_button.text = "焼く（強化）　無料" if taboo else "焼く（強化）　貝殻5"
 	_free_children(smith_goods)
 	var goods: Array = smith.get("goods", [])
@@ -419,8 +423,8 @@ func _on_inn_button_pressed() -> void:
 
 
 func _on_smith_button_pressed() -> void:
-	GameState.visit_village("smith")
-	_refresh()
+	## 鍛冶屋は廃止。導線が残っていても入室しない。
+	return
 
 
 func _on_back_button_pressed() -> void:
@@ -433,20 +437,17 @@ func _on_leave_button_pressed() -> void:
 
 
 func _on_smith_deck_pressed() -> void:
-	GameState.visit_village("deck")
-	_refresh()
+	return
 
 
 func _on_smith_forge_pressed() -> void:
-	GameState.visit_village("upgrade")
-	_refresh()
+	return
 
 
 func _on_smith_sell_pressed() -> void:
-	GameState.visit_village("sell")
-	_refresh()
+	return
 
 
 func _on_sub_back_pressed() -> void:
-	GameState.visit_village("smith")
+	GameState.visit_village("hub")
 	_refresh()
