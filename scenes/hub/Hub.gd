@@ -128,7 +128,7 @@ var _sell_rune_ids: Dictionary = {}  ## id -> true
 # （DeckBuilderScreen.tsx / EquipmentScreen.tsx 相当）
 # ============================================================
 
-const DECK_FILTERABLE_ARCHETYPES := ["fanatic", "knight", "poison", "outer", "elder", "deep", "offering", "shadow", "greatold", "all", "earth", "wind", "fire", "magic"]
+const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "deep", "greatold", "all", "earth", "wind", "fire", "magic"]
 const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
 const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
@@ -538,9 +538,6 @@ func _update_descend_panel() -> void:
 			## Dream 探索は後続。誤って waking ランを開始しない。
 			primary_action_button.text = "探索（封印）"
 			primary_action_button.disabled = true
-		elif _should_show_starter_pick():
-			primary_action_button.text = "最初のデッキを選ぶ"
-			primary_action_button.disabled = false
 		else:
 			primary_action_button.text = "潜航開始"
 			primary_action_button.disabled = CollectionData.loadout_error() != ""
@@ -659,9 +656,6 @@ func _on_primary_action_pressed() -> void:
 		if str(GameState.realm) == "dream":
 			GameState.toast = "夢の島の探索はまだ開けない。"
 			return
-		if _should_show_starter_pick():
-			_select_tab("deck")
-			return
 		GameState.start_run(get_tree())
 	else:
 		GameState.resume_descent(get_tree())
@@ -712,7 +706,7 @@ func _refresh_commerce() -> void:
 		back_btn.pressed.connect(_select_tab.bind("descend"))
 		back_row.add_child(back_btn)
 		var desc := Label.new()
-		desc.text = "探索で持ち帰った属性チケットを消費して開封する。"
+		desc.text = "属性チケットを消費して開封する。最初に各属性10枚ある。"
 		desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		desc.add_theme_font_size_override("font_size", 12)
 		desc.add_theme_color_override("font_color", Color(0.72, 0.68, 0.58, 1))
@@ -1421,37 +1415,9 @@ func _on_sell_confirm_pressed() -> void:
 # デッキ編成タブ（DeckHubScreen.tsx / DeckBuilderScreen.tsx 相当）
 # ============================================================
 
-func _should_show_starter_pick() -> bool:
-	if GameState.floor > 0:
-		return false
-	## Dream Island：外宇宙贈り物でスターター済み。FIRST DESCENT は出さない。
-	if str(GameState.realm) == "dream":
-		return false
-	if not GameState.starter_chosen:
-		return true
-	## CollectionData は未永続。起動のたびにデッキが空に戻るのに
-	## starter_chosen だけプロフィールに残ると、選択画面が二度と出ない。
-	return _all_decks_empty()
-
-
-func _all_decks_empty() -> bool:
-	for name in CollectionData.decks.keys():
-		var counts: Dictionary = CollectionData.decks.get(name, {})
-		if CollectionData.deck_size(counts) > 0:
-			return false
-	return true
-
-
 ## DeckHubScreen.tsx の mode: "list" | "edit" 相当のトップレベル切り替え。
-## 未選択なら StarterDeckPickScreen 相当を先に出す。
+## 初期デッキ選択は廃止。パックを開いて自分で組む。
 func _refresh_deck_tab() -> void:
-	var show_pick: bool = _should_show_starter_pick()
-	if show_pick:
-		deck_list_sub_panel.visible = false
-		deck_edit_sub_panel.visible = false
-		starter_pick_panel.visible = true
-		_rebuild_starter_pick()
-		return
 	_hide_starter_pick()
 	deck_list_sub_panel.visible = _deck_mode == "list"
 	deck_edit_sub_panel.visible = _deck_mode == "edit"
@@ -1482,72 +1448,6 @@ func _clear_starter_pick() -> void:
 	for child in kids:
 		starter_pick_panel.remove_child(child)
 		child.queue_free()
-
-
-func _rebuild_starter_pick() -> void:
-	_clear_starter_pick()
-	starter_pick_panel.visible = true
-	var header := Label.new()
-	header.text = "FIRST DESCENT\n最初のデッキを選べ"
-	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	starter_pick_panel.add_child(header)
-	var blurb := Label.new()
-	blurb.text = "4つの流派から1つを選ぶと、その色に組まれたデッキで探索を始められる。この選択は最初の一度きり。リリース前は全カードを所持したまま編成できる。"
-	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	blurb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	starter_pick_panel.add_child(blurb)
-	var row := HBoxContainer.new()
-	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 12)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	for archetype in CollectionData.STARTER_ARCHETYPES:
-		row.add_child(_make_starter_pick_card(str(archetype)))
-	starter_pick_panel.add_child(row)
-
-
-func _make_starter_pick_card(archetype: String) -> Control:
-	var card := VBoxContainer.new()
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.custom_minimum_size = Vector2(160, 0)
-	card.add_theme_constant_override("separation", 6)
-	var art := TextureRect.new()
-	art.custom_minimum_size = Vector2(0, 150)
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
-	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var art_path := "res://art/pixel/packs/pack_%s.jpg" % archetype
-	if ResourceLoader.exists(art_path):
-		art.texture = load(art_path)
-	card.add_child(art)
-	var name_label := Label.new()
-	name_label.text = str(Cards.ARCHETYPE_LABELS.get(archetype, archetype))
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	card.add_child(name_label)
-	var preview := Label.new()
-	preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var names: PackedStringArray = PackedStringArray()
-	var list: Array = CollectionData.STARTER_DECKS.get(archetype, [])
-	for i in mini(3, list.size()):
-		var def := Cards.get_card(str(list[i].get("id", "")))
-		names.append("・%s" % str(def.get("name", list[i].get("id", ""))))
-	preview.text = "\n".join(names)
-	card.add_child(preview)
-	var btn := Button.new()
-	btn.text = "このデッキで始める"
-	btn.custom_minimum_size = Vector2(0, 40)
-	btn.pressed.connect(_on_starter_deck_picked.bind(archetype))
-	card.add_child(btn)
-	return card
-
-
-func _on_starter_deck_picked(archetype: String) -> void:
-	CollectionData.choose_starter_deck(archetype)
-	GameState.mark_starter_chosen()
-	_deck_mode = "list"
-	_hide_starter_pick()
-	_refresh_deck_tab()
-	_update_header()
 
 
 ## DeckListScreen.tsx の topArchetypeOfCounts() — 4枚未満は none（混成／未染色）
