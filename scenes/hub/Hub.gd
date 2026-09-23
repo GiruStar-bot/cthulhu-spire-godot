@@ -194,6 +194,12 @@ const DECK_SHELF_TILE := Vector2(128, 128)
 const DECK_SHELF_ARCHETYPE_MIN := 4  ## 同一属性がこの枚数以上で属性タイル、未満は none
 
 var _deck_mode: String = "list"  ## DeckHubScreen.tsx の mode: "list" | "edit"
+var _deck_edit_open: bool = false
+var _deck_edit_working: Dictionary = {}
+var _deck_edit_snapshot: Dictionary = {}
+var _pending_deck_leave: String = ""
+var _deck_leave_bypass: bool = false
+var _deck_save_layer: CanvasLayer = null
 var _deck_renaming: bool = false
 var _deck_filter_archetypes: Dictionary = {}
 var _deck_filter_rarities: Dictionary = {}
@@ -247,6 +253,7 @@ func _ready() -> void:
 	sell_rune_tab_button.visible = false
 	prepare_equipment_summary_panel.visible = false
 	prepare_deck_select_panel.visible = false
+	_ensure_deck_save_dialog()
 	body_nav.size_flags_vertical = 0
 	_apply_dream_hub_look()
 	_select_tab("descend")
@@ -432,6 +439,13 @@ func _hide_all_content_panels() -> void:
 
 
 func _select_tab(tab_name: String) -> void:
+	if not _deck_leave_bypass and _deck_mode == "edit" and _deck_edit_blocks_leave():
+		_pending_deck_leave = "list" if tab_name == "deck" else "tab:" + tab_name
+		_show_deck_save_dialog()
+		return
+	if _deck_mode == "edit" and not _deck_leave_bypass:
+		_deck_edit_open = false
+		_deck_mode = "list"
 	for key in nav_buttons.keys():
 		nav_buttons[key].set_pressed_no_signal(key == tab_name)
 	_hide_all_content_panels()
@@ -545,7 +559,11 @@ func _update_descend_panel() -> void:
 		stat_panel.visible = true
 		_refresh_stat_panel()
 		prepare_equipment_summary_panel.visible = false
-		prepare_deck_select_panel.visible = false
+		## 探索準備中は使用デッキを選べる。夢の島では潜航自体を封じているので出さない。
+		var show_deck_select: bool = str(GameState.realm) != "dream"
+		prepare_deck_select_panel.visible = show_deck_select
+		if show_deck_select:
+			_rebuild_prepare_deck_list()
 
 
 func _rebuild_prepare_deck_list() -> void:
@@ -566,9 +584,10 @@ func _rebuild_prepare_deck_list() -> void:
 
 func _on_prepare_deck_selected(deck_name: String) -> void:
 	CollectionData.set_active_deck(deck_name)
+	GameState._persist_profile()
 	_rebuild_prepare_deck_list()
 	_update_header()
-	primary_action_button.disabled = CollectionData.loadout_error() != ""
+	_update_descend_panel()
 
 
 func _refresh_prepare_equipment_summary() -> void:
@@ -647,11 +666,14 @@ func _on_stat_plus_pressed(key: String) -> void:
 
 
 func _deck_count() -> int:
-	var counts: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
-	return CollectionData.deck_size(counts)
+	return CollectionData.deck_size(_view_deck_counts())
 
 
 func _on_primary_action_pressed() -> void:
+	if _deck_edit_blocks_leave():
+		_pending_deck_leave = "primary"
+		_show_deck_save_dialog()
+		return
 	if GameState.floor <= 0:
 		if str(GameState.realm) == "dream":
 			GameState.toast = "夢の島の探索はまだ開けない。"
@@ -664,14 +686,176 @@ func _on_primary_action_pressed() -> void:
 func _on_extract_button_pressed() -> void:
 	## extract_to_hub()はシーンを"hub"（＝このシーン自身）に戻す＝再読込されるため、
 	## 再読込後の_ready()がヘッダー/タブ表示を作り直す。
+	if _deck_edit_blocks_leave():
+		_pending_deck_leave = "extract"
+		_show_deck_save_dialog()
+		return
 	GameState.extract_to_hub(get_tree())
 
 
 func _on_top_right_button_pressed() -> void:
+	if _deck_edit_blocks_leave():
+		_pending_deck_leave = "extract" if GameState.floor > 0 else "title"
+		_show_deck_save_dialog()
+		return
 	if GameState.floor > 0:
 		GameState.extract_to_hub(get_tree())
 	else:
 		GameState.to_title(get_tree())
+
+
+func _view_deck_counts() -> Dictionary:
+	if _deck_edit_open:
+		return _deck_edit_working
+	var counts: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	return counts
+
+
+func _begin_deck_edit() -> void:
+	var live: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	_deck_edit_snapshot = live.duplicate(true)
+	_deck_edit_working = live.duplicate(true)
+	_deck_edit_open = true
+
+
+func _deck_counts_differ() -> bool:
+	var keys: Dictionary = {}
+	for k in _deck_edit_working.keys():
+		keys[str(k)] = true
+	for k in _deck_edit_snapshot.keys():
+		keys[str(k)] = true
+	for k in keys.keys():
+		if int(_deck_edit_working.get(k, 0)) != int(_deck_edit_snapshot.get(k, 0)):
+			return true
+	return false
+
+
+func _deck_edit_blocks_leave() -> bool:
+	if _deck_leave_bypass:
+		return false
+	if _deck_mode != "edit" or not _deck_edit_open:
+		return false
+	return _deck_counts_differ()
+
+
+func _mutate_view_deck_add(card_id: String) -> bool:
+	if _deck_edit_open:
+		var total: int = CollectionData.deck_size(_deck_edit_working)
+		var current: int = int(_deck_edit_working.get(card_id, 0))
+		var owned: int = int(CollectionData.owned_card_counts().get(card_id, 0))
+		if total >= CollectionData.DECK_LIMIT or current >= CollectionData.COPY_LIMIT or current >= owned:
+			return false
+		_deck_edit_working[card_id] = current + 1
+		return true
+	return CollectionData.add_to_deck(card_id)
+
+
+func _mutate_view_deck_remove(card_id: String) -> void:
+	if not _deck_edit_open:
+		CollectionData.remove_from_deck(card_id)
+		return
+	var current: int = int(_deck_edit_working.get(card_id, 0))
+	if current <= 1:
+		_deck_edit_working.erase(card_id)
+	else:
+		_deck_edit_working[card_id] = current - 1
+
+
+func _commit_working_deck() -> void:
+	var deck_name: String = CollectionData.active_deck
+	CollectionData.decks[deck_name] = _deck_edit_working.duplicate(true)
+	_deck_edit_snapshot = _deck_edit_working.duplicate(true)
+
+
+func _ensure_deck_save_dialog() -> void:
+	if _deck_save_layer != null:
+		return
+	var layer := CanvasLayer.new()
+	layer.name = "DeckSaveConfirm"
+	layer.layer = 90
+	layer.visible = false
+	add_child(layer)
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(root)
+	var dim := ColorRect.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.color = Color(0.02, 0.015, 0.02, 0.72)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(dim)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -220.0
+	panel.offset_top = -80.0
+	panel.offset_right = 220.0
+	panel.offset_bottom = 80.0
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.09, 0.07, 0.06, 0.96)
+	style.border_color = Color(0.72, 0.55, 0.28, 1)
+	style.set_border_width_all(2)
+	style.set_content_margin_all(16)
+	panel.add_theme_stylebox_override("panel", style)
+	root.add_child(panel)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	panel.add_child(box)
+	var label := Label.new()
+	label.text = "変更内容を保存しますか？"
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", Color(0.96, 0.9, 0.78, 1))
+	box.add_child(label)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	box.add_child(row)
+	var save_btn := Button.new()
+	save_btn.text = "保存する"
+	save_btn.custom_minimum_size = Vector2(140, 40)
+	save_btn.pressed.connect(_on_deck_save_chosen.bind(true))
+	row.add_child(save_btn)
+	var drop_btn := Button.new()
+	drop_btn.text = "保存しない"
+	drop_btn.custom_minimum_size = Vector2(140, 40)
+	drop_btn.pressed.connect(_on_deck_save_chosen.bind(false))
+	row.add_child(drop_btn)
+	_deck_save_layer = layer
+
+
+func _show_deck_save_dialog() -> void:
+	_ensure_deck_save_dialog()
+	_deck_save_layer.visible = true
+
+
+func _on_deck_save_chosen(save_changes: bool) -> void:
+	if save_changes:
+		_commit_working_deck()
+		GameState._persist_profile()
+	elif CollectionData.decks.has(CollectionData.active_deck):
+		## 作業コピーしか触っていないが、仕様どおり本体は編集開始時へ戻す。
+		CollectionData.decks[CollectionData.active_deck] = _deck_edit_snapshot.duplicate(true)
+	_deck_edit_open = false
+	if _deck_save_layer != null:
+		_deck_save_layer.visible = false
+	var action: String = _pending_deck_leave
+	_pending_deck_leave = ""
+	_deck_leave_bypass = true
+	if action == "list":
+		_close_card_inspector()
+		_deck_mode = "list"
+		_refresh_deck_tab()
+		_update_header()
+	elif action.begins_with("tab:"):
+		_deck_mode = "list"
+		_select_tab(action.substr(4))
+	elif action == "title":
+		GameState.to_title(get_tree())
+	elif action == "extract":
+		GameState.extract_to_hub(get_tree())
+	elif action == "primary":
+		_on_primary_action_pressed()
+	_deck_leave_bypass = false
 
 
 func _refresh_commerce() -> void:
@@ -780,6 +964,7 @@ func _open_pack(archetype: String) -> void:
 			CollectionData.add_loot_card(def_id)
 			revealed.append(def_id)
 	var art_path: String = _pack_open_art_path(archetype)
+	GameState._persist_profile()
 	_launch_pack_open(art_path, revealed)
 
 
@@ -1422,8 +1607,11 @@ func _refresh_deck_tab() -> void:
 	deck_list_sub_panel.visible = _deck_mode == "list"
 	deck_edit_sub_panel.visible = _deck_mode == "edit"
 	if _deck_mode == "list":
+		_deck_edit_open = false
 		_rebuild_deck_list()
 	else:
+		if not _deck_edit_open:
+			_begin_deck_edit()
 		_refresh_deck_edit_header()
 		_refresh_deck_summary()
 		_rebuild_card_list()
@@ -1578,12 +1766,12 @@ func _refresh_deck_edit_header() -> void:
 
 
 func _refresh_deck_summary() -> void:
-	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	var deck: Dictionary = _view_deck_counts()
 	var n := CollectionData.deck_size(deck)
 	deck_count_label.text = "%s: %d/%d枚（最低%d枚必要）" % [
 		CollectionData.active_deck, n, CollectionData.DECK_LIMIT, CollectionData.MIN_RUN_DECK,
 	]
-	deck_error_label.text = CollectionData.loadout_error()
+	deck_error_label.text = CollectionData.loadout_error_for(deck)
 	deck_error_label.visible = deck_error_label.text != ""
 
 
@@ -1639,7 +1827,7 @@ func _sort_deck_card_ids(ids: Array, owned: Dictionary) -> void:
 
 func _rebuild_card_list() -> void:
 	_free_children(card_list_container)
-	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	var deck: Dictionary = _view_deck_counts()
 	var owned: Dictionary = CollectionData.owned_card_counts()
 	var ids := _filtered_deck_card_ids(owned)
 	_sort_deck_card_ids(ids, owned)
@@ -1759,7 +1947,7 @@ func _free_children(node: Node) -> void:
 func _on_deck_add_pressed(card_id: String) -> void:
 	if card_id == "":
 		return
-	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	var deck: Dictionary = _view_deck_counts()
 	var owned: Dictionary = CollectionData.owned_card_counts()
 	var in_deck: int = CollectionData.copies_of_base(deck, card_id)
 	var owned_count: int = int(owned.get(card_id, 0))
@@ -1767,7 +1955,9 @@ func _on_deck_add_pressed(card_id: String) -> void:
 	if deck_total >= CollectionData.DECK_LIMIT or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count:
 		_sync_inspector_actions()
 		return
-	CollectionData.add_to_deck(card_id)
+	if not _mutate_view_deck_add(card_id):
+		_sync_inspector_actions()
+		return
 	_update_header()
 	_refresh_deck_summary()
 	_sync_pool_thumb(card_id)
@@ -1779,7 +1969,7 @@ func _on_deck_add_pressed(card_id: String) -> void:
 func _on_deck_remove_pressed(card_id: String) -> void:
 	if card_id == "":
 		return
-	CollectionData.remove_from_deck(card_id)
+	_mutate_view_deck_remove(card_id)
 	_update_header()
 	_refresh_deck_summary()
 	_sync_pool_thumb(card_id)
@@ -1798,7 +1988,7 @@ func _rebuild_active_deck_contents() -> void:
 	_deck_contents_dirty = false
 	if deck_contents_container == null or not is_instance_valid(deck_contents_container):
 		return
-	_rebuild_deck_contents(CollectionData.decks.get(CollectionData.active_deck, {}))
+	_rebuild_deck_contents(_view_deck_counts())
 
 
 func _on_deck_row_gui(event: InputEvent, card_id: String, row: Control) -> void:
@@ -1899,7 +2089,7 @@ func _on_pool_thumb_pressed(card_id: String, thumb: Control) -> void:
 
 
 func _sync_pool_thumb(card_id: String) -> void:
-	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	var deck: Dictionary = _view_deck_counts()
 	var owned: Dictionary = CollectionData.owned_card_counts()
 	var in_deck: int = CollectionData.copies_of_base(deck, card_id)
 	var owned_count: int = int(owned.get(card_id, 0))
@@ -2130,7 +2320,7 @@ func _sync_inspector_actions() -> void:
 		return
 	if _inspector_count == null or not is_instance_valid(_inspector_count):
 		return
-	var deck: Dictionary = CollectionData.decks.get(CollectionData.active_deck, {})
+	var deck: Dictionary = _view_deck_counts()
 	var owned: Dictionary = CollectionData.owned_card_counts()
 	var in_deck: int = CollectionData.copies_of_base(deck, _inspector_card_id)
 	var owned_count: int = int(owned.get(_inspector_card_id, 0))
@@ -2187,6 +2377,7 @@ func _on_inspector_dim_gui(event: InputEvent) -> void:
 func _on_deck_list_create_pressed() -> void:
 	var name := CollectionData.next_deck_name(CollectionData.decks)
 	if CollectionData.create_deck(name):
+		GameState._persist_profile()
 		_deck_mode = "edit"
 		_deck_renaming = false
 		_refresh_deck_tab()
@@ -2196,6 +2387,7 @@ func _on_deck_list_create_pressed() -> void:
 ## DeckListScreen.tsx の onEditDeck()（デッキタイルクリック→編集モードへ）
 func _on_deck_list_open(name: String) -> void:
 	CollectionData.set_active_deck(name)
+	GameState._persist_profile()
 	_deck_mode = "edit"
 	_deck_renaming = false
 	_refresh_deck_tab()
@@ -2204,7 +2396,12 @@ func _on_deck_list_open(name: String) -> void:
 
 ## DeckBuilderScreen.tsx の「記録して戻る」（onBack、一覧モードへ）
 func _on_deck_back_to_list_pressed() -> void:
+	if _deck_edit_blocks_leave():
+		_pending_deck_leave = "list"
+		_show_deck_save_dialog()
+		return
 	_close_card_inspector()
+	_deck_edit_open = false
 	_deck_mode = "list"
 	_refresh_deck_tab()
 	_update_header()
@@ -2219,6 +2416,7 @@ func _on_rename_deck_pressed() -> void:
 func _on_rename_confirm_pressed() -> void:
 	if CollectionData.rename_deck(CollectionData.active_deck, deck_rename_edit.text):
 		_deck_renaming = false
+		GameState._persist_profile()
 	_refresh_deck_edit_header()
 	_update_header()
 
@@ -2230,7 +2428,10 @@ func _on_rename_cancel_pressed() -> void:
 
 func _on_delete_deck_pressed() -> void:
 	_close_card_inspector()
+	_deck_edit_open = false
 	CollectionData.delete_deck(CollectionData.active_deck)
+	_deck_mode = "list"
+	GameState._persist_profile()
 	_refresh_deck_tab()
 	_update_header()
 
