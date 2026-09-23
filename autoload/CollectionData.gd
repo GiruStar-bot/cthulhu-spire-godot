@@ -9,7 +9,7 @@ extends Node
 ## の戻り値) / scripts/runes.gd (Runes.roll_rune の戻り値) を正とする。ここで再定義しない。
 
 const DECK_LIMIT := 20  ## 1デッキの最大枚数
-const COPY_LIMIT := 4  ## 同カードの最大所持枚数（デッキ内）
+const COPY_LIMIT := 3  ## 同一カードを1デッキに入れられる上限
 const MIN_RUN_DECK := 10  ## 潜航開始に必要な最低枚数（cardEvaluator.ts）
 const DEFAULT_DECK_NAME := "デッキ1"
 
