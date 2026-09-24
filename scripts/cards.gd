@@ -935,7 +935,7 @@ const CARDS := {
 			},
 		],
 	},
-	## ダゴン（70階ボス）。大海嘯は満潮ターン専用（tideOnly：通常の抽選に出ない）。
+	## dagon（70階ボス「深みの父」）。大海嘯は満潮ターン専用（tideOnly：通常の抽選に出ない）。
 	"great_surge": {
 		"id": "great_surge",
 		"name": "大海嘯",
@@ -948,16 +948,16 @@ const CARDS := {
 		"enemyOnly": true,
 		"unobtainable": true,  ## 敵専用の効果タグを持つので、デバッグ全配布・HUBにも出さない
 		"tideOnly": true,
-		"text": "28ダメージ。満潮のときにだけ放たれる。",
-		"upgradedText": "28ダメージ。満潮のときにだけ放たれる。",
+		"text": "22ダメージ。満潮のときにだけ放たれる。",
+		"upgradedText": "22ダメージ。満潮のときにだけ放たれる。",
 		"flavor": "海が、街ごと呑みに来る。",
 		"art": "res://art/pixel/cards/great_surge.jpg",
 		"target": "enemy",
 		"effects": [
-			{"t": "damage", "n": 28},
+			{"t": "damage", "n": 22},
 		],
 		"upgradedEffects": [
-			{"t": "damage", "n": 28},
+			{"t": "damage", "n": 22},
 		],
 	},
 	"abyss_grasp": {
@@ -1008,7 +1008,7 @@ const CARDS := {
 			{"t": "block", "n": 18},
 		],
 	},
-	## イタカ（60階ボス）。
+	## ithaqua（60階ボス「風に乗りて歩むもの」）。
 	"sky_snatch": {
 		"id": "sky_snatch",
 		"name": "空へ攫う",
@@ -2108,7 +2108,7 @@ const _AI_TRANSLATABLE := [
 	"poison",
 	"addDread",
 	"heal",
-	## 敵専用（ダゴン／イタカ）
+	## 敵専用（dagon／ithaqua）
 	"inflictCold",
 	"addStatusToDraw",
 	"snatchHand",

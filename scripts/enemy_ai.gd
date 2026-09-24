@@ -101,7 +101,7 @@ static func card_to_intent(card: Dictionary) -> Dictionary:
 			intent.kind = "debuff"
 		if t == "eihortCurseOnHit":
 			intent.eihortCurse = true
-		## 以下は敵専用（イタカ）の効果タグ
+		## 以下は敵専用（ithaqua）の効果タグ
 		if t == "inflictCold":
 			intent.cold = int(intent.get("cold", 0)) + int(eff.get("n", 0))
 			if intent.kind == "unknown":

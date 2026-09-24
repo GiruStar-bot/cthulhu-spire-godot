@@ -120,7 +120,8 @@ static func _maybe_split(e: Dictionary, c: Dictionary, rand: Callable = Callable
 	c.floaters.append(_floater("分裂", "info", str(e.uid)))
 
 
-## ダゴン（trait "tide"）：HP50%以下で一度だけ、溺れた眷属を2体呼ぶ。
+## 深みの父（trait "tide"）：HP50%以下で一度だけ、溺れた眷属を呼ぶ。
+const DEEP_ONES_CALL_COUNT := 1
 static func _maybe_call_deep_ones(e: Dictionary, c: Dictionary, rand: Callable = Callable()) -> void:
 	if Enemies.get_enemy(str(e.defId)).get("trait") != "tide":
 		return
@@ -128,13 +129,13 @@ static func _maybe_call_deep_ones(e: Dictionary, c: Dictionary, rand: Callable =
 		return
 	e.deepOnesCalled = true
 	var roll: Callable = rand if rand.is_valid() else func(): return 0.5
-	for i in 2:
+	for i in DEEP_ONES_CALL_COUNT:
 		c.enemies.append(make_enemy("drowned", int(c.floor), roll))
 	c.log.append("深きものどもが集う。")
 	c.floaters.append(_floater("召喚", "info", str(e.uid)))
 
 
-## ダゴン（trait "tide"）：3の倍数ターンは満潮。次のターンが満潮なら、行動1枚目を大海嘯に差し替えて予告する。
+## 深みの父（trait "tide"）：3の倍数ターンは満潮。次のターンが満潮なら、行動1枚目を大海嘯に差し替えて予告する。
 ## 敵の行動を引き直した直後（ターン番号を進める前）に呼ぶ。
 const TIDE_PERIOD := 3
 const TIDE_CARD_ID := "great_surge"
@@ -158,7 +159,7 @@ static func _rise_tide(c: Dictionary) -> void:
 		c.floaters.append(_floater("満潮", "info", str(e.uid)))
 
 
-## イタカ（trait "windwalker"）：毎ターン、プレイヤーの寒気を+1。
+## 風に乗りて歩むもの（trait "windwalker"）：毎ターン、プレイヤーの寒気を+1。
 static func _windwalker_chill(c: Dictionary) -> void:
 	for e in living(c):
 		if Enemies.get_enemy(str(e.defId)).get("trait") != "windwalker":
@@ -168,7 +169,7 @@ static func _windwalker_chill(c: Dictionary) -> void:
 		c.floaters.append(_floater("寒気+1", "info", "player"))
 
 
-## イタカの「空へ攫う」：敵の行動時は手札が空なので、次のドロー後に手札から奪う。
+## 風に乗りて歩むものの「空へ攫う」：敵の行動時は手札が空なので、次のドロー後に手札から奪う。
 ## 奪ったカードは snatched に移すだけ（この戦闘の間だけ使えない。GameState.deck には触れない）。
 static func _resolve_snatch(c: Dictionary, rand: Callable) -> void:
 	var pending: int = int(c.get("snatchPending", 0))
@@ -568,7 +569,7 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		"draw": draw,
 		"discard": [],
 		"exhaust": [],
-		"snatched": [],  ## イタカに攫われたカード（この戦闘の間だけ手元から消える）
+		"snatched": [],  ## 「空へ攫う」で奪われたカード（この戦闘の間だけ手元から消える）
 		"snatchPending": 0,
 		"hand": [],
 		"energy": base_energy + int(player.get("extraEnergyNext", 0)) + int(eq.get("energyPerTurn", 0)),

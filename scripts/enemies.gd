@@ -172,10 +172,12 @@ const ENEMIES := {
 		"cardsPerTurn": 2,
 		"deck": ["flockrush", "lash", "all-glass", "ward"],
 	},
-	## 60階ボス。風に乗りて歩むもの。毎ターン寒気を積み上げてくるので短期決戦を迫る（trait "windwalker"）。
+	## 60階ボス。毎ターン寒気を積み上げてくるので短期決戦を迫る（trait "windwalker"）。
+	## 神話の固有名は画面に出さない方針。表示名は二つ名だけ。
 	"ithaqua": {
 		"id": "ithaqua",
-		"name": "風に乗りて歩むもの、イタカ",
+		"dev_name": "イタカ",  ## 開発用の呼び名。画面には出さない
+		"name": "風に乗りて歩むもの",
 		"art": "res://art/pixel/enemies/ithaqua.png",
 		"poster": "res://art/pixel/enemies/ithaqua.png",
 		"biome": "fold",  ## 仮。専用背景は後日
@@ -184,21 +186,22 @@ const ENEMIES := {
 		"floats": true,
 		"signatureCardId": "sky_snatch",
 		"cardsPerTurn": 2,
-		"deck": ["sky_snatch", "frost_breath", "gale_claw", "all-phase"],
+		"deck": ["sky_snatch", "frost_breath", "gale_claw", "flockrush"],
 	},
-	## 70階ボス。深みの父。3の倍数ターンは満潮で、1枚目が必ず大海嘯になる（trait "tide"）。
-	## HP50%以下で一度だけ溺れた眷属を2体呼ぶ。
+	## 70階ボス。3の倍数ターンは満潮で、1枚目が必ず大海嘯になる（trait "tide"）。
+	## HP50%以下で一度だけ溺れた眷属を1体呼ぶ。神話の固有名は画面に出さない方針。
 	"dagon": {
 		"id": "dagon",
-		"name": "深みの父、ダゴン",
+		"dev_name": "ダゴン",  ## 開発用の呼び名。画面には出さない
+		"name": "深みの父",
 		"art": "res://art/pixel/enemies/dagon.png",
 		"poster": "res://art/pixel/enemies/dagon.png",
 		"biome": "street",
-		"maxHp": 180,
+		"maxHp": 140,
 		"trait": "tide",
 		"signatureCardId": "great_surge",
 		"cardsPerTurn": 2,
-		"deck": ["great_surge", "abyss_grasp", "brine_hide", "all-necrosis"],
+		"deck": ["great_surge", "abyss_grasp", "brine_hide", "sea"],
 	},
 	"nyar": {
 		"id": "nyar",

@@ -322,6 +322,7 @@ func _refresh_hud() -> void:
 		"strength": int(state.get("strength", 0)),
 		"weak": int(state.get("weak", 0)),
 		"poison": int(state.get("poison", 0)),
+		"cold": int(state.get("cold", 0)),
 		"sealed": sealed_raw,
 		"powers": state.get("powers", []),
 		"shells": GameState.shells,
