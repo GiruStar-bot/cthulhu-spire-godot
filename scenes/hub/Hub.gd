@@ -18,6 +18,7 @@ const POOL_CARD_SIZE := Vector2(128, 192)
 const POOL_CARD_MAX_W := 160.0
 const POOL_CARD_GAP := 8
 const POOL_CARD_GAP_MAX := 40
+const POOL_BAR_GAP := 6  ## 右端カードとスクロールバーの間。グロー（外側22px）は下のZ順でバーの下に回す
 const PACK_ART_SIZE := Vector2(160, 240)
 
 @onready var background_art: TextureRect = $BackgroundArt
@@ -81,8 +82,8 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover/DeckFilterRarityRow
 @onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover/DeckFilterAiTagRow
 @onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckResultCountLabel
-@onready var card_scroll: ScrollContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll
-@onready var card_list_container: GridContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll/CardListContainer
+@onready var card_scroll: ScrollContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScrollFrame/CardScroll
+@onready var card_list_container: GridContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScrollFrame/CardScroll/CardListContainer
 @onready var deck_contents_container: VBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckContentsScroll/DeckContentsContainer
 @onready var deck_back_to_list_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckBackToListButton
 
@@ -147,6 +148,7 @@ var _deck_edit_open: bool = false
 var _deck_edit_working: Dictionary = {}
 var _deck_edit_snapshot: Dictionary = {}
 var _pending_deck_leave: String = ""
+var _active_deck_before_edit: String = ""  ## 空デッキを自動削除したとき、編集前の選択へ戻すため
 var _deck_leave_bypass: bool = false
 var _deck_save_layer: CanvasLayer = null
 var _deck_renaming: bool = false
@@ -178,6 +180,8 @@ func _ready() -> void:
 	deck_list_create_button.pressed.connect(_on_deck_list_create_pressed)
 	deck_list_back_button.pressed.connect(_select_tab.bind("descend"))
 	card_scroll.resized.connect(_fit_card_grid)
+	## ScrollContainer 内部のバーは中身より先に描かれる。カードのグローやホバー拡大（z 40）より上へ出す。
+	card_scroll.get_v_scroll_bar().z_index = 50
 	rename_deck_button.pressed.connect(_on_rename_deck_pressed)
 	delete_deck_button.pressed.connect(_on_delete_deck_pressed)
 	confirm_rename_button.pressed.connect(_on_rename_confirm_pressed)
@@ -336,7 +340,7 @@ func _select_tab(tab_name: String) -> void:
 		_show_deck_save_dialog()
 		return
 	if _deck_mode == "edit" and not _deck_leave_bypass:
-		_deck_edit_open = false
+		_close_deck_edit()
 		_deck_mode = "list"
 	for key in nav_buttons.keys():
 		nav_buttons[key].set_pressed_no_signal(key == tab_name)
@@ -562,6 +566,7 @@ func _on_extract_button_pressed() -> void:
 		_pending_deck_leave = "extract"
 		_show_deck_save_dialog()
 		return
+	_close_deck_edit()
 	GameState.extract_to_hub(get_tree())
 
 
@@ -570,6 +575,7 @@ func _on_top_right_button_pressed() -> void:
 		_pending_deck_leave = "extract" if GameState.floor > 0 else "title"
 		_show_deck_save_dialog()
 		return
+	_close_deck_edit()
 	if GameState.floor > 0:
 		GameState.extract_to_hub(get_tree())
 	else:
@@ -631,6 +637,23 @@ func _mutate_view_deck_remove(card_id: String) -> void:
 		_deck_edit_working.erase(card_id)
 	else:
 		_deck_edit_working[card_id] = current - 1
+
+
+## 編集セッションを閉じる。確定後の本体デッキが空なら自動で削除する
+## （新規作成して何も入れずに離れた場合／全部抜いた場合）。最後の1デッキは delete_deck() が残す。
+## 探索開始（primary）経由では呼ばない：消すと別デッキが黙って有効になり、そのまま潜航してしまう。
+func _close_deck_edit() -> void:
+	var was_open: bool = _deck_edit_open
+	_deck_edit_open = false
+	if not was_open:
+		return
+	var deck_name: String = CollectionData.active_deck
+	if CollectionData.deck_size(CollectionData.decks.get(deck_name, {})) > 0:
+		return
+	CollectionData.delete_deck(deck_name)
+	if not CollectionData.decks.has(deck_name):
+		CollectionData.set_active_deck(_active_deck_before_edit)
+		GameState._persist_profile()
 
 
 func _commit_working_deck() -> void:
@@ -707,11 +730,14 @@ func _on_deck_save_chosen(save_changes: bool) -> void:
 	elif CollectionData.decks.has(CollectionData.active_deck):
 		## 作業コピーしか触っていないが、仕様どおり本体は編集開始時へ戻す。
 		CollectionData.decks[CollectionData.active_deck] = _deck_edit_snapshot.duplicate(true)
-	_deck_edit_open = false
 	if _deck_save_layer != null:
 		_deck_save_layer.visible = false
 	var action: String = _pending_deck_leave
 	_pending_deck_leave = ""
+	if action == "primary":
+		_deck_edit_open = false
+	else:
+		_close_deck_edit()
 	_deck_leave_bypass = true
 	if action == "list":
 		_close_card_inspector()
@@ -1598,14 +1624,16 @@ func _rebuild_card_list() -> void:
 
 
 ## _fit_pack_grid と同じく幅から列数を決める。端数は列間隔へ配って右端の空きを消す。
-## 縦スクロールバー分は常に差し引く（出入りで列数が振動しないように）。
+## 縦スクロールバー分は常に差し引く（検索で件数が変わりバーが出入りしても列数が振動しないように）。
+## 幅はパネルの内側余白も引いた実際の中身幅で計算する。はみ出すとグリッドがバーの下へ潜る。
 func _fit_card_grid() -> void:
 	if card_scroll == null or card_list_container == null:
 		return
 	if card_list_container.get_child_count() == 0 or not (card_list_container.get_child(0) is CombatCard):
 		return
 	var bar_w: float = card_scroll.get_v_scroll_bar().get_combined_minimum_size().x
-	var avail: float = card_scroll.size.x - bar_w
+	var pad_w: float = card_scroll.get_theme_stylebox("panel").get_minimum_size().x
+	var avail: float = card_scroll.size.x - pad_w - bar_w - POOL_BAR_GAP
 	if avail <= 0.0:
 		return
 	var cols: int = maxi(1, int((avail + POOL_CARD_GAP) / (POOL_CARD_SIZE.x + POOL_CARD_GAP)))
@@ -2102,6 +2130,7 @@ func _on_inspector_dim_gui(event: InputEvent) -> void:
 ## DeckListScreen.tsx の「＋新規デッキ」（nextDeckName()で自動命名→即編集モードへ）
 func _on_deck_list_create_pressed() -> void:
 	var name := CollectionData.next_deck_name(CollectionData.decks)
+	_active_deck_before_edit = CollectionData.active_deck
 	if CollectionData.create_deck(name):
 		GameState._persist_profile()
 		_deck_mode = "edit"
@@ -2112,6 +2141,7 @@ func _on_deck_list_create_pressed() -> void:
 
 ## DeckListScreen.tsx の onEditDeck()（デッキタイルクリック→編集モードへ）
 func _on_deck_list_open(name: String) -> void:
+	_active_deck_before_edit = CollectionData.active_deck
 	CollectionData.set_active_deck(name)
 	GameState._persist_profile()
 	_deck_mode = "edit"
@@ -2127,7 +2157,7 @@ func _on_deck_back_to_list_pressed() -> void:
 		_show_deck_save_dialog()
 		return
 	_close_card_inspector()
-	_deck_edit_open = false
+	_close_deck_edit()
 	_deck_mode = "list"
 	_refresh_deck_tab()
 	_update_header()

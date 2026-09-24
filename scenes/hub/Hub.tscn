@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scenes/hub/Hub.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/pixel/bg/loadout.jpg" id="2"]
@@ -21,6 +21,8 @@ corner_radius_top_left = 3
 corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxEmpty" id="StyleScrollBare"]
 
 [sub_resource type="StyleBoxFlat" id="StyleInkLedger"]
 bg_color = Color(0.024, 0.026, 0.025, 0.94)
@@ -764,13 +766,18 @@ theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
 autowrap_mode = 2
 text = ""
 
-[node name="CardScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
+[node name="CardScrollFrame" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CardScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScrollFrame"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 3
 clip_contents = true
+theme_override_styles/panel = SubResource("StyleScrollBare")
 
-[node name="CardListContainer" type="GridContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll"]
+[node name="CardListContainer" type="GridContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScrollFrame/CardScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
 columns = 5
