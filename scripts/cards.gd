@@ -57,6 +57,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 5,
 		"drop_weight": 10,
+		"pack_weight": 26,
 		"enemy_tier": 1,
 		"owner": "cultist",
 		"text": "ブロック6を得る。筋力を2得る。",
@@ -122,6 +123,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 20,
 		"drop_weight": 9,
+		"pack_weight": 10,
 		"owner": "shared",
 		"text": "ブロック15を得る。正気が20以下なら、敵全体に15ダメージ。",
 		"upgradedText": "ブロック20を得る。正気が25以下なら、敵全体に18ダメージ。",
@@ -170,6 +172,7 @@ const CARDS := {
 		"cost": 3,
 		"sell_price": 20,
 		"drop_weight": 9,
+		"pack_weight": 10,
 		"owner": "shared",
 		"text": "体力20回復。状態異常を回復する。正気を4回復。",
 		"upgradedText": "体力20回復。状態異常を回復する。正気を4回復。",
@@ -196,6 +199,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 5,
 		"drop_weight": 10,
+		"pack_weight": 124,
 		"enemy_tier": 1,
 		"owner": "shared",
 		"text": "2枚引く。正気を2回復。",
@@ -221,6 +225,7 @@ const CARDS := {
 		"cost": 2,
 		"sell_price": 10,
 		"drop_weight": 21,
+		"pack_weight": 37,
 		"enemy_tier": 2,
 		"owner": "shared",
 		"text": "敵全体に13ダメージ。",
@@ -245,6 +250,7 @@ const CARDS := {
 		"cost": 2,
 		"sell_price": 20,
 		"drop_weight": 9,
+		"pack_weight": 10,
 		"owner": "shared",
 		"text": "敵単体に22ダメージ。",
 		"upgradedText": "敵単体に22ダメージ。",
@@ -269,6 +275,7 @@ const CARDS := {
 		"cost": 0,
 		"sell_price": 5,
 		"drop_weight": 10,
+		"pack_weight": 124,
 		"enemy_tier": 1,
 		"owner": "shared",
 		"text": "敵単体に5ダメージ。",
@@ -293,6 +300,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 10,
 		"drop_weight": 21,
+		"pack_weight": 37,
 		"enemy_tier": 2,
 		"owner": "shared",
 		"text": "デッキから「猫」をランダムに3枚手札に加える。",
@@ -317,6 +325,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 10,
 		"drop_weight": 21,
+		"pack_weight": 37,
 		"enemy_tier": 2,
 		"owner": "shared",
 		"text": "このターン、「猫」を使用するたび、ブロック5と筋力1を得る。",
@@ -341,6 +350,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 20,
 		"drop_weight": 9,
+		"pack_weight": 10,
 		"owner": "shared",
 		"text": "体力を半分失う。「女神契約」をデッキに加える。破棄。",
 		"upgradedText": "体力を半分失う。「女神契約」をデッキに加える。破棄。",
@@ -439,6 +449,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 20,
 		"drop_weight": 9,
+		"pack_weight": 10,
 		"owner": "investigator",
 		"text": "9ダメージ。体力が半分以下なら、さらに9。",
 		"upgradedText": "12ダメージ。体力が半分以下なら、さらに12。",
@@ -467,6 +478,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 5,
 		"drop_weight": 10,
+		"pack_weight": 10,
 		"enemy_tier": 1,
 		"owner": "cultist",
 		"text": "ブロック6を得る。1回復。",
@@ -1071,6 +1083,7 @@ const CARDS := {
 		"cost": 1,
 		"sell_price": 5,
 		"drop_weight": 10,
+		"pack_weight": 29,
 		"enemy_tier": 1,
 		"owner": "shared",
 		"text": "敵全体に6ダメージ。",
@@ -1309,7 +1322,7 @@ const CARDS := {
 	"death": {
 		"id": "death", "name": "死", "type": "skill", "aiTag": "effect",
 		"archetype": "outer", "subArchetypes": ["tome", "chaos"],
-		"cost": 2, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 2, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度4を失う。体力4回復。4枚ドロー。",
 		"upgradedText": "正気度4を失う。体力4回復。4枚ドロー。",
 		"flavor": "", "art": "res://art/pixel/cards/death.jpg", "target": "none",
@@ -1319,7 +1332,7 @@ const CARDS := {
 	"chaos_slumber": {
 		"id": "chaos_slumber", "name": "混沌の微睡み", "type": "skill", "aiTag": "effect",
 		"archetype": "outer", "subArchetypes": ["chaos"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度6を失う。デッキから「混沌」カードを3枚手札に加える。",
 		"upgradedText": "正気度6を失う。デッキから「混沌」カードを3枚手札に加える。",
 		"flavor": "", "art": "res://art/pixel/cards/chaos_slumber.jpg", "target": "none",
@@ -1329,7 +1342,7 @@ const CARDS := {
 	"snore": {
 		"id": "snore", "name": "いびき", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "outer", "subArchetypes": ["chaos"],
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度2を失う。敵全体に10ダメージ。",
 		"upgradedText": "正気度2を失う。敵全体に10ダメージ。",
 		"flavor": "", "art": "res://art/pixel/cards/snore.jpg", "target": "all",
@@ -1339,7 +1352,7 @@ const CARDS := {
 	"turn_over": {
 		"id": "turn_over", "name": "寝返り", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "outer", "subArchetypes": ["chaos"],
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度2を失う。敵単体に16ダメージ。",
 		"upgradedText": "正気度2を失う。敵単体に16ダメージ。",
 		"flavor": "", "art": "res://art/pixel/cards/turn_over.jpg", "target": "enemy",
@@ -1349,7 +1362,7 @@ const CARDS := {
 	"dreaming": {
 		"id": "dreaming", "name": "夢見", "type": "skill", "aiTag": "effect",
 		"archetype": "outer", "subArchetypes": ["chaos"],
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度10を失う。体力を全回復する。",
 		"upgradedText": "正気度10を失う。体力を全回復する。",
 		"flavor": "", "art": "res://art/pixel/cards/dreaming.jpg", "target": "none",
@@ -1359,7 +1372,7 @@ const CARDS := {
 	"jester_gods_service": {
 		"id": "jester_gods_service", "name": "戯神の奉仕", "type": "skill", "aiTag": "defense",
 		"archetype": "outer", "subArchetypes": ["chaos"],
-		"cost": 3, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 3, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "防御30を得る。",
 		"upgradedText": "防御30を得る。",
 		"flavor": "", "art": "res://art/pixel/cards/jester_gods_service.jpg", "target": "none",
@@ -1378,7 +1391,7 @@ const CARDS := {
 	"darkness": {
 		"id": "darkness", "name": "闇", "type": "skill", "aiTag": "effect",
 		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "デッキから「豊穣」カードを3枚手札に加える。",
 		"upgradedText": "デッキから「豊穣」カードを3枚手札に加える。",
 		"flavor": "", "art": "res://art/pixel/cards/darkness.jpg", "target": "none",
@@ -1388,7 +1401,7 @@ const CARDS := {
 	"spawn": {
 		"id": "spawn", "name": "落とし子", "type": "skill", "aiTag": "effect",
 		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "手札に「黒羊」を4枚加える。以降、毎ターン開始時に「黒羊」を1枚手札に加える。",
 		"upgradedText": "手札に「黒羊」を4枚加える。以降、毎ターン開始時に「黒羊」を1枚手札に加える。",
 		"flavor": "", "art": "res://art/pixel/cards/spawn.jpg", "target": "none",
@@ -1404,7 +1417,7 @@ const CARDS := {
 	"nourishment": {
 		"id": "nourishment", "name": "滋養", "type": "skill", "aiTag": "defense",
 		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"requireId": "black_sheep", "requireN": 1,
 		"text": "「黒羊」を1枚消滅させて使用可能。正気度3を失う。体力20回復。",
 		"upgradedText": "「黒羊」を1枚消滅させて使用可能。正気度3を失う。体力20回復。",
@@ -1423,7 +1436,7 @@ const CARDS := {
 	"earthquake": {
 		"id": "earthquake", "name": "大地震", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
-		"cost": 2, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 2, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"requireId": "black_sheep", "requireN": 2,
 		"text": "「黒羊」を2枚消滅させて使用可能。敵全体に40ダメージ。",
 		"upgradedText": "「黒羊」を2枚消滅させて使用可能。敵全体に40ダメージ。",
@@ -1440,7 +1453,7 @@ const CARDS := {
 	"charge": {
 		"id": "charge", "name": "突進", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"requireId": "black_sheep", "requireN": 1,
 		"text": "「黒羊」を1枚消滅させて使用可能。敵単体に22ダメージ。",
 		"upgradedText": "「黒羊」を1枚消滅させて使用可能。敵単体に22ダメージ。",
@@ -1457,7 +1470,7 @@ const CARDS := {
 	"mother_goddess": {
 		"id": "mother_goddess", "name": "母なる神性", "type": "skill", "aiTag": "effect",
 		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
-		"cost": 2, "sell_price": 10, "drop_weight": 21, "enemy_tier": 2, "owner": "shared",
+		"cost": 2, "sell_price": 10, "drop_weight": 21, "pack_weight": 45, "enemy_tier": 2, "owner": "shared",
 		"text": "「黒羊」を手札上限まで加える。この戦闘中、ターン開始時に「黒羊」を追加で1枚加える。",
 		"upgradedText": "「黒羊」を手札上限まで加える。この戦闘中、ターン開始時に「黒羊」を追加で1枚加える。",
 		"flavor": "千の落とし子が、同時に産声をあげる。",
@@ -1475,7 +1488,7 @@ const CARDS := {
 	"apocrypha": {
 		"id": "apocrypha", "name": "異本", "type": "skill", "aiTag": "effect",
 		"archetype": "water", "subArchetypes": ["tome"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度4を失う。3枚ドロー。",
 		"upgradedText": "正気度4を失う。3枚ドロー。",
 		"flavor": "", "art": "res://art/pixel/cards/apocrypha.jpg", "target": "none",
@@ -1485,7 +1498,7 @@ const CARDS := {
 	"tentacle": {
 		"id": "tentacle", "name": "触手", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "water",
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度1を失う。敵単体に11ダメージ。",
 		"upgradedText": "正気度1を失う。敵単体に11ダメージ。",
 		"flavor": "", "art": "res://art/pixel/cards/tentacle.jpg", "target": "enemy",
@@ -1495,7 +1508,7 @@ const CARDS := {
 	"scales": {
 		"id": "scales", "name": "鱗", "type": "skill", "aiTag": "defense",
 		"archetype": "water",
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度1を失う。防御15を得る。",
 		"upgradedText": "正気度1を失う。防御15を得る。",
 		"flavor": "", "art": "res://art/pixel/cards/scales.jpg", "target": "none",
@@ -1505,7 +1518,7 @@ const CARDS := {
 	"mothers_embrace": {
 		"id": "mothers_embrace", "name": "母の抱擁", "type": "skill", "aiTag": "effect",
 		"archetype": "water",
-		"cost": 2, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 2, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度5回復。体力5回復。",
 		"upgradedText": "正気度5回復。体力5回復。",
 		"flavor": "", "art": "res://art/pixel/cards/mothers_embrace.jpg", "target": "none",
@@ -1528,7 +1541,7 @@ const CARDS := {
 	"sea_pact": {
 		"id": "sea_pact", "name": "海契約", "type": "skill", "aiTag": "effect",
 		"archetype": "water",
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared", "oncePerTurn": true,
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared", "oncePerTurn": true,
 		"text": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。デッキから「水」カードを2枚手札に加える。1ターンに1度しか使用できない。",
 		"upgradedText": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。デッキから「水」カードを2枚手札に加える。1ターンに1度しか使用できない。",
 		"flavor": "", "art": "res://art/pixel/cards/sea_pact.jpg", "target": "none",
@@ -1546,7 +1559,7 @@ const CARDS := {
 	"gill_breathing": {
 		"id": "gill_breathing", "name": "えら呼吸", "type": "skill", "aiTag": "effect",
 		"archetype": "water",
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "エネルギーを1得る。",
 		"upgradedText": "エネルギーを1得る。",
 		"flavor": "", "art": "res://art/pixel/cards/gill_breathing.jpg", "target": "none",
@@ -1557,7 +1570,7 @@ const CARDS := {
 	"wind_gods_bow": {
 		"id": "wind_gods_bow", "name": "風神の弓", "type": "attack", "aiTag": "attack", "vfx": "arrow",
 		"archetype": "wind", "subArchetypes": ["weapon", "wind"],
-		"cost": 2, "sell_price": 20, "drop_weight": 9, "owner": "shared",
+		"cost": 2, "sell_price": 20, "drop_weight": 9, "pack_weight": 16, "owner": "shared",
 		"shop": true,
 		"text": "敵全体に18ダメージ。",
 		"upgradedText": "敵全体に18ダメージ。",
@@ -1568,7 +1581,7 @@ const CARDS := {
 	"king_in_yellow": {
 		"id": "king_in_yellow", "name": "黄衣の王", "type": "skill", "aiTag": "effect",
 		"archetype": "wind", "subArchetypes": ["tome", "wind"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度5を失う。デッキから「風」カードを3枚手札に加える。",
 		"upgradedText": "正気度5を失う。デッキから「風」カードを3枚手札に加える。",
 		"flavor": "", "art": "res://art/pixel/cards/king_in_yellow.jpg", "target": "none",
@@ -1584,7 +1597,7 @@ const CARDS := {
 	"yellow_coin": {
 		"id": "yellow_coin", "name": "黄色のコイン", "type": "skill", "aiTag": "defense",
 		"archetype": "wind", "subArchetypes": ["wind"],
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"unplayable": true,
 		"handPresenceEffect": {"block": 20},
 		"onDraw": [{"t": "sanity", "n": -3}],
@@ -1596,7 +1609,7 @@ const CARDS := {
 	"whirlwind": {
 		"id": "whirlwind", "name": "つじ風", "type": "attack", "aiTag": "attack", "vfx": "slash",
 		"archetype": "wind", "subArchetypes": ["wind", "arcane"],
-		"cost": 1, "sell_price": 10, "drop_weight": 21, "enemy_tier": 2, "owner": "shared",
+		"cost": 1, "sell_price": 10, "drop_weight": 21, "pack_weight": 45, "enemy_tier": 2, "owner": "shared",
 		"text": "敵全体に6ダメージ。",
 		"upgradedText": "敵全体に6ダメージ。",
 		"flavor": "", "art": "res://art/pixel/cards/whirlwind.jpg", "target": "all",
@@ -1617,7 +1630,7 @@ const CARDS := {
 	"desert": {
 		"id": "desert", "name": "砂漠", "type": "skill", "aiTag": "effect",
 		"archetype": "wind", "subArchetypes": ["wind"],
-		"cost": 3, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 3, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "このターン、「風」属性カードのダメージを2倍にする。敵味方全体に弱体2を付与する。",
 		"upgradedText": "このターン、「風」属性カードのダメージを2倍にする。敵味方全体に弱体2を付与する。",
 		"flavor": "", "art": "res://art/pixel/cards/desert.jpg", "target": "none",
@@ -1633,7 +1646,7 @@ const CARDS := {
 	"yellow_hallucination": {
 		"id": "yellow_hallucination", "name": "黄色の幻覚", "type": "skill", "aiTag": "effect",
 		"archetype": "wind", "subArchetypes": ["wind"],
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"onDraw": [
 			{"t": "sanity", "n": -3},
 			{"t": "addToHand", "id": "whirlwind_free", "n": 3},
@@ -1647,7 +1660,7 @@ const CARDS := {
 	"fireball": {
 		"id": "fireball", "name": "火球", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "fire", "subArchetypes": ["fire", "arcane"],
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared", "vanishOnUse": true,
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared", "vanishOnUse": true,
 		"text": "敵単体に6ダメージ。",
 		"upgradedText": "敵単体に6ダメージ。",
 		"flavor": "", "art": "res://art/pixel/cards/fireball.jpg", "target": "enemy",
@@ -1657,7 +1670,7 @@ const CARDS := {
 	"fomalhaut": {
 		"id": "fomalhaut", "name": "フォーマルハウト", "type": "skill", "aiTag": "effect",
 		"archetype": "fire", "subArchetypes": ["star", "fire"],
-		"cost": 2, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 2, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "このターン、「火」属性カードのダメージを3倍にする。「火球」を3枚手札に加える（消滅型）。",
 		"upgradedText": "このターン、「火」属性カードのダメージを3倍にする。「火球」を3枚手札に加える（消滅型）。",
 		"flavor": "", "art": "res://art/pixel/cards/fomalhaut.jpg", "target": "none",
@@ -1673,7 +1686,7 @@ const CARDS := {
 	"flames_will": {
 		"id": "flames_will", "name": "火の意思", "type": "skill", "aiTag": "effect",
 		"archetype": "fire", "subArchetypes": ["fire"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "デッキから「火」カードを2枚手札に加える。「火球」を手札に2枚加える（消滅型）。",
 		"upgradedText": "デッキから「火」カードを2枚手札に加える。「火球」を手札に2枚加える（消滅型）。",
 		"flavor": "", "art": "res://art/pixel/cards/flames_will.jpg", "target": "none",
@@ -1689,7 +1702,7 @@ const CARDS := {
 	"cold_flame": {
 		"id": "cold_flame", "name": "冷たい炎", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "fire", "subArchetypes": ["fire"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "敵単体に3ダメージ。デッキから「火の意思」を1枚手札に加える。",
 		"upgradedText": "敵単体に3ダメージ。デッキから「火の意思」を1枚手札に加える。",
 		"flavor": "", "art": "res://art/pixel/cards/cold_flame.jpg", "target": "enemy",
@@ -1731,7 +1744,7 @@ const CARDS := {
 	"flame_pact": {
 		"id": "flame_pact", "name": "炎契約", "type": "skill", "aiTag": "effect",
 		"archetype": "fire",
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度6を失う。手札の「火」カードを6枚捨てて「炎の主」を手札に加える。",
 		"upgradedText": "正気度6を失う。手札の「火」カードを6枚捨てて「炎の主」を手札に加える。",
 		"flavor": "", "art": "res://art/pixel/cards/flame_pact.jpg", "target": "none",
@@ -1747,7 +1760,7 @@ const CARDS := {
 	"flame_drain": {
 		"id": "flame_drain", "name": "炎の吸血", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "fire", "subArchetypes": ["fire"],
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"requireSubInHand": "fire", "requireSubN": 2,
 		"text": "手札の「火」カードを2枚捨てる。敵単体に8ダメージ。体力8回復。",
 		"upgradedText": "手札の「火」カードを2枚捨てる。敵単体に8ダメージ。体力8回復。",
@@ -1767,7 +1780,7 @@ const CARDS := {
 	"shield": {
 		"id": "shield", "name": "盾", "type": "skill", "aiTag": "defense",
 		"archetype": "knight",
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 29, "enemy_tier": 1, "owner": "shared",
 		"unplayable": true,
 		"handPresenceEffect": {"block": 10},
 		"upgradedHandPresenceEffect": {"block": 15},
@@ -1779,7 +1792,7 @@ const CARDS := {
 	"armory": {
 		"id": "armory", "name": "武器庫", "type": "skill", "aiTag": "effect",
 		"archetype": "knight",
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 29, "enemy_tier": 1, "owner": "shared",
 		"text": "デッキから「武器」カードを2枚手札に加える。",
 		"upgradedText": "デッキから「武器」カードを2枚手札に加える。",
 		"flavor": "錆びた扉の奥で、刃だけが眠らない。", "art": "res://art/pixel/cards/armory.jpg", "target": "none",
@@ -1789,7 +1802,7 @@ const CARDS := {
 	"muramasa": {
 		"id": "muramasa", "name": "ムラマサ", "type": "attack", "aiTag": "attack", "vfx": "slash",
 		"archetype": "knight", "subArchetypes": ["weapon"],
-		"cost": 1, "sell_price": 20, "drop_weight": 9, "owner": "shared",
+		"cost": 1, "sell_price": 20, "drop_weight": 9, "pack_weight": 15, "owner": "shared",
 		"text": "正気度4を失う。敵単体に20ダメージ。",
 		"upgradedText": "正気度4を失う。敵単体に25ダメージ。",
 		"flavor": "鞘に納めても、刃鳴りは止まらない。", "art": "res://art/pixel/cards/muramasa.jpg", "target": "enemy",
@@ -1799,7 +1812,7 @@ const CARDS := {
 	"iron_armor": {
 		"id": "iron_armor", "name": "鉄の鎧", "type": "skill", "aiTag": "defense",
 		"archetype": "knight",
-		"cost": 2, "sell_price": 10, "drop_weight": 21, "enemy_tier": 2, "owner": "shared",
+		"cost": 2, "sell_price": 10, "drop_weight": 21, "pack_weight": 58, "enemy_tier": 2, "owner": "shared",
 		"text": "毎ターン開始時、防御を+5する。",
 		"upgradedText": "毎ターン開始時、防御を+5する。",
 		"flavor": "鈍い鉄が、夜の牙を受け止める。", "art": "res://art/pixel/cards/iron_armor.jpg", "target": "none",
@@ -1809,7 +1822,7 @@ const CARDS := {
 	"dull_blade": {
 		"id": "dull_blade", "name": "なまくら", "type": "attack", "aiTag": "attack", "vfx": "slash",
 		"archetype": "knight", "subArchetypes": ["weapon"],
-		"cost": 1, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 29, "enemy_tier": 1, "owner": "shared",
 		## 鍛冶屋の「焼く」は廃止。この隠し強化は届かないデッドコード。将来の再設計まで残す。
 		"fixedForgeUpgrade": true,
 		"text": "敵単体に8ダメージ。",
@@ -2126,15 +2139,17 @@ static func archetype_card_pool_multi(owner: String, archetypes: Array) -> Array
 const DEFAULT_DROP_WEIGHT := 10.0
 
 
-## 報酬・パックの抽選重み：カード自身の drop_weight × 所持が少ないほど出やすい 1 / (1 + 所持数)。
-static func _pick_weighted(candidates: Array, rand: Callable) -> Dictionary:
+## 報酬・パックの抽選重み：カード自身の重み × 所持が少ないほど出やすい 1 / (1 + 所持数)。
+## weight_key は通常 drop_weight。属性パックの確定枠だけ pack_weight を使う。
+static func _pick_weighted(candidates: Array, rand: Callable, weight_key: String = "drop_weight") -> Dictionary:
 	var owned_counts: Dictionary = {}
 	for o in CollectionData.inventory.cards:
 		var base_id: String = str(o.get("base_card_id", ""))
 		owned_counts[base_id] = int(owned_counts.get(base_id, 0)) + 1
 	return Mulberry32.weighted_pick_by(candidates, func(c):
 		var n: int = int(owned_counts.get(str(c.get("id", "")), 0))
-		return float(c.get("drop_weight", DEFAULT_DROP_WEIGHT)) / (1.0 + float(n))
+		var w: float = float(c.get(weight_key, c.get("drop_weight", DEFAULT_DROP_WEIGHT)))
+		return w / (1.0 + float(n))
 	, rand)
 
 
@@ -2153,8 +2168,11 @@ static func weighted_archetype_card(owner: String, archetype: String, rand: Call
 ## 単一属性は weighted_archetype_card がこの関数へ渡す。プールが空なら reward_pool に逃がす。
 static func weighted_archetype_cards(owner: String, archetypes: Array, rand: Callable) -> Dictionary:
 	var pool: Array = archetype_card_pool_multi(owner, archetypes)
-	var base_pool: Array = pool if not pool.is_empty() else reward_pool(owner)
-	var def: Dictionary = _pick_weighted(base_pool, rand)
+	if pool.is_empty():
+		return make_card(str(_pick_weighted(reward_pool(owner), rand).get("id", "")), false)
+	## 確定枠は pack_weight：そのカードが入る属性パックの中だけで意味を持つ相対値。
+	## 旧レアリティ時代のパック確定枠の排出比率（62/28/10）を保つよう、パックごとに合わせてある。
+	var def: Dictionary = _pick_weighted(pool, rand, "pack_weight")
 	return make_card(str(def.get("id", "")), false)
 
 
