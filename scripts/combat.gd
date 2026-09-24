@@ -1202,6 +1202,11 @@ static func _apply_enemy_intent(intent: Dictionary, e: Dictionary, c: Dictionary
 			if c.equipmentStats.get("intangibleOnHit") and reduced_hp > 0 and int(c.intangible) == 0:
 				c.intangible = int(c.intangible) + 1
 		c.log.append("%sが%dダメージ。" % [Enemies.get_enemy(str(e.defId)).name, total_dealt])
+		## アイホートくんの「子を宿す」：HPに通った（ブロック等で0にならなかった）ら命中。
+		## 呪いの階層は GameState が持つので、ここでは戦闘状態に印を付けるだけ（Combat.gd が拾う）。
+		if intent.get("eihortCurse") and total_dealt > 0:
+			c.eihortCursed = true
+			c.log.append("体の奥で、何かが根を張った。")
 	if intent.get("kind") == "defend" or intent.get("block"):
 		e.block = int(e.block) + int(intent.get("block", 0))
 		if intent.get("block"):

@@ -40,6 +40,20 @@ const EVENTS := [
 			{"id": "smash", "label": "割る", "result": "体力-10。この沈降中、筋力+2。"},
 		],
 	},
+	## 会話モーダル（scenes/event/DialogueEventModal.gd）で進むイベント。
+	## 表示するのは台詞と選択肢の文字だけ。id（開発用の呼び名）は画面に出さない。
+	## choices は先頭が立ち絵の左、2つ目が右。reply がある選択肢は返事を見せてから進む。
+	{
+		"id": "eihort",
+		"presentation": "dialogue",
+		"background": "res://art/pixel/events/eihort_labyrinth.png",
+		"portrait": "res://art/pixel/enemies/eihort.png",
+		"line": "お、人間じゃん。君、僕の子を産んでみない？",
+		"choices": [
+			{"id": "fight", "label": "戦う"},
+			{"id": "bear", "label": "子を宿す", "reply": "やった！ありがとう！"},
+		],
+	},
 ]
 
 
