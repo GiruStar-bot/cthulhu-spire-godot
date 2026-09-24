@@ -120,14 +120,12 @@ const NORMAL_PACK_ART := "res://art/pixel/ui/card_back.png"
 
 ## Hub デッキ棚（正四角タイル）。顔は deck_tile_*。pack fallback なし。
 const DECK_SHELF_COLORS := {
-	"fanatic": Color("6B1F22"),
 	"knight": Color("5C6570"),
 	"poison": Color("2F5C3A"),
 	"water": Color("1F4A5C"),
 	"outer": Color("3A2A55"),
 	"elder": Color("4A4538"),
 	"offering": Color("5C4A2E"),
-	"shadow": Color("2A2438"),
 	"greatold": Color("3A2850"),
 	"all": Color("3A3548"),
 	"none": Color("2A2430"),
