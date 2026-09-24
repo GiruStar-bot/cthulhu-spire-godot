@@ -17,7 +17,7 @@ const ARCHETYPE_LABELS := {
 	"shadow": "影",
 	"greatold": "旧支配者",
 	"all": "全",
-	"earth": "豊穣",
+	"earth": "豊穣/地",
 	"wind": "風",
 	"fire": "火",
 	"magic": "魔導",
