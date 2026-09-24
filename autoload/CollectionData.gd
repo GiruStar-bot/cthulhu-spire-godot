@@ -298,7 +298,8 @@ func _grant_all_cards_for_debug() -> void:
 		owned[str(c.get("base_card_id", ""))] = true
 	for card_id in Cards.CARDS.keys():
 		var d: Dictionary = Cards.CARDS[card_id]
-		if d.get("type") == "status" or d.get("rarity") == "status":
+		## HUBに出さないカード：状態異常（type）と入手不可（unobtainable）。rarity には頼らない。
+		if d.get("type") == "status" or d.get("unobtainable", false):
 			continue
 		if owned.get(card_id, false):
 			continue

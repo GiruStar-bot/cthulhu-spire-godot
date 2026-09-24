@@ -373,6 +373,7 @@ const CARDS := {
 		"cost": 2,
 		"rarity": "rare",
 		"owner": "cultist",
+		"unobtainable": true,  ## 狂信・影は廃止。ボスのデッキが参照するので定義は残す
 		"text": "敵全体に10ダメージ。弱体2。正気を6失う。破棄。",
 		"upgradedText": "敵全体に14ダメージ。弱体3。正気を5失う。破棄。",
 		"flavor": "母音を、待っていた。",
@@ -567,6 +568,7 @@ const CARDS := {
 		"cost": 2,
 		"rarity": "rare",
 		"owner": "shared",
+		"unobtainable": true,  ## 狂信・影は廃止。ボスのデッキが参照するので定義は残す
 		"grimoire": true,
 		"text": "14ダメージ。脱力2。捨て札に凍傷を1枚。",
 		"upgradedText": "18ダメージ。脱力2。捨て札に凍傷を1枚。",
@@ -961,6 +963,7 @@ const CARDS := {
 		"cost": 1,
 		"rarity": "rare",
 		"owner": "shared",
+		"unobtainable": true,  ## 狂信・影は廃止。ボスのデッキが参照するので定義は残す
 		"enemyOnly": true,
 		"text": "相手の攻撃を封じる。弱体1を与える。",
 		"upgradedText": "相手の攻撃を封じる。弱体2を与える。",
@@ -997,6 +1000,7 @@ const CARDS := {
 		"cost": 1,
 		"rarity": "rare",
 		"owner": "shared",
+		"unobtainable": true,  ## 狂信・影は廃止。ボスのデッキが参照するので定義は残す
 		"enemyOnly": true,
 		"text": "相手の技能を封じる。",
 		"upgradedText": "相手の技能を封じる。ブロック5を得る。",
