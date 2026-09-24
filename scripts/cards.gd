@@ -7,14 +7,12 @@ extends RefCounted
 const DECK_LIMIT := 20
 
 const ARCHETYPE_LABELS := {
-	"fanatic": "狂信",
 	"knight": "騎士",
 	"poison": "毒",
 	"outer": "外宇宙",
 	"elder": "旧神",
 	"water": "水",
 	"offering": "供物",
-	"shadow": "影",
 	"greatold": "旧支配者",
 	"all": "全",
 	"earth": "豊穣/地",
@@ -398,12 +396,11 @@ const CARDS := {
 		"name": "呼び声",
 		"type": "attack",
 		"aiTag": "attack",
-		"archetype": "fanatic",
 		"cost": 2,
 		"sell_price": 20,
 		"drop_weight": 9,
 		"owner": "cultist",
-		"unobtainable": true,  ## 狂信・影は廃止。ボスのデッキが参照するので定義は残す
+		"unobtainable": true,  ## 狂信・影は廃止（属性も外した）。ボスのデッキが参照するので定義は残す
 		"text": "敵全体に10ダメージ。弱体2。正気を6失う。破棄。",
 		"upgradedText": "敵全体に14ダメージ。弱体3。正気を5失う。破棄。",
 		"flavor": "母音を、待っていた。",
@@ -598,12 +595,11 @@ const CARDS := {
 		"name": "絶対零度の騙し絵",
 		"type": "attack",
 		"aiTag": "attack",
-		"archetype": "fanatic",
 		"cost": 2,
 		"sell_price": 20,
 		"drop_weight": 9,
 		"owner": "shared",
-		"unobtainable": true,  ## 狂信・影は廃止。ボスのデッキが参照するので定義は残す
+		"unobtainable": true,  ## 狂信・影は廃止（属性も外した）。ボスのデッキが参照するので定義は残す
 		"grimoire": true,
 		"text": "14ダメージ。脱力2。捨て札に凍傷を1枚。",
 		"upgradedText": "18ダメージ。脱力2。捨て札に凍傷を1枚。",
@@ -1005,12 +1001,11 @@ const CARDS := {
 		"name": "邪視の呪縛",
 		"type": "skill",
 		"aiTag": "effect",
-		"archetype": "shadow",
 		"cost": 1,
 		"sell_price": 20,
 		"drop_weight": 9,
 		"owner": "shared",
-		"unobtainable": true,  ## 狂信・影は廃止。ボスのデッキが参照するので定義は残す
+		"unobtainable": true,  ## 狂信・影は廃止（属性も外した）。ボスのデッキが参照するので定義は残す
 		"enemyOnly": true,
 		"text": "相手の攻撃を封じる。弱体1を与える。",
 		"upgradedText": "相手の攻撃を封じる。弱体2を与える。",
@@ -1043,12 +1038,11 @@ const CARDS := {
 		"name": "沈黙の呪縛",
 		"type": "skill",
 		"aiTag": "effect",
-		"archetype": "shadow",
 		"cost": 1,
 		"sell_price": 20,
 		"drop_weight": 9,
 		"owner": "shared",
-		"unobtainable": true,  ## 狂信・影は廃止。ボスのデッキが参照するので定義は残す
+		"unobtainable": true,  ## 狂信・影は廃止（属性も外した）。ボスのデッキが参照するので定義は残す
 		"enemyOnly": true,
 		"text": "相手の技能を封じる。",
 		"upgradedText": "相手の技能を封じる。ブロック5を得る。",

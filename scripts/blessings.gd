@@ -93,11 +93,6 @@ const CATALOG := {
 		"unique": true,
 		"flag": "intangibleOnHit",
 	},
-	"bias_fanatic": {
-		"name": "狂信の潮流",
-		"text": "狂信の敵と遭遇しやすくなる。その属性のチケットが落ちやすい。",
-		"bias": "fanatic",
-	},
 	"bias_knight": {
 		"name": "騎士の潮流",
 		"text": "騎士の敵と遭遇しやすくなる。その属性のチケットが落ちやすい。",
@@ -127,11 +122,6 @@ const CATALOG := {
 		"name": "供物の潮流",
 		"text": "供物のチケットが落ちやすい。",
 		"bias": "offering",
-	},
-	"bias_shadow": {
-		"name": "影の潮流",
-		"text": "影のチケットが落ちやすい。",
-		"bias": "shadow",
 	},
 	"bias_greatold": {
 		"name": "旧支配者の潮流",
