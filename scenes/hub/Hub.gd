@@ -2252,4 +2252,3 @@ func _on_deck_filter_reset_pressed() -> void:
 	deck_filter_archetype_popover.visible = false
 	deck_filter_rarity_popover.visible = false
 	deck_filter_ai_tag_popover.visible = false
-
