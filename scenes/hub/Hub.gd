@@ -199,7 +199,6 @@ func _ready() -> void:
 	confirm_rename_button.pressed.connect(_on_rename_confirm_pressed)
 	cancel_rename_button.pressed.connect(_on_rename_cancel_pressed)
 	deck_back_to_list_button.pressed.connect(_on_deck_back_to_list_pressed)
-	sell_card_tab_button.pressed.connect(_on_sell_tab_selected.bind("card"))
 	sell_surplus_button.pressed.connect(_on_sell_surplus_pressed)
 	sell_select_all_button.pressed.connect(_on_sell_select_all_pressed)
 	sell_clear_all_button.pressed.connect(_on_sell_clear_all_pressed)
@@ -1229,87 +1228,86 @@ func _refresh_sell_tab() -> void:
 	for child in sell_list_container.get_children():
 		child.queue_free()
 
-	if _sell_tab == "card":
-		## SellScreen.tsx の grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] 相当。
-		## 幅は 128 のまま折り返し列数を維持し、サムネはデッキ編成と同じ 88×124。
-		var rows := _sellable_card_rows()
-		if rows.is_empty():
-			var empty_label := Label.new()
-			empty_label.text = "売れるカードがない。"
-			sell_list_container.add_child(empty_label)
-		for r in rows:
-			var base_card_id: String = str(r.base_card_id)
-			var owned_n: int = int(r.owned)
-			var sellable: int = int(r.sellable)
-			var qty := _sell_qty_for(base_card_id, sellable)
-			var def := Cards.get_card(base_card_id)
-			var unit_price: int = GameState.card_sell_price(def)
+	## SellScreen.tsx の grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] 相当。
+	## 幅は 128 のまま折り返し列数を維持し、サムネはデッキ編成と同じ 88×124。
+	var rows := _sellable_card_rows()
+	if rows.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "売れるカードがない。"
+		sell_list_container.add_child(empty_label)
+	for r in rows:
+		var base_card_id: String = str(r.base_card_id)
+		var owned_n: int = int(r.owned)
+		var sellable: int = int(r.sellable)
+		var qty := _sell_qty_for(base_card_id, sellable)
+		var def := Cards.get_card(base_card_id)
+		var unit_price: int = GameState.card_sell_price(def)
 
-			var cell := VBoxContainer.new()
-			cell.custom_minimum_size = Vector2(128, 228)
-			cell.add_theme_constant_override("separation", 4)
-			cell.clip_contents = true
+		var cell := VBoxContainer.new()
+		cell.custom_minimum_size = Vector2(128, 228)
+		cell.add_theme_constant_override("separation", 4)
+		cell.clip_contents = true
 
-			## SellScreen.tsx の CardView onClick（クリックで最大/解除トグル）相当。
-			## 幅 0 だとセル幅（128）×高さ 82 の横長になる。デッキ編成サムネと同じ縦長に固定する。
-			var thumb_btn := Button.new()
-			thumb_btn.custom_minimum_size = Vector2(88, 124)
-			thumb_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-			thumb_btn.clip_contents = true
-			thumb_btn.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
-			thumb_btn.pressed.connect(_on_sell_card_thumb_pressed.bind(base_card_id, sellable))
-			var art_path: String = Cards.card_art({}, def)
-			var sell_art := _make_art_thumbnail(art_path, str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(88, 124))
-			sell_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			thumb_btn.add_child(sell_art)
-			var owned_badge := Label.new()
-			owned_badge.text = "x%d" % owned_n
-			owned_badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
-			owned_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			thumb_btn.add_child(owned_badge)
-			cell.add_child(thumb_btn)
+		## SellScreen.tsx の CardView onClick（クリックで最大/解除トグル）相当。
+		## 幅 0 だとセル幅（128）×高さ 82 の横長になる。デッキ編成サムネと同じ縦長に固定する。
+		var thumb_btn := Button.new()
+		thumb_btn.custom_minimum_size = Vector2(88, 124)
+		thumb_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		thumb_btn.clip_contents = true
+		thumb_btn.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
+		thumb_btn.pressed.connect(_on_sell_card_thumb_pressed.bind(base_card_id, sellable))
+		var art_path: String = Cards.card_art({}, def)
+		var sell_art := _make_art_thumbnail(art_path, str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(88, 124))
+		sell_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		thumb_btn.add_child(sell_art)
+		var owned_badge := Label.new()
+		owned_badge.text = "x%d" % owned_n
+		owned_badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
+		owned_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		thumb_btn.add_child(owned_badge)
+		cell.add_child(thumb_btn)
 
-			var name_label := Label.new()
-			name_label.text = str(def.get("name", base_card_id))
-			name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-			name_label.max_lines_visible = 2
-			cell.add_child(name_label)
+		var name_label := Label.new()
+		name_label.text = str(def.get("name", base_card_id))
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		name_label.max_lines_visible = 2
+		cell.add_child(name_label)
 
-			var qty_row := HBoxContainer.new()
-			qty_row.alignment = BoxContainer.ALIGNMENT_CENTER
-			qty_row.add_theme_constant_override("separation", 4)
-			var minus_btn := Button.new()
-			minus_btn.text = "-"
-			minus_btn.disabled = qty <= 0
-			minus_btn.pressed.connect(_on_sell_card_minus_pressed.bind(base_card_id, sellable))
-			qty_row.add_child(minus_btn)
-			var qty_label := Label.new()
-			qty_label.text = "%d/%d" % [qty, sellable]
-			qty_label.custom_minimum_size = Vector2(40, 0)
-			qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			qty_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-			qty_row.add_child(qty_label)
-			var plus_btn := Button.new()
-			plus_btn.text = "+"
-			plus_btn.disabled = qty >= sellable
-			plus_btn.pressed.connect(_on_sell_card_plus_pressed.bind(base_card_id, sellable))
-			qty_row.add_child(plus_btn)
-			cell.add_child(qty_row)
-			_sell_card_row_nodes[base_card_id] = {
-				"qty_label": qty_label,
-				"minus_btn": minus_btn,
-				"plus_btn": plus_btn,
-				"sellable": sellable,
-			}
+		var qty_row := HBoxContainer.new()
+		qty_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		qty_row.add_theme_constant_override("separation", 4)
+		var minus_btn := Button.new()
+		minus_btn.text = "-"
+		minus_btn.disabled = qty <= 0
+		minus_btn.pressed.connect(_on_sell_card_minus_pressed.bind(base_card_id, sellable))
+		qty_row.add_child(minus_btn)
+		var qty_label := Label.new()
+		qty_label.text = "%d/%d" % [qty, sellable]
+		qty_label.custom_minimum_size = Vector2(40, 0)
+		qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		qty_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		qty_row.add_child(qty_label)
+		var plus_btn := Button.new()
+		plus_btn.text = "+"
+		plus_btn.disabled = qty >= sellable
+		plus_btn.pressed.connect(_on_sell_card_plus_pressed.bind(base_card_id, sellable))
+		qty_row.add_child(plus_btn)
+		cell.add_child(qty_row)
+		_sell_card_row_nodes[base_card_id] = {
+			"qty_label": qty_label,
+			"minus_btn": minus_btn,
+			"plus_btn": plus_btn,
+			"sellable": sellable,
+		}
 
-			var price_label := Label.new()
-			price_label.text = "貝殻%d/枚" % unit_price
-			price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			price_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-			cell.add_child(price_label)
+		var price_label := Label.new()
+		price_label.text = "貝殻%d/枚" % unit_price
+		price_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		price_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		cell.add_child(price_label)
 
-			sell_list_container.add_child(cell)
+		sell_list_container.add_child(cell)
 
 	_update_sell_footer()
 
