@@ -114,32 +114,6 @@ const AI_TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "効�
 
 const NORMAL_PACK_ART := "res://art/pixel/ui/card_back.png"
 
-## CombatCard.gd と同じカード枠の9-slice指定。Hubの一覧でも同じカード体系を使う。
-const CARD_FRAME_BY_RARITY := {
-	"common": ["res://art/pixel/ui/frame_card_common_9.png", 8],
-	"uncommon": ["res://art/pixel/ui/frame_card_uncommon_9.png", 16],
-	"rare": ["res://art/pixel/ui/frame_card_9.png", 13],
-	"legendary": ["res://art/pixel/ui/frame_card_9.png", 13],
-}
-const CARD_FRAME_BY_ARCHETYPE := {
-	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 15],
-	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 14],
-	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 19],
-	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
-	"knight": ["res://art/pixel/ui/frame_card_knight_9.png", 12],
-	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 11],
-	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 13],
-	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 12],
-	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 20],
-	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 11],
-	"water": ["res://art/pixel/ui/frame_card_water_9.png", 19],
-}
-
-const POOL_TAG_BORDER := {
-	"attack": Color("6b1f22"),
-	"defense": Color("183c66"),
-	"effect": Color("452267"),
-}
 
 ## Hub デッキ棚（正四角タイル）。顔は deck_tile_*。pack fallback なし。
 const DECK_SHELF_COLORS := {
@@ -1089,7 +1063,7 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 	if not with_frame:
 		return holder
 
-	var frame_data: Array = CARD_FRAME_BY_ARCHETYPE.get(archetype, CARD_FRAME_BY_RARITY.get(rarity, CARD_FRAME_BY_RARITY["common"]))
+	var frame_data: Array = CombatCard.FRAME_BY_ARCHETYPE.get(archetype, CombatCard.FRAME_BY_RARITY.get(rarity, CombatCard.FRAME_BY_RARITY["common"]))
 	var frame := NinePatchRect.new()
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	frame.draw_center = false
@@ -1187,6 +1161,10 @@ func _sync_sell_card_row(base_card_id: String, sellable: int) -> void:
 	qty_label.text = "%d/%d" % [qty, sellable]
 	minus_btn.disabled = qty <= 0
 	plus_btn.disabled = qty >= sellable
+	var cc: CombatCard = row.get("combat_card") as CombatCard
+	if cc != null and is_instance_valid(cc):
+		var def: Dictionary = row.get("card_def", {})
+		cc.configure({}, def, true, qty > 0, true)
 
 
 func _update_sell_footer() -> void:
@@ -1244,35 +1222,27 @@ func _refresh_sell_tab() -> void:
 		var unit_price: int = GameState.card_sell_price(def)
 
 		var cell := VBoxContainer.new()
-		cell.custom_minimum_size = Vector2(128, 228)
+		cell.custom_minimum_size = Vector2(148, 260)
 		cell.add_theme_constant_override("separation", 4)
-		cell.clip_contents = true
 
-		## SellScreen.tsx の CardView onClick（クリックで最大/解除トグル）相当。
-		## 幅 0 だとセル幅（128）×高さ 82 の横長になる。デッキ編成サムネと同じ縦長に固定する。
-		var thumb_btn := Button.new()
-		thumb_btn.custom_minimum_size = Vector2(88, 124)
-		thumb_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		thumb_btn.clip_contents = true
-		thumb_btn.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
-		thumb_btn.pressed.connect(_on_sell_card_thumb_pressed.bind(base_card_id, sellable))
-		var art_path: String = Cards.card_art({}, def)
-		var sell_art := _make_art_thumbnail(art_path, str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(88, 124))
-		sell_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		thumb_btn.add_child(sell_art)
+		var card_holder := Control.new()
+		card_holder.custom_minimum_size = Vector2(128, 192)
+		card_holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+		var combat_card: CombatCard = COMBAT_CARD.new() as CombatCard
+		combat_card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		combat_card.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
+		combat_card.pressed.connect(_on_sell_card_thumb_pressed.bind(base_card_id, sellable))
+		card_holder.add_child(combat_card)
+		combat_card.configure({}, def, true, qty > 0, true)
+
 		var owned_badge := Label.new()
 		owned_badge.text = "x%d" % owned_n
 		owned_badge.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE)
 		owned_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		thumb_btn.add_child(owned_badge)
-		cell.add_child(thumb_btn)
+		combat_card.add_child(owned_badge)
 
-		var name_label := Label.new()
-		name_label.text = str(def.get("name", base_card_id))
-		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-		name_label.max_lines_visible = 2
-		cell.add_child(name_label)
+		cell.add_child(card_holder)
 
 		var qty_row := HBoxContainer.new()
 		qty_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1299,6 +1269,8 @@ func _refresh_sell_tab() -> void:
 			"minus_btn": minus_btn,
 			"plus_btn": plus_btn,
 			"sellable": sellable,
+			"combat_card": combat_card,
+			"card_def": def,
 		}
 
 		var price_label := Label.new()
@@ -1765,45 +1737,13 @@ func _on_deck_row_gui(event: InputEvent, card_id: String, row: Control) -> void:
 		_open_card_inspector(card_id, from_rect)
 
 
-func _make_pool_thumb(card_id: String, def: Dictionary, card_name: String, owned_count: int, in_deck: int) -> Button:
-	var card_button := Button.new()
-	card_button.custom_minimum_size = Vector2(88, 124)
-	card_button.clip_contents = true
-	card_button.set_meta("card_id", card_id)
-	card_button.tooltip_text = "%s\n所持 %d / デッキ内 %d" % [card_name, owned_count, in_deck]
-	card_button.pressed.connect(_on_pool_thumb_pressed.bind(card_id, card_button))
-	var empty := StyleBoxEmpty.new()
-	card_button.add_theme_stylebox_override("normal", empty)
-	card_button.add_theme_stylebox_override("hover", empty)
-	card_button.add_theme_stylebox_override("pressed", empty)
-	card_button.add_theme_stylebox_override("disabled", empty)
-	card_button.add_theme_stylebox_override("focus", empty)
-
-	var art := _make_art_strip(Cards.card_art({}, def), Vector2(88, 124))
-	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	card_button.add_child(art)
-
-	var tag: String = str(def.get("aiTag", ""))
-	var edge_style := StyleBoxFlat.new()
-	edge_style.bg_color = Color(0, 0, 0, 0)
-	edge_style.set_border_width_all(2)
-	edge_style.border_color = POOL_TAG_BORDER.get(tag, Color(1, 1, 1, 0.4))
-	var edge_panel := Panel.new()
-	edge_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	edge_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	edge_panel.add_theme_stylebox_override("panel", edge_style)
-	card_button.add_child(edge_panel)
-
-	var cost_label := Label.new()
-	cost_label.text = "X" if def.get("xCost", false) else ("—" if def.get("unplayable", false) else str(int(def.get("cost", 0))))
-	cost_label.position = Vector2(4, 4)
-	cost_label.size = Vector2(20, 16)
-	cost_label.add_theme_font_size_override("font_size", 10)
-	cost_label.add_theme_color_override("font_color", Color.WHITE)
-	cost_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-	cost_label.add_theme_constant_override("outline_size", 3)
-	cost_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_button.add_child(cost_label)
+func _make_pool_thumb(card_id: String, def: Dictionary, card_name: String, owned_count: int, in_deck: int) -> CombatCard:
+	var combat_card: CombatCard = COMBAT_CARD.new() as CombatCard
+	combat_card.custom_minimum_size = Vector2(128, 192)
+	combat_card.set_meta("card_id", card_id)
+	combat_card.tooltip_text = "%s\n所持 %d / デッキ内 %d" % [card_name, owned_count, in_deck]
+	combat_card.pressed.connect(_on_pool_thumb_pressed.bind(card_id, combat_card))
+	combat_card.configure({}, def, true, false, true)
 
 	var count_label := Label.new()
 	count_label.name = "CountLabel"
@@ -1819,29 +1759,11 @@ func _make_pool_thumb(card_id: String, def: Dictionary, card_name: String, owned
 	count_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	count_label.add_theme_constant_override("outline_size", 3)
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_button.add_child(count_label)
+	combat_card.add_child(count_label)
 
-	var name_bar := ColorRect.new()
-	name_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	name_bar.offset_top = -22
-	name_bar.color = Color(0, 0, 0, 0.7)
-	name_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_button.add_child(name_bar)
-	var name_label := Label.new()
-	name_label.text = card_name
-	name_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	name_label.offset_left = 4
-	name_label.offset_top = -20
-	name_label.offset_right = -4
-	name_label.offset_bottom = -2
-	name_label.add_theme_font_size_override("font_size", 10)
-	name_label.add_theme_color_override("font_color", Color.WHITE)
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_button.add_child(name_label)
 	if in_deck <= 0:
-		card_button.modulate = Color(1, 1, 1, 0.92)
-	return card_button
+		combat_card.modulate = Color(1, 1, 1, 0.92)
+	return combat_card
 
 
 func _on_pool_thumb_pressed(card_id: String, thumb: Control) -> void:
