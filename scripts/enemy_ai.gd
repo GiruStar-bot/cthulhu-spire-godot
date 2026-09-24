@@ -9,22 +9,24 @@ const AI_CATEGORY_WEIGHTS := {
 	"effect": 0.2,
 }
 
-const TIER_RARITIES := {
-	"mob": ["common"],
-	"elite": ["common", "uncommon"],
+## 敵ランクごとに使えるカードの上限（カードの enemy_tier と比較）。
+## 雑魚は enemy_tier 1 のみ、エリートは 2 まで。ボスはデッキ指定なので制限なし。
+const TIER_MAX_ENEMY_TIER := {
+	"mob": 1,
+	"elite": 2,
 }
 
 
 ## enemyAi.ts rollEnemyCard()
 static func roll_enemy_card(def_id: String, rand: Callable) -> Dictionary:
 	var def := Enemies.get_enemy(def_id)
-	var rarities = null if def.has("deck") else TIER_RARITIES[str(def.get("tier", "mob"))]
+	var max_tier = null if def.has("deck") else TIER_MAX_ENEMY_TIER[str(def.get("tier", "mob"))]
 	var use_archetype: bool = (not def.has("deck")) and str(def.get("archetype", "")) != ""
 
 	var build_pool := func(tag: String) -> Array:
 		if use_archetype:
-			return Cards.ai_card_pool(tag, rarities, def.get("archetype"))
-		return Cards.ai_card_pool(tag, rarities)
+			return Cards.ai_card_pool(tag, max_tier, def.get("archetype"))
+		return Cards.ai_card_pool(tag, max_tier)
 
 	var pools: Dictionary
 	if def.has("deck"):
@@ -46,8 +48,8 @@ static func roll_enemy_card(def_id: String, rand: Callable) -> Dictionary:
 			active_weights[tag] = AI_CATEGORY_WEIGHTS[tag]
 
 	if active_weights.is_empty():
-		var fallback_r = rarities if rarities != null else TIER_RARITIES["mob"]
-		return Mulberry32.pick_rand(Cards.ai_card_pool("attack", fallback_r), rand)
+		var fallback_tier = max_tier if max_tier != null else TIER_MAX_ENEMY_TIER["mob"]
+		return Mulberry32.pick_rand(Cards.ai_card_pool("attack", fallback_tier), rand)
 	var category: String = str(Mulberry32.weighted_pick(active_weights, rand))
 	return Mulberry32.pick_rand(pools[category], rand)
 

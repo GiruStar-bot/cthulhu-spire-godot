@@ -709,10 +709,6 @@ placeholder_text = "カード名で検索..."
 layout_mode = 2
 text = "ジャンル ▾"
 
-[node name="RarityButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
-layout_mode = 2
-text = "レア度 ▾"
-
 [node name="AiTagButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow"]
 layout_mode = 2
 text = "種別 ▾"
@@ -731,18 +727,6 @@ theme_override_styles/panel = SubResource("StyleRitualPanel")
 clip_contents = true
 
 [node name="DeckFilterArchetypeRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterArchetypePopover"]
-layout_mode = 2
-theme = SubResource("ThemeRitual")
-theme_override_constants/h_separation = 4
-theme_override_constants/v_separation = 4
-
-[node name="DeckFilterRarityPopover" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
-visible = false
-layout_mode = 2
-theme_override_styles/panel = SubResource("StyleRitualPanel")
-clip_contents = true
-
-[node name="DeckFilterRarityRow" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover"]
 layout_mode = 2
 theme = SubResource("ThemeRitual")
 theme_override_constants/h_separation = 4

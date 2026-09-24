@@ -6,12 +6,8 @@ extends Button
 signal drag_began(card_uid: String)
 
 ## styles.css の border-width。slice値ではなく枠の厚さ。
-const FRAME_BY_RARITY := {
-	"common": ["res://art/pixel/ui/frame_card_common_9.png", 10],
-	"uncommon": ["res://art/pixel/ui/frame_card_uncommon_9.png", 12],
-	"rare": ["res://art/pixel/ui/frame_card_9.png", 12],
-	"legendary": ["res://art/pixel/ui/frame_card_9.png", 12],
-}
+## 属性フレームが無いカード（属性なし等）の共通枠。状態異常カードは枠なしの細い縁取りのまま。
+const FRAME_DEFAULT := ["res://art/pixel/ui/frame_card_9.png", 12]
 const FRAME_BY_ARCHETYPE := {
 	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 14],
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 12],
@@ -556,8 +552,8 @@ func _build() -> void:
 func _apply_frame(definition: Dictionary) -> void:
 	var archetype: String = str(definition.get("archetype", ""))
 	var frame_data: Array = FRAME_BY_ARCHETYPE.get(archetype, [])
-	if frame_data.is_empty():
-		frame_data = FRAME_BY_RARITY.get(str(definition.get("rarity", "")), [])
+	if frame_data.is_empty() and str(definition.get("type", "")) != "status":
+		frame_data = FRAME_DEFAULT
 	if frame_data.is_empty():
 		_frame.visible = false
 		_fallback_outline.visible = true
