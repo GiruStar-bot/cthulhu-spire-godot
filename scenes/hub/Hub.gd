@@ -112,13 +112,15 @@ var _sell_card_row_nodes: Dictionary = {}  ## base_card_id -> {qty_label, minus_
 # カード自体の archetype と枠画像は別定数のまま残す。
 # ============================================================
 
-const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "water", "greatold", "all"]
-const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
+## 絞り込み・ジャンル順ソートの対象。scripts/cards.gd に実在する archetype に合わせる
+## （greatold は現データに無いので外す。archetype 無し＝generic は対象外）。
+const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "water", "all", "fire", "wind", "earth", "magic", "fanatic", "shadow"]
+const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary", "status"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
 const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
 const DECK_SORT_MODES := ["cost", "rarity", "owned", "archetype"]
 const DECK_SORT_LABELS := {"cost": "コスト順", "rarity": "レア度順", "owned": "所持数順", "archetype": "ジャンル順"}
-const RARITY_LABELS := {"common": "コモン", "uncommon": "アンコモン", "rare": "レア", "status": "状態"}
+const RARITY_LABELS := {"common": "コモン", "uncommon": "アンコモン", "rare": "レア", "legendary": "レジェンダリー", "status": "状態"}
 const AI_TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "効果"}
 
 const NORMAL_PACK_ART := "res://art/pixel/ui/card_back.png"
