@@ -513,8 +513,7 @@ func resolve_event(tree: SceneTree, choice_id: String) -> void:
 		goto_scene(tree, "combat")
 		return
 	if event_id == "eihort":
-		apply_eihort_curse()
-		toast = "「やった！ありがとう！」"
+		apply_eihort_curse()  ## 返事の台詞は会話モーダル側で見せ済み
 	elif event_id == "tome":
 		if choice_id == "read":
 			sanity = max(0, sanity - 8)
