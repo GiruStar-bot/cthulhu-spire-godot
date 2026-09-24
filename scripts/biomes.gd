@@ -13,6 +13,8 @@ const BIOMES := {
 	"colour": {"id": "colour", "name": "色の井戸", "art": "res://art/pixel/bg/colour.jpg"},
 	"shrine": {"id": "shrine", "name": "教団の間", "art": "res://art/pixel/bg/shrine.jpg"},
 	"beyond": {"id": "beyond", "name": "時空の狭間", "art": "res://art/pixel/bg/beyond.jpg"},
+	## アイホートくんの迷路。イベント画面と同じ背景のまま戦闘を続けるための専用バイオーム。
+	"labyrinth": {"id": "labyrinth", "name": "迷路", "art": "res://art/pixel/events/eihort_labyrinth.png"},
 	## dream_hub.jpg が無い場合は dream_title.png にフォールバック
 	"dream_hub": {"id": "dream_hub", "name": "夢の島拠点", "art": "res://art/pixel/bg/dream_hub.jpg"},
 }
@@ -39,6 +41,8 @@ static func biome_for_encounter(enemy_ids: Array, current_floor: int) -> String:
 		var biome: String = str(def.get("biome", ""))
 		if biome != "":
 			ids.append(biome)
+	if ids.has("labyrinth"):
+		return "labyrinth"
 	if ids.has("colour"):
 		return "colour"
 	if ids.has("void"):
