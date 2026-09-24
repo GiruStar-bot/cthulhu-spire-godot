@@ -40,6 +40,18 @@ const EVENTS := [
 			{"id": "smash", "label": "割る", "result": "体力-10。この沈降中、筋力+2。"},
 		],
 	},
+	## background / portrait は任意。あるイベントだけ Event.gd が追加で描画する。
+	{
+		"id": "eihort",
+		"title": "アイホートくん",
+		"body": "「お、人間じゃん。君、僕の子を産んでみない？」",
+		"background": "res://art/pixel/events/eihort_labyrinth.png",
+		"portrait": "res://art/pixel/enemies/eihort.png",
+		"choices": [
+			{"id": "fight", "label": "戦う", "result": "アイホートくんと戦闘になる。"},
+			{"id": "bear", "label": "子を宿す", "result": "「やった！ありがとう！」――そのまま先へ進む。"},
+		],
+	},
 ]
 
 

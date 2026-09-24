@@ -97,6 +97,8 @@ static func card_to_intent(card: Dictionary) -> Dictionary:
 		if t == "seal":
 			intent.seal = eff.get("value")
 			intent.kind = "debuff"
+		if t == "eihortCurseOnHit":
+			intent.eihortCurse = true
 	if intent.kind == "unknown":
 		intent.kind = "buff"
 	return intent

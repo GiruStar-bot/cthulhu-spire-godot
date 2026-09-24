@@ -246,6 +246,15 @@ const ENEMIES := {
 		"cardsPerTurn": 3,
 		"deck": ["eldersign", "star_sword", "yog_gun", "blood_toll", "tower_shield", "cthulhu_mail", "self_offering", "perfect_stealth", "deep_ones_blessing", "thecall", "silver_key", "collapse", "omnipotence", "transcendent"],
 	},
+	## イベント「アイホートくん」の「戦う」からだけ出る（ランダム遭遇には出ない）。
+	"eihort": {
+		"id": "eihort",
+		"name": "アイホートくん",
+		"art": "res://art/pixel/enemies/eihort.png",
+		"poster": "res://art/pixel/enemies/eihort.png",
+		"maxHp": 35,
+		"deck": ["child_bearing"],
+	},
 	"treasure_wanderer": {
 		"id": "treasure_wanderer",
 		"name": "宝殻の徘徊者",

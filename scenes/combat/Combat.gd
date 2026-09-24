@@ -134,8 +134,18 @@ func _begin_combat() -> void:
 			deck.append(card)
 	if deck.is_empty():
 		deck = GameState.loadout_deck()
+	## アイホートくんの呪い：この戦闘だけ、デッキを同じ枚数の「百目の子」に置き換える。
+	## 状態カードの除外より後で差し替える（ランのデッキ GameState.deck は書き換えない）。
+	var eihort_cursed: bool = GameState.consume_eihort_curse(floor)
+	if eihort_cursed:
+		var cursed_deck: Array = []
+		for i in deck.size():
+			cursed_deck.append(Cards.make_card("hundred_eyed_child"))
+		deck = cursed_deck
 	player = GameState.player_hook()
 	state = CombatLogic.start_combat(deck, enemy_ids, player, floor, rand)
+	if eihort_cursed:
+		state.log.append("無数の赤い瞳が、手札から見返している。")
 	GameState.combat = state
 	GameState.extra_energy_next = 0
 	GameState.apply_player_hook(player)
@@ -202,6 +212,9 @@ func _end_turn() -> void:
 	var hand_before: int = int(state.hand.size()) if state.get("hand") else 0
 	var turn_sfx: Array = CombatLogic.end_turn(state, player, Callable(GameState, "_rand"))
 	GameState.apply_player_hook(player)
+	if state.get("eihortCursed", false):
+		state.erase("eihortCursed")
+		GameState.apply_eihort_curse()
 	_refresh()
 	AudioManager.play_cues(turn_sfx)
 	_play_draw_sfx(hand_before)

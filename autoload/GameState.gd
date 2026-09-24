@@ -86,6 +86,8 @@ var run_blessings: Array = []
 var encounter_bias: Array = []
 var blessing_choices: Array = []
 var _force_first_drowned: bool = false
+## アイホートくんの呪い。-1=なし。値があれば、その階層以降で最初の戦闘のデッキが「百目の子」になる。
+var eihort_curse_floor: int = -1
 
 
 func _ready() -> void:
@@ -336,6 +338,7 @@ func start_run(tree: SceneTree) -> void:
 	blessing_choices = []
 	floor_kind = ""
 	_force_first_drowned = false
+	eihort_curse_floor = -1
 
 	if not seen_rlyeh:
 		seen_rlyeh = true
@@ -502,7 +505,17 @@ func resolve_flee(tree: SceneTree) -> void:
 func resolve_event(tree: SceneTree, choice_id: String) -> void:
 	var ev: Dictionary = event if event is Dictionary else {}
 	var event_id: String = str(ev.get("id", ""))
-	if event_id == "tome":
+	## アイホートくん「戦う」だけは次の階層へ進まず、この階層のまま戦闘へ入る。
+	## 勝てば通常の戦闘と同じく報酬 → finish_advance で次の階層へ。
+	if event_id == "eihort" and choice_id == "fight":
+		event = null
+		combat = {"floor": floor, "kind": "combat", "enemy_ids": ["eihort"]}
+		goto_scene(tree, "combat")
+		return
+	if event_id == "eihort":
+		apply_eihort_curse()
+		toast = "「やった！ありがとう！」"
+	elif event_id == "tome":
 		if choice_id == "read":
 			sanity = max(0, sanity - 8)
 			for card in deck:
@@ -543,6 +556,30 @@ func resolve_event(tree: SceneTree, choice_id: String) -> void:
 	_persist_profile()
 	event = null
 	finish_advance(tree)
+
+
+const EIHORT_CURSE_RANGE := 15  ## 呪いの階層は現在階層+1〜+15（最深100階で打ち止め）
+
+
+## アイホートくんの呪いを付ける（イベント「子を宿す」／戦闘で「子を宿す」が命中）。
+## すでに呪われていれば重ねない（先の呪いの階層のまま）。
+func apply_eihort_curse() -> void:
+	if eihort_curse_floor >= 0:
+		return
+	var lo: int = floor + 1
+	var hi: int = mini(floor + EIHORT_CURSE_RANGE, Floors.DEMO_MAX_FLOOR)
+	if lo > hi:
+		return
+	eihort_curse_floor = mini(hi, lo + int(rng.next_float() * float(hi - lo + 1)))
+
+
+## 戦闘開始時に呼ぶ。呪いの階層以降の戦闘なら true を返し、呪いを解く（一度きり）。
+## 呪いの階層が村落やイベントでも、その先の最初の戦闘で発動する。
+func consume_eihort_curse(combat_floor: int) -> bool:
+	if eihort_curse_floor < 0 or combat_floor < eihort_curse_floor:
+		return false
+	eihort_curse_floor = -1
+	return true
 
 
 ## store.ts の leaveVillage()（RestView VillageHubの「次の層へ」）
@@ -863,6 +900,7 @@ func reset_run() -> void:
 	encounter_bias = []
 	blessing_choices = []
 	_force_first_drowned = false
+	eihort_curse_floor = -1
 	combat = null
 	reward = null
 	reward_shells = 0
