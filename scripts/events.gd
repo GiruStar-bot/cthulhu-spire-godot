@@ -48,7 +48,7 @@ const EVENTS := [
 		"presentation": "dialogue",
 		"background": "res://art/pixel/events/eihort_labyrinth.png",
 		"portrait": "res://art/pixel/enemies/eihort.png",
-		"line": "お、人間じゃん。君の子を産んでみない？",
+		"line": "お、人間じゃん。僕の子を産んでみない？",
 		"choices": [
 			{"id": "fight", "label": "戦う"},
 			{"id": "bear", "label": "子を宿す", "reply": "やった！ありがとう！"},
