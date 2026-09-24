@@ -12,6 +12,12 @@ const INSPECTOR_OUT_DUR := 0.20
 const INSPECTOR_BTN_DUR := 0.14
 const INSPECTOR_GHOST_DUR := 0.16
 const PACK_TILE_W := 176.0
+## デッキ編成のカードプール。POOL_CARD_SIZE が可読性の下限。列数を決めたあと、
+## 端数はまずカードを最大 POOL_CARD_MAX_W まで大きくして吸収し、残りを列間隔へ配る。
+const POOL_CARD_SIZE := Vector2(128, 192)
+const POOL_CARD_MAX_W := 160.0
+const POOL_CARD_GAP := 8
+const POOL_CARD_GAP_MAX := 40
 const PACK_ART_SIZE := Vector2(160, 240)
 
 @onready var background_art: TextureRect = $BackgroundArt
@@ -49,6 +55,7 @@ const PACK_ART_SIZE := Vector2(160, 240)
 
 @onready var deck_list_sub_panel: VBoxContainer = $Root/Body/Content/DeckPanel/DeckListSubPanel
 @onready var deck_list_create_button: Button = $Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListHeaderRow/DeckListCreateButton
+@onready var deck_list_back_button: Button = $Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListHeaderRow/DeckListBackButton
 @onready var deck_list_container: VBoxContainer = $Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListScroll/DeckListContainer
 
 @onready var deck_edit_sub_panel: VBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel
@@ -74,7 +81,8 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover/DeckFilterRarityRow
 @onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover/DeckFilterAiTagRow
 @onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckResultCountLabel
-@onready var card_list_container: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll/CardListContainer
+@onready var card_scroll: ScrollContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll
+@onready var card_list_container: GridContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll/CardListContainer
 @onready var deck_contents_container: VBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckContentsScroll/DeckContentsContainer
 @onready var deck_back_to_list_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckBackToListButton
 
@@ -168,6 +176,8 @@ func _ready() -> void:
 	extract_button.pressed.connect(_on_extract_button_pressed)
 	top_right_button.pressed.connect(_on_top_right_button_pressed)
 	deck_list_create_button.pressed.connect(_on_deck_list_create_pressed)
+	deck_list_back_button.pressed.connect(_select_tab.bind("descend"))
+	card_scroll.resized.connect(_fit_card_grid)
 	rename_deck_button.pressed.connect(_on_rename_deck_pressed)
 	delete_deck_button.pressed.connect(_on_delete_deck_pressed)
 	confirm_rename_button.pressed.connect(_on_rename_confirm_pressed)
@@ -331,10 +341,12 @@ func _select_tab(tab_name: String) -> void:
 	for key in nav_buttons.keys():
 		nav_buttons[key].set_pressed_no_signal(key == tab_name)
 	_hide_all_content_panels()
+	## パック・デッキ（一覧/編集の両モード）は全幅。戻るボタンは各画面側に置く。
+	var hide_nav: bool = tab_name == "packs" or tab_name == "deck"
 	if body_nav != null:
-		body_nav.visible = tab_name != "packs"
+		body_nav.visible = not hide_nav
 	if nav_frame != null:
-		nav_frame.visible = tab_name != "packs"
+		nav_frame.visible = not hide_nav
 		if nav_frame.visible:
 			call_deferred("_fit_nav_chrome")
 	match tab_name:
@@ -1164,7 +1176,7 @@ func _sync_sell_card_row(base_card_id: String, sellable: int) -> void:
 	var cc: CombatCard = row.get("combat_card") as CombatCard
 	if cc != null and is_instance_valid(cc):
 		var def: Dictionary = row.get("card_def", {})
-		cc.configure({}, def, true, qty > 0, true)
+		cc.configure({"defId": base_card_id}, def, true, qty > 0, true)
 
 
 func _update_sell_footer() -> void:
@@ -1234,7 +1246,7 @@ func _refresh_sell_tab() -> void:
 		combat_card.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
 		combat_card.pressed.connect(_on_sell_card_thumb_pressed.bind(base_card_id, sellable))
 		card_holder.add_child(combat_card)
-		combat_card.configure({}, def, true, qty > 0, true)
+		combat_card.configure({"defId": base_card_id}, def, true, qty > 0, true)
 
 		var owned_badge := Label.new()
 		owned_badge.text = "x%d" % owned_n
@@ -1572,6 +1584,7 @@ func _rebuild_card_list() -> void:
 		var empty_label := Label.new()
 		empty_label.text = "条件に一致するカードがありません。"
 		empty_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		card_list_container.columns = 1
 		card_list_container.add_child(empty_label)
 		return
 
@@ -1581,6 +1594,34 @@ func _rebuild_card_list() -> void:
 		var in_deck: int = CollectionData.copies_of_base(deck, str(card_id))
 		var owned_count: int = int(owned[card_id])
 		card_list_container.add_child(_make_pool_thumb(str(card_id), def, name, owned_count, in_deck))
+	_fit_card_grid()
+
+
+## _fit_pack_grid と同じく幅から列数を決める。端数は列間隔へ配って右端の空きを消す。
+## 縦スクロールバー分は常に差し引く（出入りで列数が振動しないように）。
+func _fit_card_grid() -> void:
+	if card_scroll == null or card_list_container == null:
+		return
+	if card_list_container.get_child_count() == 0 or not (card_list_container.get_child(0) is CombatCard):
+		return
+	var bar_w: float = card_scroll.get_v_scroll_bar().get_combined_minimum_size().x
+	var avail: float = card_scroll.size.x - bar_w
+	if avail <= 0.0:
+		return
+	var cols: int = maxi(1, int((avail + POOL_CARD_GAP) / (POOL_CARD_SIZE.x + POOL_CARD_GAP)))
+	var cell_w: float = floorf(clampf((avail - (cols - 1) * POOL_CARD_GAP) / cols, POOL_CARD_SIZE.x, POOL_CARD_MAX_W))
+	var cell := Vector2(cell_w, roundf(cell_w * POOL_CARD_SIZE.y / POOL_CARD_SIZE.x))
+	var gap: int = POOL_CARD_GAP
+	if cols > 1:
+		gap = clampi(int((avail - cols * cell_w) / (cols - 1)), POOL_CARD_GAP, POOL_CARD_GAP_MAX)
+	if card_list_container.columns != cols:
+		card_list_container.columns = cols
+	card_list_container.add_theme_constant_override("h_separation", gap)
+	for child in card_list_container.get_children():
+		var card := child as Control
+		if card != null and card.custom_minimum_size != cell:
+			card.custom_minimum_size = cell
+			card.pivot_offset = cell * 0.5  ## ホバー拡大の中心（CombatCard._sync_pivot と同じ）
 
 
 func _rebuild_deck_contents(deck: Dictionary) -> void:
@@ -1739,11 +1780,11 @@ func _on_deck_row_gui(event: InputEvent, card_id: String, row: Control) -> void:
 
 func _make_pool_thumb(card_id: String, def: Dictionary, card_name: String, owned_count: int, in_deck: int) -> CombatCard:
 	var combat_card: CombatCard = COMBAT_CARD.new() as CombatCard
-	combat_card.custom_minimum_size = Vector2(128, 192)
+	combat_card.custom_minimum_size = POOL_CARD_SIZE
 	combat_card.set_meta("card_id", card_id)
 	combat_card.tooltip_text = "%s\n所持 %d / デッキ内 %d" % [card_name, owned_count, in_deck]
 	combat_card.pressed.connect(_on_pool_thumb_pressed.bind(card_id, combat_card))
-	combat_card.configure({}, def, true, false, true)
+	combat_card.configure({"defId": card_id}, def, true, false, true)
 
 	var count_label := Label.new()
 	count_label.name = "CountLabel"
