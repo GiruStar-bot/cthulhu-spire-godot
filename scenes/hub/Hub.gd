@@ -26,8 +26,6 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var stat_panel: VBoxContainer = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel
 @onready var stat_header_label: Label = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel/StatHeaderLabel
 @onready var stat_rows_container: VBoxContainer = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel/StatRowsContainer
-@onready var prepare_equipment_summary_panel: PanelContainer = $Root/Body/Content/DescendPanel/PrepareEquipmentSummaryPanel
-@onready var prepare_equipment_stats_label: Label = $Root/Body/Content/DescendPanel/PrepareEquipmentSummaryPanel/Margin/Content/StatsLabel
 @onready var prepare_deck_select_panel: PanelContainer = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel
 @onready var prepare_deck_list: VBoxContainer = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content/DeckList
 @onready var prepare_selected_deck_label: Label = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content/SelectedDeckLabel
@@ -39,8 +37,6 @@ const PACK_ART_SIZE := Vector2(160, 240)
 
 @onready var sell_panel: VBoxContainer = $Root/Body/Content/SellPanel
 @onready var sell_card_tab_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellCardTabButton
-@onready var sell_equipment_tab_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellEquipmentTabButton
-@onready var sell_rune_tab_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellRuneTabButton
 @onready var sell_surplus_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellSurplusButton
 @onready var sell_select_all_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellSelectAllButton
 @onready var sell_clear_all_button: Button = $Root/Body/Content/SellPanel/SellTabRow/SellClearAllButton
@@ -82,28 +78,9 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var deck_contents_container: VBoxContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckContentsScroll/DeckContentsContainer
 @onready var deck_back_to_list_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/DeckContentsPanel/DeckContents/DeckBackToListButton
 
-@onready var equipment_panel: VBoxContainer = $Root/Body/Content/EquipmentPanel
-@onready var equipped_list_container: HBoxContainer = $Root/Body/Content/EquipmentPanel/EquippedListContainer
-@onready var stats_label: Label = $Root/Body/Content/EquipmentPanel/StatsLabel
-@onready var equipment_sort_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterRow/EquipmentSortButton
-@onready var equipment_filter_reset_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterRow/EquipmentFilterResetButton
-@onready var equipment_filter_archetype_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterTriggerRow/ArchetypeButton
-@onready var equipment_filter_slot_button: Button = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterTriggerRow/SlotButton
-@onready var equipment_filter_archetype_popover: PanelContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterArchetypePopover
-@onready var equipment_filter_slot_popover: PanelContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterSlotPopover
-@onready var equipment_filter_archetype_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterArchetypePopover/EquipmentFilterArchetypeRow
-@onready var equipment_filter_slot_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/EquipmentFilterSlotPopover/EquipmentFilterSlotRow
-@onready var inventory_label: Label = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/InventoryLabel
-@onready var inventory_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/InventoryCol/InventoryScroll/InventoryListContainer
-@onready var rune_label: Label = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneLabel
-@onready var rune_search_edit: LineEdit = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneSearchEdit
-@onready var rune_category_row: HFlowContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneCategoryRow
-@onready var rune_list_container: VBoxContainer = $Root/Body/Content/EquipmentPanel/EquipmentWorkspace/RuneCol/RuneScroll/RuneListContainer
-
 @onready var nav_buttons: Dictionary = {
 	"descend": $Root/Body/Nav/DescendButton,
 	"deck": $Root/Body/Nav/DeckButton,
-	"equipment": $Root/Body/Nav/EquipmentButton,
 	"sell": $Root/Body/Nav/SellButton,
 	"shop": $Root/Body/Nav/ShopButton,
 	"packs": $Root/Body/Nav/PacksButton,
@@ -111,17 +88,13 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var body_nav: VBoxContainer = $Root/Body/Nav
 @onready var nav_frame: Panel = $NavFrame
 
-var _selected_rune_id: String = ""
 var _commerce_tab := ""
 var _last_pack_result: Array = []  ## store.ts の lastPackResult 相当（ShopPanel.tsx の通常パック結果表示）
 var _pack_open: Control = null
 
 # SellScreen.tsx 相当の状態
-var _sell_tab: String = "card"  ## "card" | "equipment" | "rune"
 var _sell_card_selections: Dictionary = {}  ## base_card_id -> 選択数
 var _sell_card_row_nodes: Dictionary = {}  ## base_card_id -> {qty_label, minus_btn, plus_btn, sellable}
-var _sell_equipment_uids: Dictionary = {}  ## uid -> true
-var _sell_rune_ids: Dictionary = {}  ## id -> true
 
 # ============================================================
 # デッキ編成/装備タブの検索・フィルター・ソート
@@ -139,7 +112,6 @@ const DECK_SORT_LABELS := {"cost": "コスト順", "rarity": "レア度順", "ow
 const RARITY_LABELS := {"common": "コモン", "uncommon": "アンコモン", "rare": "レア", "status": "状態"}
 const AI_TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "効果"}
 
-const EQUIPMENT_SLOT_LABELS := {"head": "頭", "chest": "胸", "arms": "腕", "legs": "脚", "feet": "足"}
 const NORMAL_PACK_ART := "res://art/pixel/ui/card_back.png"
 
 ## CombatCard.gd と同じカード枠の9-slice指定。Hubの一覧でも同じカード体系を使う。
@@ -163,14 +135,6 @@ const CARD_FRAME_BY_ARCHETYPE := {
 	"water": ["res://art/pixel/ui/frame_card_water_9.png", 19],
 }
 
-const RUNE_CATEGORY_OF_EFFECT := {
-	"STR+": "attack", "VULN+": "attack", "THORN": "attack",
-	"BLK+": "defense", "POISON": "defense",
-	"HEAL": "heal", "SAN+": "heal",
-	"DRAW": "special", "ENERGY+": "special",
-}
-const RUNE_CATEGORIES := ["attack", "defense", "heal", "special"]
-const RUNE_CATEGORY_LABELS := {"attack": "攻", "defense": "防", "heal": "回復", "special": "特殊"}
 const POOL_TAG_BORDER := {
 	"attack": Color("6b1f22"),
 	"defense": Color("183c66"),
@@ -221,12 +185,6 @@ var _inspector_busy_close: bool = false
 var _inspector_card_tween: Tween = null
 var _deck_contents_dirty: bool = false
 
-var _equip_filter_archetypes: Dictionary = {}
-var _equip_filter_slots: Dictionary = {}
-var _equip_sort_asc: bool = false
-
-var _rune_search: String = ""
-var _rune_category: String = ""  # "" = 全て
 
 
 func _ready() -> void:
@@ -242,19 +200,11 @@ func _ready() -> void:
 	cancel_rename_button.pressed.connect(_on_rename_cancel_pressed)
 	deck_back_to_list_button.pressed.connect(_on_deck_back_to_list_pressed)
 	sell_card_tab_button.pressed.connect(_on_sell_tab_selected.bind("card"))
-	sell_equipment_tab_button.pressed.connect(_on_sell_tab_selected.bind("equipment"))
-	sell_rune_tab_button.pressed.connect(_on_sell_tab_selected.bind("rune"))
 	sell_surplus_button.pressed.connect(_on_sell_surplus_pressed)
 	sell_select_all_button.pressed.connect(_on_sell_select_all_pressed)
 	sell_clear_all_button.pressed.connect(_on_sell_clear_all_pressed)
 	sell_confirm_button.pressed.connect(_on_sell_confirm_pressed)
 	_setup_deck_filters()
-	_setup_equipment_filters()
-	if nav_buttons.has("equipment"):
-		nav_buttons["equipment"].visible = false
-	sell_equipment_tab_button.visible = false
-	sell_rune_tab_button.visible = false
-	prepare_equipment_summary_panel.visible = false
 	prepare_deck_select_panel.visible = false
 	_ensure_deck_save_dialog()
 	body_nav.size_flags_vertical = 0
@@ -326,31 +276,6 @@ func _setup_deck_filters() -> void:
 	_float_deck_filter_popovers()
 
 
-## 装備タブのジャンル/部位フィルター・tierソート・ルーン検索/カテゴリ行を一度だけ構築する。
-func _setup_equipment_filters() -> void:
-	equipment_sort_button.pressed.connect(_on_equipment_sort_toggle_pressed)
-	equipment_filter_reset_button.pressed.connect(_on_equipment_filter_reset_pressed)
-	rune_search_edit.text_changed.connect(_on_rune_search_changed)
-	equipment_filter_archetype_button.pressed.connect(_toggle_equipment_popover.bind(equipment_filter_archetype_popover))
-	equipment_filter_slot_button.pressed.connect(_toggle_equipment_popover.bind(equipment_filter_slot_popover))
-
-	_build_toggle_row(equipment_filter_archetype_row, _equipment_filterable_archetypes(),
-		func(a): return "汎用" if a == "generic" else str(Cards.ARCHETYPE_LABELS.get(a, a)),
-		_equip_filter_archetypes, _on_equip_filter_archetype_toggled)
-	_build_toggle_row(equipment_filter_slot_row, Equipment.EQUIPMENT_SLOTS,
-		func(s): return str(EQUIPMENT_SLOT_LABELS.get(s, s)),
-		_equip_filter_slots, _on_equip_filter_slot_toggled)
-
-	var group := ButtonGroup.new()
-	var rune_cat_options: Array = [""] + RUNE_CATEGORIES
-	for opt in rune_cat_options:
-		var btn := Button.new()
-		btn.toggle_mode = true
-		btn.button_group = group
-		btn.text = "全て" if opt == "" else str(RUNE_CATEGORY_LABELS.get(opt, opt))
-		btn.button_pressed = _rune_category == opt
-		btn.toggled.connect(_on_rune_category_toggled.bind(opt))
-		rune_category_row.add_child(btn)
 
 
 ## 複数選択トグル行を一度だけ構築する共通ヘルパー。
@@ -400,11 +325,6 @@ func _toggle_deck_popover(target: Control) -> void:
 	target.visible = true
 
 
-func _toggle_equipment_popover(target: Control) -> void:
-	for panel in [equipment_filter_archetype_popover, equipment_filter_slot_popover]:
-		panel.visible = panel == target and not target.visible
-
-
 ## _build_toggle_row()で構築済みの行のボタン押下状態を、リセット等で外部からstateを
 ## 変更した後に再同期する（シグナルは発火させない）。
 func _sync_toggle_row(container: Control, options: Array, state: Dictionary) -> void:
@@ -415,19 +335,6 @@ func _sync_toggle_row(container: Control, options: Array, state: Dictionary) -> 
 		i += 1
 
 
-## EquipmentScreen.tsx の FILTERABLE_ARCHETYPES 相当：EQUIPMENTカタログに実在する
-## アーキタイプ（"generic"含む）を出現順に重複無しで集めたもの。
-func _equipment_filterable_archetypes() -> Array:
-	var seen: Dictionary = {}
-	var out: Array = []
-	for def in Equipment.EQUIPMENT.values():
-		var a: String = str(def.get("archetype", "generic"))
-		if not seen.has(a):
-			seen[a] = true
-			out.append(a)
-	return out
-
-
 ## Content配下の全パネルをまとめて非表示にする。tab === "packs" || tab === "deck" の時
 ## Content内の他パネルが一切見えない（HubScreen.tsx 42-62行目の早期returnレンダー）実ソースの
 ## 挙動を、個別のvisible設定漏れが起きないよう一箇所にまとめて再現する。
@@ -435,7 +342,6 @@ func _hide_all_content_panels() -> void:
 	_close_card_inspector()
 	descend_panel.visible = false
 	deck_panel.visible = false
-	equipment_panel.visible = false
 	sell_panel.visible = false
 	commerce_panel.visible = false
 	placeholder_panel.visible = false
@@ -463,8 +369,6 @@ func _select_tab(tab_name: String) -> void:
 			descend_panel.visible = true
 		"deck":
 			deck_panel.visible = true
-		"equipment":
-			equipment_panel.visible = true
 		"sell":
 			sell_panel.visible = true
 		"shop", "packs":
@@ -478,17 +382,11 @@ func _select_tab(tab_name: String) -> void:
 		_deck_mode = "list"
 		_deck_renaming = false
 		_refresh_deck_tab()
-	elif tab_name == "equipment":
-		_selected_rune_id = ""
-		_refresh_equipment_tab()
 	elif tab_name == "sell":
 		## HubScreen.tsx の {tab === "sell" ? <SellScreen .../> : null} も、deckタブ同様
 		## タブ切替でSellScreenがアンマウント/再マウントされ、選択状態(useState)は
 		## タブへ再入するたびに初期化される。ここでも同じくタブ選択時にリセットする。
-		_sell_tab = "card"
 		_sell_card_selections.clear()
-		_sell_equipment_uids.clear()
-		_sell_rune_ids.clear()
 		_refresh_sell_tab()
 	elif commerce_panel.visible:
 		_commerce_tab = tab_name
@@ -538,7 +436,6 @@ func _update_descend_panel() -> void:
 		primary_action_button.disabled = false
 		extract_button.visible = true
 		stat_panel.visible = false
-		prepare_equipment_summary_panel.visible = false
 		prepare_deck_select_panel.visible = false
 	else:
 		## PrepareView.tsx 相当。canStart は実ソースでは
@@ -561,7 +458,6 @@ func _update_descend_panel() -> void:
 		extract_button.visible = false
 		stat_panel.visible = true
 		_refresh_stat_panel()
-		prepare_equipment_summary_panel.visible = false
 		## 探索準備中は使用デッキを選べる。夢の島では潜航自体を封じているので出さない。
 		var show_deck_select: bool = str(GameState.realm) != "dream"
 		prepare_deck_select_panel.visible = show_deck_select
@@ -591,18 +487,6 @@ func _on_prepare_deck_selected(deck_name: String) -> void:
 	_rebuild_prepare_deck_list()
 	_update_header()
 	_update_descend_panel()
-
-
-func _refresh_prepare_equipment_summary() -> void:
-	var equipment_stats := Equipment.compute_equipment_stats(GameState.equipped, Callable(CollectionData, "peek_rune"))
-	var vitals := Profile.derived_vitals(GameState.stats, GameState.madness)
-	prepare_equipment_stats_label.text = "体力 %d\n筋力 %d\n防御 %d\n毒耐性 %d\n正気耐性 %d" % [
-		int(vitals.get("max_hp", 0)),
-		int(equipment_stats.get("strength", 0)),
-		roundi(float(equipment_stats.get("defense", 0.0))),
-		roundi(float(equipment_stats.get("poisonResist", 0.0))),
-		roundi(float(equipment_stats.get("sanResist", 0.0))),
-	]
 
 
 # ============================================================
@@ -1004,11 +888,6 @@ func _on_pack_open_closed() -> void:
 	_pack_open = null
 	_refresh_commerce()
 	_update_header()
-func _equipped(gear: Dictionary) -> bool:
-	for item in GameState.equipped.values():
-		if item != null and item.get("uid","") == gear.get("uid",""): return true
-	return false
-
 func _commerce_button(label: String, action: Callable, disabled: bool = false, art_path: String = "", archetype: String = "", rarity: String = "common") -> void:
 	var button := Button.new()
 	button.disabled = disabled
@@ -1263,34 +1142,6 @@ func _sellable_card_rows() -> Array:
 	return out
 
 
-## SellScreen.tsx の sellableEquipment（装着中は除外）
-func _sellable_equipment() -> Array:
-	var out: Array = []
-	for inst in CollectionData.inventory.equipment:
-		if not _equipped(inst):
-			out.append(inst)
-	return out
-
-
-func _socketed_rune_ids() -> Dictionary:
-	var out: Dictionary = {}
-	for inst in CollectionData.inventory.equipment:
-		for rid in inst.get("socketed_runes", []):
-			if rid != null:
-				out[str(rid)] = true
-	return out
-
-
-## SellScreen.tsx の sellableRunes（いずれかの装備にソケット中のものは除外）
-func _sellable_runes() -> Array:
-	var socketed := _socketed_rune_ids()
-	var out: Array = []
-	for rune in CollectionData.inventory.runes:
-		if not socketed.has(str(rune.get("id", ""))):
-			out.append(rune)
-	return out
-
-
 ## SellScreen.tsx の qtyFor()
 func _sell_qty_for(base_card_id: String, sellable: int) -> int:
 	return min(int(_sell_card_selections.get(base_card_id, 0)), sellable)
@@ -1360,38 +1211,20 @@ func _sell_card_total_value() -> int:
 	return total
 
 
-func _sell_equipment_total_value() -> int:
-	var total := 0
-	for inst in _sellable_equipment():
-		if _sell_equipment_uids.has(str(inst.get("uid", ""))):
-			total += GameState.equipment_sell_price(inst)
-	return total
-
-
-func _sell_rune_total_value() -> int:
-	var total := 0
-	for rune in _sellable_runes():
-		if _sell_rune_ids.has(str(rune.get("id", ""))):
-			total += GameState.rune_sell_price(rune)
-	return total
-
-
 ## SellScreen.tsx の totalValue
 func _sell_total_value() -> int:
-	return _sell_card_total_value() + _sell_equipment_total_value() + _sell_rune_total_value()
+	return _sell_card_total_value()
 
 
 ## SellScreen.tsx の totalSelected
 func _sell_total_selected() -> int:
-	return _sell_card_total_count() + _sell_equipment_uids.size() + _sell_rune_ids.size()
+	return _sell_card_total_count()
 
 
 func _refresh_sell_tab() -> void:
 	_sell_card_row_nodes.clear()
-	for key in ["card", "equipment", "rune"]:
-		var btn: Button = sell_card_tab_button if key == "card" else (sell_equipment_tab_button if key == "equipment" else sell_rune_tab_button)
-		btn.disabled = key == _sell_tab
-	sell_surplus_button.visible = _sell_tab == "card"
+	sell_card_tab_button.disabled = true
+	sell_surplus_button.visible = true
 
 	for child in sell_list_container.get_children():
 		child.queue_free()
@@ -1478,100 +1311,20 @@ func _refresh_sell_tab() -> void:
 
 			sell_list_container.add_child(cell)
 
-	elif _sell_tab == "equipment":
-		var equipment_list := _sellable_equipment()
-		if equipment_list.is_empty():
-			var empty_label := Label.new()
-			empty_label.text = "売れる装備がない。"
-			sell_list_container.add_child(empty_label)
-		for inst in equipment_list:
-			var uid := str(inst.get("uid", ""))
-			var def := Equipment.get_equipment(str(inst.get("def_id", "")))
-			var selected := _sell_equipment_uids.has(uid)
-
-			var cell := VBoxContainer.new()
-			cell.custom_minimum_size = Vector2(112, 140)
-			cell.add_theme_constant_override("separation", 4)
-			cell.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(0, 64)))
-
-			var btn := Button.new()
-			btn.toggle_mode = true
-			btn.button_pressed = selected
-			btn.text = "%s\n貝殻%d" % [Equipment.equipment_label(inst), GameState.equipment_sell_price(inst)]
-			btn.toggled.connect(_on_sell_equipment_toggled.bind(uid))
-			cell.add_child(btn)
-
-			sell_list_container.add_child(cell)
-
-	else:
-		var rune_list := _sellable_runes()
-		if rune_list.is_empty():
-			var empty_label := Label.new()
-			empty_label.text = "売れるルーンがない。"
-			sell_list_container.add_child(empty_label)
-		for rune in rune_list:
-			var rid := str(rune.get("id", ""))
-			var selected := _sell_rune_ids.has(rid)
-
-			var btn := Button.new()
-			btn.custom_minimum_size = Vector2(112, 64)
-			btn.toggle_mode = true
-			btn.button_pressed = selected
-			btn.text = "%s（値%s）\n貝殻%d" % [str(rune.get("effect", "?")), str(rune.get("value", "?")), GameState.rune_sell_price(rune)]
-			btn.toggled.connect(_on_sell_rune_toggled.bind(rid))
-
-			sell_list_container.add_child(btn)
-
-	_update_sell_footer()
-
-
-func _on_sell_tab_selected(tab_name: String) -> void:
-	_sell_tab = tab_name
-	_refresh_sell_tab()
-
-
-func _on_sell_equipment_toggled(pressed: bool, uid: String) -> void:
-	if pressed:
-		_sell_equipment_uids[uid] = true
-	else:
-		_sell_equipment_uids.erase(uid)
-	## トグルボタン自身が選択状態を持つためグリッド再構築不要
-	_update_sell_footer()
-
-
-func _on_sell_rune_toggled(pressed: bool, rid: String) -> void:
-	if pressed:
-		_sell_rune_ids[rid] = true
-	else:
-		_sell_rune_ids.erase(rid)
 	_update_sell_footer()
 
 
 ## SellScreen.tsx の selectAll()
 func _on_sell_select_all_pressed() -> void:
-	if _sell_tab == "card":
-		_sell_card_selections.clear()
-		for r in _sellable_card_rows():
-			_sell_card_selections[str(r.base_card_id)] = int(r.sellable)
-	elif _sell_tab == "equipment":
-		_sell_equipment_uids.clear()
-		for inst in _sellable_equipment():
-			_sell_equipment_uids[str(inst.get("uid", ""))] = true
-	else:
-		_sell_rune_ids.clear()
-		for rune in _sellable_runes():
-			_sell_rune_ids[str(rune.get("id", ""))] = true
+	_sell_card_selections.clear()
+	for r in _sellable_card_rows():
+		_sell_card_selections[str(r.base_card_id)] = int(r.sellable)
 	_refresh_sell_tab()
 
 
 ## SellScreen.tsx の clearAll()
 func _on_sell_clear_all_pressed() -> void:
-	if _sell_tab == "card":
-		_sell_card_selections.clear()
-	elif _sell_tab == "equipment":
-		_sell_equipment_uids.clear()
-	else:
-		_sell_rune_ids.clear()
+	_sell_card_selections.clear()
 	_refresh_sell_tab()
 
 
@@ -1602,10 +1355,8 @@ func _on_sell_confirm_pressed() -> void:
 			if str(c.get("base_card_id", "")) == base_card_id:
 				card_ids.append(str(c.get("instance_id", "")))
 				picked += 1
-	GameState.sell_items(card_ids, _sell_equipment_uids.keys(), _sell_rune_ids.keys())
+	GameState.sell_items(card_ids)
 	_sell_card_selections.clear()
-	_sell_equipment_uids.clear()
-	_sell_rune_ids.clear()
 	_refresh_sell_tab()
 	_update_header()
 
@@ -2502,273 +2253,3 @@ func _on_deck_filter_reset_pressed() -> void:
 	deck_filter_rarity_popover.visible = false
 	deck_filter_ai_tag_popover.visible = false
 
-
-# ============================================================
-# 装備タブ（EquipmentScreen.tsx 相当）
-# ============================================================
-
-func _refresh_equipment_tab() -> void:
-	_rebuild_equipped_list()
-	_refresh_stats_label()
-	_rebuild_inventory_list()
-	_rebuild_rune_list()
-
-
-func _rebuild_equipped_list() -> void:
-	for child in equipped_list_container.get_children():
-		child.queue_free()
-	var SLOT_LABEL := {"head": "頭", "chest": "胸", "arms": "腕", "legs": "脚", "feet": "足"}
-	for slot in Equipment.EQUIPMENT_SLOTS:
-		var inst = GameState.equipped.get(slot)
-		var tile := VBoxContainer.new()
-		tile.custom_minimum_size = Vector2(88, 0)
-		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tile.add_theme_constant_override("separation", 3)
-		var slot_label := Label.new()
-		slot_label.text = str(SLOT_LABEL.get(slot, slot))
-		slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		slot_label.add_theme_font_size_override("font_size", 11)
-		tile.add_child(slot_label)
-		if inst != null:
-			var equipped_def := Equipment.get_equipment(str(inst.get("def_id", "")))
-			tile.add_child(_make_art_thumbnail(str(equipped_def.get("art", "")), str(equipped_def.get("archetype", "")), "common", Vector2(72, 72)))
-			var name_label := Label.new()
-			name_label.text = Equipment.equipment_label(inst)
-			name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-			name_label.add_theme_font_size_override("font_size", 11)
-			tile.add_child(name_label)
-		else:
-			var empty := Label.new()
-			empty.text = "空き"
-			empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			empty.custom_minimum_size = Vector2(0, 72)
-			empty.add_theme_font_size_override("font_size", 11)
-			tile.add_child(empty)
-		var unequip_btn := Button.new()
-		unequip_btn.text = "外す"
-		unequip_btn.custom_minimum_size = Vector2(0, 28)
-		unequip_btn.disabled = inst == null
-		unequip_btn.pressed.connect(_on_unequip_pressed.bind(slot))
-		tile.add_child(unequip_btn)
-		equipped_list_container.add_child(tile)
-
-
-func _refresh_stats_label() -> void:
-	var stats := Equipment.compute_equipment_stats(GameState.equipped, Callable(CollectionData, "peek_rune"))
-	var extras: Array = []
-	if stats.get("poisonImmune"):
-		extras.append("毒無効")
-	if stats.get("blockRetain"):
-		extras.append("ブロック持ち越し")
-	if stats.get("sanFullRestoreOnStart"):
-		extras.append("戦闘開始時正気全快")
-	if stats.get("expandedHand"):
-		extras.append("手札拡張")
-	if stats.get("hpPercentHealOnStart"):
-		extras.append("戦闘開始時HP割合回復")
-	if stats.get("sacrificeEnergyOnStart"):
-		extras.append("戦闘開始時気力供物")
-	if stats.get("intangibleOnHit"):
-		extras.append("被弾時実体化解除")
-	stats_label.text = "防御 %d　筋力 %d　毒耐性 %d　正気耐性 %d　引き +%d　回復/T %d%s" % [
-		int(stats.defense), int(stats.strength), int(stats.poisonResist), int(stats.sanResist),
-		int(stats.drawBonus), int(stats.healPerTurn),
-		("\n" + "・".join(extras)) if extras.size() > 0 else "",
-	]
-
-
-## EquipmentScreen.tsx のジャンル/部位フィルター＋tierソート相当
-func _filtered_sorted_equipment() -> Array:
-	var out: Array = []
-	for inst in CollectionData.inventory.equipment:
-		var def := Equipment.get_equipment(str(inst.get("def_id", "")))
-		if def.is_empty():
-			continue
-		var archetype: String = str(def.get("archetype", "generic"))
-		if _equip_filter_archetypes.size() > 0 and not _equip_filter_archetypes.has(archetype):
-			continue
-		var slot: String = str(def.get("slot", ""))
-		if _equip_filter_slots.size() > 0 and not _equip_filter_slots.has(slot):
-			continue
-		out.append(inst)
-	out.sort_custom(func(a, b):
-		var at: int = int(a.get("tier", 1))
-		var bt: int = int(b.get("tier", 1))
-		return at < bt if _equip_sort_asc else at > bt
-	)
-	return out
-
-
-func _rebuild_inventory_list() -> void:
-	for child in inventory_list_container.get_children():
-		child.queue_free()
-	var filtered := _filtered_sorted_equipment()
-	inventory_label.text = "所持装備 %d/%d" % [filtered.size(), CollectionData.inventory.equipment.size()]
-	for inst in filtered:
-		var def := Equipment.get_equipment(str(inst.get("def_id", "")))
-		if def.is_empty():
-			continue
-
-		var col := VBoxContainer.new()
-
-		var header := HBoxContainer.new()
-		header.custom_minimum_size = Vector2(0, 76)
-		header.add_theme_constant_override("separation", 10)
-		header.add_child(_make_art_thumbnail(str(def.get("art", "")), str(def.get("archetype", "")), "common", Vector2(62, 62)))
-		var label := Label.new()
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-		label.text = "%s（%s, Tier%d, 威力%.2f）" % [
-			Equipment.equipment_label(inst), def.get("slot", ""), int(inst.get("tier", 1)), float(inst.get("power", 1.0)),
-		]
-		header.add_child(label)
-		var equip_btn := Button.new()
-		equip_btn.text = "装備"
-		equip_btn.pressed.connect(_on_equip_pressed.bind(str(inst.get("uid", ""))))
-		header.add_child(equip_btn)
-		col.add_child(header)
-
-		var sockets: Array = inst.get("socketed_runes", [])
-		for i in range(sockets.size()):
-			var socket_row := HBoxContainer.new()
-			socket_row.add_theme_constant_override("separation", 6)
-			var rune_id = sockets[i]
-			var socket_label := Label.new()
-			socket_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			socket_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-			if rune_id != null:
-				var rune: Dictionary = CollectionData.rune_registry.get(rune_id, {})
-				socket_label.text = "  ソケット%d: %s(%s)" % [i, rune.get("effect", "?"), str(rune.get("value", "?"))]
-				var unsocket_btn := Button.new()
-				unsocket_btn.text = "外す"
-				unsocket_btn.pressed.connect(_on_unsocket_pressed.bind(str(inst.get("uid", "")), i))
-				socket_row.add_child(socket_label)
-				socket_row.add_child(unsocket_btn)
-			else:
-				socket_label.text = "  ソケット%d: 空" % i
-				var socket_btn := Button.new()
-				socket_btn.text = "ここに装着"
-				socket_btn.disabled = _selected_rune_id == ""
-				socket_btn.pressed.connect(_on_socket_pressed.bind(str(inst.get("uid", "")), i))
-				socket_row.add_child(socket_label)
-				socket_row.add_child(socket_btn)
-			col.add_child(socket_row)
-
-		inventory_list_container.add_child(col)
-		inventory_list_container.add_child(HSeparator.new())
-
-
-## EquipmentScreen.tsx のルーン検索＋カテゴリフィルター相当
-func _filtered_runes() -> Array:
-	var query := _rune_search.strip_edges().to_lower()
-	var out: Array = []
-	for rune in CollectionData.inventory.runes:
-		var effect: String = str(rune.get("effect", ""))
-		if _rune_category != "" and str(RUNE_CATEGORY_OF_EFFECT.get(effect, "")) != _rune_category:
-			continue
-		if query != "" and not effect.to_lower().contains(query):
-			continue
-		out.append(rune)
-	return out
-
-
-func _rebuild_rune_list() -> void:
-	for child in rune_list_container.get_children():
-		child.queue_free()
-	var filtered := _filtered_runes()
-	rune_label.text = "所持ルーン（選択してから装備側の「ここに装着」を押す） %d/%d" % [filtered.size(), CollectionData.inventory.runes.size()]
-	for rune in filtered:
-		var row := HBoxContainer.new()
-		row.custom_minimum_size = Vector2(0, 48)
-		row.add_theme_constant_override("separation", 10)
-		var rune_id: String = str(rune.get("id", ""))
-		var label := Label.new()
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-		var mark := "▶ " if rune_id == _selected_rune_id else ""
-		label.text = "%s%s（値%s）" % [mark, rune.get("effect", "?"), str(rune.get("value", "?"))]
-		row.add_child(label)
-		var select_btn := Button.new()
-		select_btn.text = "選択解除" if rune_id == _selected_rune_id else "選択"
-		select_btn.pressed.connect(_on_select_rune_pressed.bind(rune_id))
-		row.add_child(select_btn)
-		rune_list_container.add_child(row)
-
-
-func _on_equip_pressed(equipment_uid: String) -> void:
-	GameState.equip_item(equipment_uid)
-	_refresh_equipment_tab()
-
-
-func _on_unequip_pressed(slot: String) -> void:
-	GameState.unequip_slot(slot)
-	_refresh_equipment_tab()
-
-
-func _on_select_rune_pressed(rune_id: String) -> void:
-	_selected_rune_id = "" if _selected_rune_id == rune_id else rune_id
-	_refresh_equipment_tab()
-
-
-func _on_socket_pressed(equipment_uid: String, socket_index: int) -> void:
-	if _selected_rune_id == "":
-		return
-	if CollectionData.socket_rune_to_equipment(equipment_uid, _selected_rune_id, socket_index):
-		_selected_rune_id = ""
-		GameState.sync_equipped_from_inventory(equipment_uid)
-	_refresh_equipment_tab()
-
-
-func _on_unsocket_pressed(equipment_uid: String, socket_index: int) -> void:
-	if CollectionData.unsocket_rune_from_equipment(equipment_uid, socket_index):
-		GameState.sync_equipped_from_inventory(equipment_uid)
-	_refresh_equipment_tab()
-
-
-func _on_equip_filter_archetype_toggled(pressed: bool, value: String) -> void:
-	if pressed:
-		_equip_filter_archetypes[value] = true
-	else:
-		_equip_filter_archetypes.erase(value)
-	_rebuild_inventory_list()
-	equipment_filter_archetype_popover.visible = false
-
-
-func _on_equip_filter_slot_toggled(pressed: bool, value: String) -> void:
-	if pressed:
-		_equip_filter_slots[value] = true
-	else:
-		_equip_filter_slots.erase(value)
-	_rebuild_inventory_list()
-	equipment_filter_slot_popover.visible = false
-
-
-## EquipmentScreen.tsx の「tier{sortAsc ? "低い順" : "高い順"}」トグルボタン相当
-func _on_equipment_sort_toggle_pressed() -> void:
-	_equip_sort_asc = not _equip_sort_asc
-	equipment_sort_button.text = "tier低い順" if _equip_sort_asc else "tier高い順"
-	_rebuild_inventory_list()
-
-
-## EquipmentScreen.tsx の「フィルターをリセット」相当
-func _on_equipment_filter_reset_pressed() -> void:
-	_equip_filter_archetypes.clear()
-	_equip_filter_slots.clear()
-	_sync_toggle_row(equipment_filter_archetype_row, _equipment_filterable_archetypes(), _equip_filter_archetypes)
-	_sync_toggle_row(equipment_filter_slot_row, Equipment.EQUIPMENT_SLOTS, _equip_filter_slots)
-	_rebuild_inventory_list()
-	equipment_filter_archetype_popover.visible = false
-	equipment_filter_slot_popover.visible = false
-
-
-func _on_rune_search_changed(text: String) -> void:
-	_rune_search = text
-	_rebuild_rune_list()
-
-
-func _on_rune_category_toggled(pressed: bool, value: String) -> void:
-	if pressed:
-		_rune_category = value
-		_rebuild_rune_list()

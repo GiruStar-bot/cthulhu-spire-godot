@@ -33,9 +33,7 @@ static func empty_profile() -> Dictionary:
 		"sanity": null,
 		"seen_rlyeh": false,
 		"grimoire_read": [],
-		"equipped": {},
 		"shells": 0,
-		"equipment_presets": {},
 		"starter_chosen": false,
 		"collection_saved": false,
 	}
@@ -181,10 +179,8 @@ static func load_profile() -> Dictionary:
 	profile.sanity = sanity
 	profile.seen_rlyeh = not not parsed.get("seen_rlyeh", false)
 	profile.grimoire_read = grimoire_read
-	profile.equipped = parsed.get("equipped", {})
 	var shells_raw = parsed.get("shells", 0)
 	profile.shells = max(0, int(shells_raw)) if (typeof(shells_raw) == TYPE_FLOAT or typeof(shells_raw) == TYPE_INT) else 0
-	profile.equipment_presets = parsed.get("equipment_presets", {})
 	profile.starter_chosen = (not not parsed.get("starter_chosen", true)) if typeof(parsed.get("starter_chosen")) == TYPE_BOOL else true
 	return profile
 
