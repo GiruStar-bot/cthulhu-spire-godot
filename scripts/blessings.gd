@@ -121,7 +121,7 @@ const CATALOG := {
 	"bias_deep": {
 		"name": "深き者の潮流",
 		"text": "深き者の敵と遭遇しやすくなる。その属性のチケットが落ちやすい。",
-		"bias": "deep",
+		"bias": "water",
 	},
 	"bias_offering": {
 		"name": "供物の潮流",

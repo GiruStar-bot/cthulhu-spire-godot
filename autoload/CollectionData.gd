@@ -36,14 +36,14 @@ const INITIAL_PACK_TICKETS := 10
 ## 毒・狂信・供物・影のパックは凍結のあと削除した。
 ## 風・火は旧支配者パック、地（豊穣）は外宇宙パックの強制枠から出る。魔導に専用パックは無い。
 const PACK_TICKET_ARCHETYPES := [
-	"knight", "outer", "elder", "deep", "greatold", "all",
+	"knight", "outer", "elder", "water", "greatold", "all",
 ]
 
 const PACK_TICKET_LABELS := {
 	"knight": "騎士",
 	"outer": "外宇宙",
 	"elder": "旧神",
-	"deep": "深き者",
+	"water": "水",
 	"greatold": "大いなるもの",
 	"all": "全",
 }
@@ -137,6 +137,9 @@ func apply_save(data: Dictionary) -> void:
 	if typeof(raw_tickets) == TYPE_DICTIONARY:
 		for key in raw_tickets.keys():
 			pack_tickets[str(key)] = int(raw_tickets[key])
+	if pack_tickets.has("deep"):
+		pack_tickets["water"] = int(pack_tickets.get("water", 0)) + int(pack_tickets["deep"])
+		pack_tickets.erase("deep")
 
 	rune_registry = {}
 	var raw_reg = data.get("rune_registry", {})

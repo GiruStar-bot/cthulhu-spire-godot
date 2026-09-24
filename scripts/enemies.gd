@@ -61,7 +61,7 @@ const ENEMIES := {
 		"biome": "reef",
 		"maxHp": 86,
 		"tier": "elite",
-		"archetype": "deep",
+		"archetype": "water",
 	},
 	"serpent": {
 		"id": "serpent",
@@ -70,7 +70,7 @@ const ENEMIES := {
 		"poster": "res://art/pixel/serpent.png",
 		"biome": "mu",
 		"maxHp": 54,
-		"archetype": "deep",
+		"archetype": "water",
 	},
 	"spawn": {
 		"id": "spawn",
@@ -166,7 +166,7 @@ const ENEMIES := {
 		"poster": "res://art/pixel/flock.png",
 		"biome": "reef",
 		"maxHp": 52,
-		"archetype": "deep",
+		"archetype": "water",
 		"floats": true,
 		"signatureCardId": "flockrush",
 		"cardsPerTurn": 2,
