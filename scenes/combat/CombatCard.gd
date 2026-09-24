@@ -23,7 +23,7 @@ const FRAME_BY_ARCHETYPE := {
 	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 12],
 	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 20],
 	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 11],
-	"deep": ["res://art/pixel/ui/frame_card_deep_9.png", 15],
+	"water": ["res://art/pixel/ui/frame_card_water_9.png", 19],
 }
 ## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
 const MYTHOS_GLOW_COLOR := {

@@ -130,7 +130,7 @@ var _sell_rune_ids: Dictionary = {}  ## id -> true
 # カード自体の archetype と枠画像は別定数のまま残す。
 # ============================================================
 
-const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "deep", "greatold", "all"]
+const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "water", "greatold", "all"]
 const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
 const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
@@ -160,7 +160,7 @@ const CARD_FRAME_BY_ARCHETYPE := {
 	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 12],
 	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 20],
 	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 11],
-	"deep": ["res://art/pixel/ui/frame_card_deep_9.png", 15],
+	"water": ["res://art/pixel/ui/frame_card_water_9.png", 19],
 }
 
 const RUNE_CATEGORY_OF_EFFECT := {
@@ -182,7 +182,7 @@ const DECK_SHELF_COLORS := {
 	"fanatic": Color("6B1F22"),
 	"knight": Color("5C6570"),
 	"poison": Color("2F5C3A"),
-	"deep": Color("1F4A5C"),
+	"water": Color("1F4A5C"),
 	"outer": Color("3A2A55"),
 	"elder": Color("4A4538"),
 	"offering": Color("5C4A2E"),

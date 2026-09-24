@@ -12,7 +12,7 @@ const ARCHETYPE_LABELS := {
 	"poison": "毒",
 	"outer": "外宇宙",
 	"elder": "旧神",
-	"deep": "深き者",
+	"water": "水",
 	"offering": "供物",
 	"shadow": "影",
 	"greatold": "旧支配者",
@@ -441,7 +441,7 @@ const CARDS := {
 		"name": "適応の鱗",
 		"type": "skill",
 		"aiTag": "defense",
-		"archetype": "deep",
+		"archetype": "water",
 		"cost": 1,
 		"rarity": "common",
 		"owner": "cultist",
@@ -1431,10 +1431,10 @@ const CARDS := {
 			{"t": "turnStartHook", "hook": "addToHand", "id": "black_sheep", "n": 1},
 		],
 	},
-	## ---- 深き者・水 ----
+	## ---- 水 ----
 	"apocrypha": {
 		"id": "apocrypha", "name": "異本", "type": "skill", "aiTag": "effect",
-		"archetype": "deep", "subArchetypes": ["tome"],
+		"archetype": "water", "subArchetypes": ["tome"],
 		"cost": 1, "rarity": "common", "owner": "shared",
 		"text": "正気度4を失う。3枚ドロー。",
 		"upgradedText": "正気度4を失う。3枚ドロー。",
@@ -1444,7 +1444,7 @@ const CARDS := {
 	},
 	"tentacle": {
 		"id": "tentacle", "name": "触手", "type": "attack", "aiTag": "attack", "vfx": "impact",
-		"archetype": "deep", "subArchetypes": ["water"],
+		"archetype": "water",
 		"cost": 1, "rarity": "common", "owner": "shared",
 		"text": "正気度1を失う。敵単体に11ダメージ。",
 		"upgradedText": "正気度1を失う。敵単体に11ダメージ。",
@@ -1454,7 +1454,7 @@ const CARDS := {
 	},
 	"scales": {
 		"id": "scales", "name": "鱗", "type": "skill", "aiTag": "defense",
-		"archetype": "deep", "subArchetypes": ["water"],
+		"archetype": "water",
 		"cost": 1, "rarity": "common", "owner": "shared",
 		"text": "正気度1を失う。防御15を得る。",
 		"upgradedText": "正気度1を失う。防御15を得る。",
@@ -1464,7 +1464,7 @@ const CARDS := {
 	},
 	"mothers_embrace": {
 		"id": "mothers_embrace", "name": "母の抱擁", "type": "skill", "aiTag": "effect",
-		"archetype": "deep", "subArchetypes": ["water"],
+		"archetype": "water",
 		"cost": 2, "rarity": "common", "owner": "shared",
 		"text": "正気度5回復。体力5回復。",
 		"upgradedText": "正気度5回復。体力5回復。",
@@ -1476,7 +1476,7 @@ const CARDS := {
 	## 進行中の戦闘セーブが既に持っている場合に備え、定義だけ残す。
 	"sea": {
 		"id": "sea", "name": "海", "type": "skill", "aiTag": "defense",
-		"archetype": "deep", "subArchetypes": ["water"],
+		"archetype": "water",
 		"cost": 0, "rarity": "status", "owner": "shared",
 		"unobtainable": true, "token": true, "vanishOnUse": true,
 		"text": "防御6を得る。",
@@ -1487,7 +1487,7 @@ const CARDS := {
 	},
 	"sea_pact": {
 		"id": "sea_pact", "name": "海契約", "type": "skill", "aiTag": "effect",
-		"archetype": "deep",
+		"archetype": "water",
 		"cost": 0, "rarity": "common", "owner": "shared", "oncePerTurn": true,
 		"text": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。デッキから「水」カードを2枚手札に加える。1ターンに1度しか使用できない。",
 		"upgradedText": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。デッキから「水」カードを2枚手札に加える。1ターンに1度しか使用できない。",
@@ -1505,7 +1505,7 @@ const CARDS := {
 	},
 	"gill_breathing": {
 		"id": "gill_breathing", "name": "えら呼吸", "type": "skill", "aiTag": "effect",
-		"archetype": "deep",
+		"archetype": "water",
 		"cost": 1, "rarity": "common", "owner": "shared",
 		"text": "エネルギーを1得る。",
 		"upgradedText": "エネルギーを1得る。",
@@ -1916,6 +1916,8 @@ static func has_tag(def: Dictionary, tag: String) -> bool:
 
 
 static func has_sub_archetype(def: Dictionary, sub: String) -> bool:
+	if sub != "" and str(def.get("archetype", "")) == sub:
+		return true
 	var subs = def.get("subArchetypes", [])
 	return subs is Array and subs.has(sub)
 

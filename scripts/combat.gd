@@ -206,8 +206,7 @@ static func _pull_sub_archetype_from(c: Dictionary, pile_key: String, sub: Strin
 	var rest: Array = []
 	for card_inst in pile:
 		var card_def: Dictionary = Cards.get_card(str(card_inst.defId))
-		var subs = card_def.get("subArchetypes", [])
-		if subs is Array and subs.has(sub):
+		if Cards.has_sub_archetype(card_def, sub):
 			hits.append(card_inst)
 		else:
 			rest.append(card_inst)
@@ -261,9 +260,14 @@ static func _card_sub_effect_mul(c: Dictionary, def: Dictionary) -> float:
 	var m: float = 1.0
 	var table: Dictionary = c.get("subEffectMul", {})
 	var subs = def.get("subArchetypes", [])
-	if not (subs is Array):
-		return 1.0
-	for sub in subs:
+	var tags: Array = []
+	if subs is Array:
+		for sub in subs:
+			tags.append(str(sub))
+	var arch: String = str(def.get("archetype", ""))
+	if arch != "" and not tags.has(arch):
+		tags.append(arch)
+	for sub in tags:
 		m = maxf(m, float(table.get(str(sub), 1.0)))
 	return m
 
@@ -275,9 +279,14 @@ static func _card_sub_damage_mul(c: Dictionary, card) -> float:
 	var m: float = 1.0
 	var table: Dictionary = c.get("subDamageMul", {})
 	var subs = def.get("subArchetypes", [])
-	if not (subs is Array):
-		return 1.0
-	for sub in subs:
+	var tags: Array = []
+	if subs is Array:
+		for sub in subs:
+			tags.append(str(sub))
+	var arch: String = str(def.get("archetype", ""))
+	if arch != "" and not tags.has(arch):
+		tags.append(arch)
+	for sub in tags:
 		m = maxf(m, float(table.get(str(sub), 1.0)))
 	return m
 
@@ -560,7 +569,7 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 			var weak_n: int = 2 if tier == 3 else 1
 			for e in c.enemies:
 				e.weak = int(e.weak) + weak_n
-		if archetype == "deep":
+		if archetype == "water":
 			var heal_n: int = 2 if tier == 1 else (4 if tier == 2 else 6)
 			player.hp = mini(int(player.maxHp), int(player.hp) + heal_n)
 		if archetype == "offering" and tier >= 2:

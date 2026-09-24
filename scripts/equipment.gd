@@ -58,11 +58,11 @@ const EQUIPMENT := {
 	"ancient_vambrace": {"name": "太古の腕甲", "slot": "arms", "archetype": "elder", "sockets": 1, "base_draw": 2},
 	"ancient_leggings": {"name": "太古の脚衣", "slot": "legs", "archetype": "elder", "sockets": 1, "base_draw": 1},
 	"ancient_boots": {"name": "太古の靴", "slot": "feet", "archetype": "elder", "sockets": 1, "base_draw": 1},
-	"abyssal_hood": {"name": "深海の頭巾", "slot": "head", "archetype": "deep", "sockets": 1, "base_heal": 2},
-	"abyssal_coat": {"name": "深海の外套", "slot": "chest", "archetype": "deep", "sockets": 2, "base_heal": 3},
-	"abyssal_bracers": {"name": "深海の腕当て", "slot": "arms", "archetype": "deep", "sockets": 1, "base_heal": 2},
-	"abyssal_leggings": {"name": "深海の脚衣", "slot": "legs", "archetype": "deep", "sockets": 1, "base_heal": 2},
-	"abyssal_boots": {"name": "深海の靴", "slot": "feet", "archetype": "deep", "sockets": 1, "base_heal": 1},
+	"abyssal_hood": {"name": "深海の頭巾", "slot": "head", "archetype": "water", "sockets": 1, "base_heal": 2},
+	"abyssal_coat": {"name": "深海の外套", "slot": "chest", "archetype": "water", "sockets": 2, "base_heal": 3},
+	"abyssal_bracers": {"name": "深海の腕当て", "slot": "arms", "archetype": "water", "sockets": 1, "base_heal": 2},
+	"abyssal_leggings": {"name": "深海の脚衣", "slot": "legs", "archetype": "water", "sockets": 1, "base_heal": 2},
+	"abyssal_boots": {"name": "深海の靴", "slot": "feet", "archetype": "water", "sockets": 1, "base_heal": 1},
 	"offering_headdress": {"name": "供物の頭飾り", "slot": "head", "archetype": "offering", "sockets": 1, "base_thorn": 2},
 	"offering_vestment": {"name": "供物の法衣", "slot": "chest", "archetype": "offering", "sockets": 2, "base_thorn": 3},
 	"offering_bangle": {"name": "供物の腕輪", "slot": "arms", "archetype": "offering", "sockets": 1, "base_thorn": 2},
@@ -298,7 +298,7 @@ static func compute_equipment_stats(equipped: Dictionary, peek_rune_fn: Callable
 		stats.sanFullRestoreOnStart = true
 	if has_full_set(equipped, "elder"):
 		stats.expandedHand = true
-	if has_full_set(equipped, "deep"):
+	if has_full_set(equipped, "water"):
 		stats.hpPercentHealOnStart = true
 	if has_full_set(equipped, "offering"):
 		stats.sacrificeEnergyOnStart = true
