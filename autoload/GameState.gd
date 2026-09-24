@@ -201,16 +201,9 @@ func buy_card_pack() -> Array:
 	return result
 
 
-## 拠点の売却価格。鍛冶屋（scripts/smith.gd）は廃止し、ここからは呼ばない。
+## 拠点の売却価格。カード定義の sell_price をそのまま使う（無ければ売れない＝0）。
 func card_sell_price(card_def: Dictionary) -> int:
-	var rarity: String = str(card_def.get("rarity", ""))
-	if rarity == "common":
-		return 5
-	if rarity == "uncommon":
-		return 10
-	if rarity == "rare":
-		return 20
-	return 0
+	return int(card_def.get("sell_price", 0))
 
 
 ## store.ts の sellItems({cardIds})。合計0円なら何もしない。

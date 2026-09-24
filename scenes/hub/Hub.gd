@@ -73,13 +73,10 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var deck_sort_option_button: OptionButton = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/DeckSortOptionButton
 @onready var deck_filter_reset_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/DeckFilterResetButton
 @onready var deck_filter_archetype_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/ArchetypeButton
-@onready var deck_filter_rarity_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/RarityButton
 @onready var deck_filter_ai_tag_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/AiTagButton
 @onready var deck_filter_archetype_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterArchetypePopover
-@onready var deck_filter_rarity_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover
 @onready var deck_filter_ai_tag_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover
 @onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterArchetypePopover/DeckFilterArchetypeRow
-@onready var deck_filter_rarity_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterRarityPopover/DeckFilterRarityRow
 @onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover/DeckFilterAiTagRow
 @onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckResultCountLabel
 @onready var card_scroll: ScrollContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScrollFrame/CardScroll
@@ -113,12 +110,9 @@ var _sell_card_row_nodes: Dictionary = {}  ## base_card_id -> {qty_label, minus_
 # ============================================================
 
 const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "water", "greatold", "all", "fire", "wind", "earth", "magic"]
-const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
-const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
-const DECK_SORT_MODES := ["cost", "rarity", "owned", "archetype"]
-const DECK_SORT_LABELS := {"cost": "コスト順", "rarity": "レア度順", "owned": "所持数順", "archetype": "ジャンル順"}
-const RARITY_LABELS := {"common": "コモン", "uncommon": "アンコモン", "rare": "レア", "status": "状態"}
+const DECK_SORT_MODES := ["cost", "owned", "archetype"]
+const DECK_SORT_LABELS := {"cost": "コスト順", "owned": "所持数順", "archetype": "ジャンル順"}
 const AI_TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "効果"}
 
 const NORMAL_PACK_ART := "res://art/pixel/ui/card_back.png"
@@ -153,7 +147,6 @@ var _deck_leave_bypass: bool = false
 var _deck_save_layer: CanvasLayer = null
 var _deck_renaming: bool = false
 var _deck_filter_archetypes: Dictionary = {}
-var _deck_filter_rarities: Dictionary = {}
 var _deck_filter_ai_tags: Dictionary = {}
 var _deck_search: String = ""
 var _deck_sort_mode: String = "cost"
@@ -242,7 +235,6 @@ func _setup_deck_filters() -> void:
 	deck_search_edit.text_changed.connect(_on_deck_search_changed)
 	deck_filter_reset_button.pressed.connect(_on_deck_filter_reset_pressed)
 	deck_filter_archetype_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_archetype_popover))
-	deck_filter_rarity_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_rarity_popover))
 	deck_filter_ai_tag_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_ai_tag_popover))
 
 	deck_sort_option_button.clear()
@@ -254,9 +246,6 @@ func _setup_deck_filters() -> void:
 	_build_toggle_row(deck_filter_archetype_row, DECK_FILTERABLE_ARCHETYPES,
 		func(a): return str(Cards.ARCHETYPE_LABELS.get(a, a)),
 		_deck_filter_archetypes, _on_deck_filter_archetype_toggled)
-	_build_toggle_row(deck_filter_rarity_row, DECK_FILTERABLE_RARITIES,
-		func(r): return str(RARITY_LABELS.get(r, r)),
-		_deck_filter_rarities, _on_deck_filter_rarity_toggled)
 	_build_toggle_row(deck_filter_ai_tag_row, DECK_FILTERABLE_AI_TAGS,
 		func(t): return str(AI_TAG_LABELS.get(t, t)),
 		_deck_filter_ai_tags, _on_deck_filter_ai_tag_toggled)
@@ -283,7 +272,7 @@ func _float_deck_filter_popovers() -> void:
 	var overlay: Control = deck_panel.get_parent() as Control
 	if overlay == null:
 		return
-	for panel in [deck_filter_archetype_popover, deck_filter_rarity_popover, deck_filter_ai_tag_popover]:
+	for panel in [deck_filter_archetype_popover, deck_filter_ai_tag_popover]:
 		if panel.get_parent() == overlay:
 			continue
 		panel.reparent(overlay, false)
@@ -293,14 +282,12 @@ func _float_deck_filter_popovers() -> void:
 
 func _toggle_deck_popover(target: Control) -> void:
 	var opening: bool = not target.visible
-	for panel in [deck_filter_archetype_popover, deck_filter_rarity_popover, deck_filter_ai_tag_popover]:
+	for panel in [deck_filter_archetype_popover, deck_filter_ai_tag_popover]:
 		panel.visible = false
 	if not opening:
 		return
 	var anchor: Control = deck_filter_archetype_button
-	if target == deck_filter_rarity_popover:
-		anchor = deck_filter_rarity_button
-	elif target == deck_filter_ai_tag_popover:
+	if target == deck_filter_ai_tag_popover:
 		anchor = deck_filter_ai_tag_button
 	var min_size: Vector2 = target.get_combined_minimum_size()
 	target.size = Vector2(maxf(280.0, min_size.x), maxf(48.0, min_size.y))
@@ -776,7 +763,7 @@ func _refresh_commerce() -> void:
 			info.text = "通常パック\nカードを4枚引く。所持数が少ないカードほど出やすい。"
 			commerce_list.add_child(info)
 			_commerce_button("購入 · 貝殻%d" % GameState.CARD_PACK_PRICE, _on_buy_card_pack, GameState.shells < GameState.CARD_PACK_PRICE,
-				NORMAL_PACK_ART, "", "uncommon")
+				NORMAL_PACK_ART, "")
 	elif _commerce_tab == "packs":
 		## PackShopScreen.tsx：ナビを隠して全幅。パック絵は object-contain。
 		commerce_title.text = "カードパック"
@@ -899,7 +886,7 @@ func _on_pack_open_closed() -> void:
 	_pack_open = null
 	_refresh_commerce()
 	_update_header()
-func _commerce_button(label: String, action: Callable, disabled: bool = false, art_path: String = "", archetype: String = "", rarity: String = "common") -> void:
+func _commerce_button(label: String, action: Callable, disabled: bool = false, art_path: String = "", archetype: String = "") -> void:
 	var button := Button.new()
 	button.disabled = disabled
 	button.pressed.connect(action)
@@ -913,7 +900,7 @@ func _commerce_button(label: String, action: Callable, disabled: bool = false, a
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 6)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 10)
-	row.add_child(_make_art_thumbnail(art_path, archetype, rarity, Vector2(46, 56)))
+	row.add_child(_make_art_thumbnail(art_path, archetype, Vector2(46, 56)))
 	var text_label := Label.new()
 	text_label.text = label
 	text_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -929,7 +916,7 @@ func _commerce_card_result(definition: Dictionary, fallback_id: String) -> void:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 60)
 	row.add_theme_constant_override("separation", 10)
-	row.add_child(_make_art_thumbnail(Cards.card_art({}, definition), str(definition.get("archetype", "")), str(definition.get("rarity", "common")), Vector2(46, 56)))
+	row.add_child(_make_art_thumbnail(Cards.card_art({}, definition), str(definition.get("archetype", "")), Vector2(46, 56)))
 	var label := Label.new()
 	label.text = "・%s" % str(definition.get("name", fallback_id))
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1057,7 +1044,7 @@ func _load_texture_safe(path: String) -> Texture2D:
 	return null
 
 
-func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, minimum_size: Vector2, with_frame: bool = true) -> Control:
+func _make_art_thumbnail(art_path: String, archetype: String, minimum_size: Vector2, with_frame: bool = true) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = minimum_size
 	holder.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -1101,7 +1088,7 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 	if not with_frame:
 		return holder
 
-	var frame_data: Array = CombatCard.FRAME_BY_ARCHETYPE.get(archetype, CombatCard.FRAME_BY_RARITY.get(rarity, CombatCard.FRAME_BY_RARITY["common"]))
+	var frame_data: Array = CombatCard.FRAME_BY_ARCHETYPE.get(archetype, CombatCard.FRAME_DEFAULT)
 	var frame := NinePatchRect.new()
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	frame.draw_center = false
@@ -1123,7 +1110,7 @@ func _make_art_thumbnail(art_path: String, archetype: String, rarity: String, mi
 
 
 func _make_art_strip(art_path: String, strip_size: Vector2) -> Control:
-	return _make_art_thumbnail(art_path, "", "common", strip_size, false)
+	return _make_art_thumbnail(art_path, "", strip_size, false)
 
 
 # ============================================================
@@ -1549,7 +1536,7 @@ func _refresh_deck_summary() -> void:
 
 
 ## DeckBuilderScreen.tsx の groupInventory()+検索+フィルター相当。
-## 所持カード（base_card_id単位）を名前検索・ジャンル/レア度/種別フィルターで絞り込む。
+## 所持カード（base_card_id単位）を名前検索・ジャンル/種別フィルターで絞り込む。
 func _filtered_deck_card_ids(owned: Dictionary) -> Array:
 	var query := _deck_search.strip_edges().to_lower()
 	var out: Array = []
@@ -1561,9 +1548,6 @@ func _filtered_deck_card_ids(owned: Dictionary) -> Array:
 			continue
 		var archetype: String = str(def.get("archetype", "generic"))
 		if _deck_filter_archetypes.size() > 0 and not _deck_filter_archetypes.has(archetype):
-			continue
-		var rarity: String = str(def.get("rarity", ""))
-		if _deck_filter_rarities.size() > 0 and not _deck_filter_rarities.has(rarity):
 			continue
 		var ai_tag: String = str(def.get("aiTag", ""))
 		if _deck_filter_ai_tags.size() > 0 and (ai_tag == "" or not _deck_filter_ai_tags.has(ai_tag)):
@@ -1582,10 +1566,6 @@ func _sort_deck_card_ids(ids: Array, owned: Dictionary) -> void:
 				var ac: int = int(ad.get("cost", 0))
 				var bc: int = int(bd.get("cost", 0))
 				return ac < bc if ac != bc else str(ad.get("name", "")) < str(bd.get("name", ""))
-			"rarity":
-				var ar: int = DECK_RARITY_ORDER.find(str(ad.get("rarity", "")))
-				var br: int = DECK_RARITY_ORDER.find(str(bd.get("rarity", "")))
-				return ar < br if ar != br else int(ad.get("cost", 0)) < int(bd.get("cost", 0))
 			"owned":
 				var ao: int = int(owned.get(a, 0))
 				var bo: int = int(owned.get(b, 0))
@@ -2211,15 +2191,6 @@ func _on_deck_filter_archetype_toggled(pressed: bool, value: String) -> void:
 	deck_filter_archetype_popover.visible = false
 
 
-func _on_deck_filter_rarity_toggled(pressed: bool, value: String) -> void:
-	if pressed:
-		_deck_filter_rarities[value] = true
-	else:
-		_deck_filter_rarities.erase(value)
-	_rebuild_card_list()
-	deck_filter_rarity_popover.visible = false
-
-
 func _on_deck_filter_ai_tag_toggled(pressed: bool, value: String) -> void:
 	if pressed:
 		_deck_filter_ai_tags[value] = true
@@ -2232,14 +2203,11 @@ func _on_deck_filter_ai_tag_toggled(pressed: bool, value: String) -> void:
 ## DeckBuilderScreen.tsx の「条件をリセット」相当
 func _on_deck_filter_reset_pressed() -> void:
 	_deck_filter_archetypes.clear()
-	_deck_filter_rarities.clear()
 	_deck_filter_ai_tags.clear()
 	_deck_search = ""
 	deck_search_edit.text = ""
 	_sync_toggle_row(deck_filter_archetype_row, DECK_FILTERABLE_ARCHETYPES, _deck_filter_archetypes)
-	_sync_toggle_row(deck_filter_rarity_row, DECK_FILTERABLE_RARITIES, _deck_filter_rarities)
 	_sync_toggle_row(deck_filter_ai_tag_row, DECK_FILTERABLE_AI_TAGS, _deck_filter_ai_tags)
 	_rebuild_card_list()
 	deck_filter_archetype_popover.visible = false
-	deck_filter_rarity_popover.visible = false
 	deck_filter_ai_tag_popover.visible = false

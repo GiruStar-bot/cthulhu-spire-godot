@@ -16,8 +16,7 @@ const CARD_GAP := 12.0
 const MYTHOS_ARCHETYPES := ["greatold", "elder", "outer", "all"]
 const FLIP_HALF_S := 0.22
 const DEAL_S := 0.20
-const RARE_POP_S := 0.50
-const RARE_LIGHT := Color(1.0, 0.92, 0.62, 1.0)
+const MYTHOS_POP_S := 0.50
 const MYTHOS_LIGHT := {
 	"greatold": Color(0.063, 0.725, 0.506, 1.0),
 	"elder": Color(0.980, 0.863, 0.510, 1.0),
@@ -385,12 +384,10 @@ func _after_flip(index: int) -> void:
 	root.set_meta("flipping", false)
 	root.scale = Vector2.ONE
 	var def: Dictionary = Cards.get_card(str(slot["def_id"]))
-	var rarity: String = str(def.get("rarity", "common"))
 	var arch: String = str(def.get("archetype", ""))
-	var is_rare: bool = rarity == "rare" or rarity == "legendary"
 	var is_mythos: bool = MYTHOS_ARCHETYPES.has(arch)
-	if is_rare or is_mythos:
-		_play_rarity_fx(slot, is_rare, arch)
+	if is_mythos:
+		_play_mythos_fx(slot, arch)
 	_check_done()
 
 
@@ -413,25 +410,21 @@ func _make_radial_glow_texture() -> GradientTexture2D:
 	return tex
 
 
-func _play_rarity_fx(slot: Dictionary, is_rare: bool, arch: String) -> void:
+## 属性（旧支配者・旧神・外宇宙・全）のカードだけ、属性色で光らせて弾ませる。
+func _play_mythos_fx(slot: Dictionary, arch: String) -> void:
 	var glow: TextureRect = slot["glow"]
 	var root: Control = slot["root"]
-	var light: Color = RARE_LIGHT
-	if MYTHOS_LIGHT.has(arch):
-		light = MYTHOS_LIGHT[arch]
+	var light: Color = MYTHOS_LIGHT[arch]
 	glow.modulate = Color(light.r, light.g, light.b, 0.0)
 	glow.scale = Vector2(0.82, 0.82)
-	var peak: float = 0.95 if is_rare else 0.72
 	var glow_tw := glow.create_tween()
-	glow_tw.tween_property(glow, "modulate:a", peak, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	glow_tw.tween_property(glow, "modulate:a", 0.72, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	glow_tw.parallel().tween_property(glow, "scale", Vector2(1.28, 1.28), 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	glow_tw.tween_property(glow, "modulate:a", 0.18 if is_rare else 0.0, 0.55).set_trans(Tween.TRANS_SINE)
+	glow_tw.tween_property(glow, "modulate:a", 0.0, 0.55).set_trans(Tween.TRANS_SINE)
 	glow_tw.parallel().tween_property(glow, "scale", Vector2(1.08, 1.08), 0.55)
-	if is_rare:
-		glow_tw.tween_property(glow, "modulate:a", 0.0, 0.90).set_trans(Tween.TRANS_SINE)
 	var pop := root.create_tween()
-	pop.tween_property(root, "scale", Vector2(1.16, 1.16), RARE_POP_S * 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	pop.tween_property(root, "scale", Vector2.ONE, RARE_POP_S * 0.65).set_trans(Tween.TRANS_SINE)
+	pop.tween_property(root, "scale", Vector2(1.16, 1.16), MYTHOS_POP_S * 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pop.tween_property(root, "scale", Vector2.ONE, MYTHOS_POP_S * 0.65).set_trans(Tween.TRANS_SINE)
 
 
 func _check_done() -> void:
