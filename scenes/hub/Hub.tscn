@@ -594,6 +594,11 @@ clip_contents = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
+[node name="DeckListBackButton" type="Button" parent="Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListHeaderRow"]
+custom_minimum_size = Vector2(96, 32)
+layout_mode = 2
+text = "← 戻る"
+
 [node name="DeckListTitleLabel" type="Label" parent="Root/Body/Content/DeckPanel/DeckListSubPanel/DeckListHeaderRow"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -762,12 +767,13 @@ text = ""
 [node name="CardScroll" type="ScrollContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool"]
 layout_mode = 2
 size_flags_vertical = 3
-horizontal_scroll_mode = 0
+horizontal_scroll_mode = 3
 clip_contents = true
 
-[node name="CardListContainer" type="HFlowContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll"]
+[node name="CardListContainer" type="GridContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
+columns = 5
 theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 10
 clip_contents = true
@@ -775,8 +781,7 @@ clip_contents = true
 [node name="DeckContentsPanel" type="PanelContainer" parent="Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace"]
 custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.0
+size_flags_horizontal = 1
 clip_contents = true
 theme_override_styles/panel = SubResource("StyleRitualPanel")
 
