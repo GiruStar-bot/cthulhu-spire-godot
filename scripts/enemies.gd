@@ -172,31 +172,33 @@ const ENEMIES := {
 		"cardsPerTurn": 2,
 		"deck": ["flockrush", "lash", "all-glass", "ward"],
 	},
-	"warden": {
-		"id": "warden",
-		"name": "曲がる幾何の番",
-		"art": "res://art/pixel/warden.png",
-		"poster": "res://art/pixel/warden.png",
-		"biome": "fold",
-		"maxHp": 108,
-		"trait": "liar",
-		"archetype": "knight",
-		"signatureCardId": "noneuclid",
+	## 60階ボス。風に乗りて歩むもの。毎ターン寒気を積み上げてくるので短期決戦を迫る（trait "windwalker"）。
+	"ithaqua": {
+		"id": "ithaqua",
+		"name": "風に乗りて歩むもの、イタカ",
+		"art": "res://art/pixel/enemies/ithaqua.png",
+		"poster": "res://art/pixel/enemies/ithaqua.png",
+		"biome": "fold",  ## 仮。専用背景は後日
+		"maxHp": 120,
+		"trait": "windwalker",
+		"floats": true,
+		"signatureCardId": "sky_snatch",
 		"cardsPerTurn": 2,
-		"deck": ["noneuclid", "eldersign", "all-phase", "bash", "all-geo"],
+		"deck": ["sky_snatch", "frost_breath", "gale_claw", "all-phase"],
 	},
-	"bell": {
-		"id": "bell",
-		"name": "溺れた街の鐘",
-		"art": "res://art/pixel/bell.png",
-		"poster": "res://art/pixel/bell.png",
+	## 70階ボス。深みの父。3の倍数ターンは満潮で、1枚目が必ず大海嘯になる（trait "tide"）。
+	## HP50%以下で一度だけ溺れた眷属を2体呼ぶ。
+	"dagon": {
+		"id": "dagon",
+		"name": "深みの父、ダゴン",
+		"art": "res://art/pixel/enemies/dagon.png",
+		"poster": "res://art/pixel/enemies/dagon.png",
 		"biome": "street",
-		"maxHp": 118,
-		"trait": "bell",
-		"archetype": "shadow",
-		"signatureCardId": "tollbell",
+		"maxHp": 180,
+		"trait": "tide",
+		"signatureCardId": "great_surge",
 		"cardsPerTurn": 2,
-		"deck": ["tollbell", "all-necrosis", "all-zero", "ironwill"],
+		"deck": ["great_surge", "abyss_grasp", "brine_hide", "all-necrosis"],
 	},
 	"nyar": {
 		"id": "nyar",
@@ -277,7 +279,7 @@ static func get_enemy(id: String) -> Dictionary:
 	return ENEMIES[id]
 
 
-const BOSS_IDS := ["priest", "choir", "nurse", "flock", "herald", "warden", "bell", "nyar", "iha", "yog_sothoth"]
+const BOSS_IDS := ["priest", "choir", "nurse", "flock", "herald", "ithaqua", "dagon", "nyar", "iha", "yog_sothoth"]
 
 
 static func combat_ids_for_archetype(archetype: String) -> Array:
