@@ -40,6 +40,18 @@ const MYTHOS_GLOW_COLOR := {
 	"bastet": Color(0.96, 0.40, 0.55, 1.0),
 	"water": Color(0.12, 0.68, 0.74, 1.0),
 }
+## 効果テキスト中で強調する属性の字。色は枠グロー（MYTHOS_GLOW_COLOR）と揃える。
+const BODY_KEYWORDS := {"水": "water", "火": "fire", "地": "earth", "風": "wind"}
+## 効果テキストの収め方。フォントは下限 BODY_FONT_MIN まで縮め、フッターは
+## 基準の高さから「イラストが残る上限」まで広げる。それでも溢れる分は clip で止める。
+const BODY_FONT_MIN := 8
+const BODY_FONT_MAX := 13
+const BODY_FONT_PER_PX := 12.0  ## 本文幅 12px ごとに 1pt（128幅カード≒9pt、拡大表示≒13pt）
+const FOOTER_BASE_H := 38.0
+const FOOTER_MAX_RATIO := 0.6  ## ヘッダー下の領域のうちフッターが取れる割合の上限
+const BODY_PAD_X := 4.0
+const BODY_PAD_Y := 2.0
+const HEADER_H := 22.0
 const TAG_TONES := {
 	"attack": Color("6b1f22"),
 	"defense": Color("183c66"),
@@ -68,7 +80,9 @@ var _art: TextureRect
 var _title: Label
 var _type: Label
 var _cost: Label
-var _body: Label
+var _body: RichTextLabel
+var _footer: ColorRect
+var _body_plain: String = ""
 var _glow: ColorRect
 var _mythos_halo: TextureRect
 var _mythos_frame_glow: NinePatchRect
@@ -108,7 +122,8 @@ func configure(card: Dictionary, definition: Dictionary, playable: bool, selecte
 	_type.visible = _type.text != ""
 	_title.text = "%s%s" % [definition.get("name", "Unknown"), "+" if card.get("upgraded", false) else ""]
 	_cost.text = "X" if definition.get("xCost", false) else ("—" if definition.get("unplayable", false) else str(Cards.card_cost(card)))
-	_body.text = str(definition.get("text", ""))
+	_body_plain = str(definition.get("text", ""))
+	_body.text = _highlight_keywords(_body_plain)
 	_glow.visible = selected
 	if interactive:
 		disabled = not playable
@@ -457,25 +472,33 @@ func _build() -> void:
 	_cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_inner.add_child(_cost)
 
-	var footer := ColorRect.new()
-	footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	footer.offset_top = -38
-	footer.color = Color("16130f")
-	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_inner.add_child(footer)
+	_footer = ColorRect.new()
+	_footer.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_footer.offset_top = -FOOTER_BASE_H
+	_footer.color = Color("16130f")
+	_footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inner.add_child(_footer)
 
-	_body = Label.new()
+	## 属性キーワードを色付けするため RichTextLabel。高さとフォントは _fit_body() が決める。
+	_body = RichTextLabel.new()
 	_body.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_body.offset_left = 4
-	_body.offset_top = -36
-	_body.offset_right = -4
-	_body.offset_bottom = -2
-	_body.add_theme_font_size_override("font_size", 8)
-	_body.add_theme_color_override("font_color", Color("e3d9c2"))
+	_body.offset_left = BODY_PAD_X
+	_body.offset_top = -FOOTER_BASE_H + BODY_PAD_Y
+	_body.offset_right = -BODY_PAD_X
+	_body.offset_bottom = -BODY_PAD_Y
+	_body.bbcode_enabled = true
+	_body.scroll_active = false
+	_body.fit_content = false
 	_body.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	_body.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_body.clip_contents = true
+	_body.add_theme_font_size_override("normal_font_size", BODY_FONT_MIN)
+	_body.add_theme_font_size_override("bold_font_size", BODY_FONT_MIN)
+	_body.add_theme_color_override("default_color", Color("e3d9c2"))
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_inner.add_child(_body)
+	## 保険：本文やフッターがどう計算されても、カードの内枠の外には描かない。
+	_inner.clip_contents = true
 
 	_glow = ColorRect.new()
 	_glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -624,6 +647,59 @@ func _apply_inner_margin() -> void:
 	_inner.offset_top = m
 	_inner.offset_right = -m
 	_inner.offset_bottom = -m
+	_fit_body()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_fit_body()
+
+
+## 「[」を先に逃がしてから、水・火・地・風を枠グローと同じ色の太字にする。
+static func _highlight_keywords(text: String) -> String:
+	var out: String = text.replace("[", "[lb]")
+	for key in BODY_KEYWORDS.keys():
+		var tint: Color = MYTHOS_GLOW_COLOR[BODY_KEYWORDS[key]]
+		out = out.replace(str(key), "[b][color=#%s]%s[/color][/b]" % [tint.to_html(false), key])
+	return out
+
+
+## 本文をフッター内に収める。カード幅に応じた推奨サイズから始め、まずフッターを
+## 上限まで伸ばし、それでも入らなければ BODY_FONT_MIN まで 1pt ずつ縮める。
+## 高さは Font で折り返し後の行数を実測する（RichTextLabel の ARBITRARY 折り返しと同じ区切り）。
+func _fit_body() -> void:
+	if _body == null or _footer == null:
+		return
+	var card_size: Vector2 = size if size.x > 0.0 and size.y > 0.0 else custom_minimum_size
+	var inner_w: float = card_size.x - 2.0 * _frame_margin
+	var inner_h: float = card_size.y - 2.0 * _frame_margin
+	var text_w: float = inner_w - 2.0 * BODY_PAD_X
+	if text_w <= 0.0 or inner_h <= HEADER_H:
+		return
+	var footer_cap: float = maxf(FOOTER_BASE_H, floorf((inner_h - HEADER_H) * FOOTER_MAX_RATIO))
+	var font: Font = _body.get_theme_font("normal_font")
+	var start: int = clampi(int(text_w / BODY_FONT_PER_PX), BODY_FONT_MIN, BODY_FONT_MAX)
+	var font_size: int = BODY_FONT_MIN
+	var need: float = FOOTER_BASE_H
+	for fs in range(start, BODY_FONT_MIN - 1, -1):
+		font_size = fs
+		need = _body_text_height(font, text_w, fs) + 2.0 * BODY_PAD_Y
+		if need <= footer_cap:
+			break
+	var footer_h: float = clampf(ceilf(need), FOOTER_BASE_H, footer_cap)
+	_body.add_theme_font_size_override("normal_font_size", font_size)
+	_body.add_theme_font_size_override("bold_font_size", font_size)
+	_footer.offset_top = -footer_h
+	_body.offset_top = -footer_h + BODY_PAD_Y
+	if _art != null:
+		_art.offset_bottom = -footer_h
+
+
+func _body_text_height(font: Font, width: float, font_size: int) -> float:
+	if font == null or _body_plain.is_empty():
+		return 0.0
+	var flags: int = TextServer.BREAK_MANDATORY | TextServer.BREAK_GRAPHEME_BOUND
+	return font.get_multiline_string_size(_body_plain, HORIZONTAL_ALIGNMENT_LEFT, width, font_size, -1, flags).y
 
 
 func _sync_pivot() -> void:
