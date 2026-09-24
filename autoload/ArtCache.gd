@@ -180,20 +180,6 @@ func _collect_owned_art_paths() -> Array:
 		var upgraded_art: String = str(def.get("upgradedArt", ""))
 		_add_path(paths, seen, upgraded_art)
 
-	## 装備に art フィールドが付いている場合のみ（現行定義は未設定でも安全）
-	for inst in CollectionData.inventory.equipment:
-		if not (inst is Dictionary):
-			continue
-		var def_id: String = str(inst.get("def_id", ""))
-		if def_id.is_empty():
-			continue
-		var eq: Dictionary = Equipment.get_equipment(def_id)
-		var eq_art: String = str(eq.get("art", ""))
-		_add_path(paths, seen, eq_art)
-		## 慣例パスも試す（存在しなければ warm 時にスキップ）
-		_add_path(paths, seen, "res://art/pixel/equipment/%s.jpg" % def_id)
-		_add_path(paths, seen, "res://art/pixel/equipment/%s.png" % def_id)
-
 	return paths
 
 

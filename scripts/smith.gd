@@ -111,7 +111,6 @@ static func make_smith(rng: Mulberry32) -> Dictionary:
 		"kind": kind,
 		"taboo": taboo,
 		"goods": goods,
-		"equipment_goods": [],
 	}
 
 
@@ -133,11 +132,3 @@ static func card_sell_price(card_def: Dictionary) -> int:
 	return int(CARD_SELL_PRICE.get(str(card_def.get("rarity", "")), 0))
 
 
-## smith.ts の equipmentSellPrice()
-static func equipment_sell_price(inst: Dictionary) -> int:
-	return int(inst.get("tier", 1)) * 5
-
-
-## smith.ts の runeSellPrice()
-static func rune_sell_price(rune: Dictionary) -> int:
-	return int(rune.get("value", 0)) * 3

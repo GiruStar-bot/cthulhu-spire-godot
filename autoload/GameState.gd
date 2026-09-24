@@ -48,9 +48,7 @@ var madness: int = 0
 var profile_sanity = null  ## 次ラン開始時に引き継ぐ正気値。null＝未設定（満タンから開始）
 var seen_rlyeh: bool = false
 var grimoire_read: Array = []
-var equipped: Dictionary = {}  ## slot(String) -> EquipmentInstance(Dictionary, equipment.gd参照)
 var shells: int = 0
-var equipment_presets: Dictionary = {}
 var starter_chosen: bool = false
 
 ## "waking" | "dream"。DreamTitle 外宇宙贈り物フローで "dream" をセットする。
@@ -109,9 +107,7 @@ func _load_profile() -> void:
 	profile_sanity = p.sanity
 	seen_rlyeh = p.seen_rlyeh
 	grimoire_read = p.grimoire_read
-	equipped = p.equipped
 	shells = p.shells
-	equipment_presets = p.equipment_presets
 	starter_chosen = p.starter_chosen
 	## 旧セーブにコレクションキーは無い。collection_saved が真のときだけ復元する。
 	if p.get("collection_saved", false) == true:
@@ -120,7 +116,6 @@ func _load_profile() -> void:
 			"active_deck": p.get("active_deck", CollectionData.DEFAULT_DECK_NAME),
 			"inventory": p.get("inventory", {}),
 			"pack_tickets": p.get("pack_tickets", {}),
-			"rune_registry": p.get("rune_registry", {}),
 		})
 	elif CollectionData.profile_seeded:
 		CollectionData.seed_new_profile()
@@ -141,16 +136,13 @@ func _persist_profile() -> void:
 		"sanity": profile_sanity,
 		"seen_rlyeh": seen_rlyeh,
 		"grimoire_read": grimoire_read,
-		"equipped": equipped,
 		"shells": shells,
-		"equipment_presets": equipment_presets,
 		"starter_chosen": starter_chosen,
 		"collection_saved": true,
 		"decks": collection.get("decks", {}),
 		"active_deck": collection.get("active_deck", CollectionData.DEFAULT_DECK_NAME),
 		"inventory": collection.get("inventory", {}),
 		"pack_tickets": collection.get("pack_tickets", {}),
-		"rune_registry": collection.get("rune_registry", {}),
 	})
 
 
@@ -221,28 +213,8 @@ func card_sell_price(card_def: Dictionary) -> int:
 	return 0
 
 
-func equipment_sell_price(inst: Dictionary) -> int:
-	return int(inst.get("tier", 1)) * 5
-
-
-func rune_sell_price(rune: Dictionary) -> int:
-	return int(rune.get("value", 0)) * 3
-
-
-## store.ts の sellItems({cardIds, equipmentUids, runeIds})。装着中の装備・ソケット中の
-## ルーンは（呼び出し元が既に除外している前提だが）念のためここでも除外する。
-## 合計0円なら何もしない。
-func sell_items(card_ids: Array, equipment_uids: Array, rune_ids: Array) -> void:
-	var equipped_uids: Dictionary = {}
-	for item in equipped.values():
-		if item != null:
-			equipped_uids[str(item.get("uid", ""))] = true
-	var socketed_rune_ids: Dictionary = {}
-	for inst in CollectionData.inventory.equipment:
-		for rid in inst.get("socketed_runes", []):
-			if rid != null:
-				socketed_rune_ids[str(rid)] = true
-
+## store.ts の sellItems({cardIds})。合計0円なら何もしない。
+func sell_items(card_ids: Array) -> void:
 	var total := 0
 	var sell_card_ids: Array = []
 	for id in card_ids:
@@ -251,32 +223,9 @@ func sell_items(card_ids: Array, equipment_uids: Array, rune_ids: Array) -> void
 				total += card_sell_price(Cards.get_card(str(c.get("base_card_id", ""))))
 				sell_card_ids.append(str(id))
 				break
-
-	var sell_equipment_uids: Array = []
-	for uid in equipment_uids:
-		if equipped_uids.has(str(uid)):
-			continue
-		for inst in CollectionData.inventory.equipment:
-			if str(inst.get("uid", "")) == str(uid):
-				total += equipment_sell_price(inst)
-				sell_equipment_uids.append(str(uid))
-				break
-
-	var sell_rune_ids: Array = []
-	for rid in rune_ids:
-		if socketed_rune_ids.has(str(rid)):
-			continue
-		for rune in CollectionData.inventory.runes:
-			if str(rune.get("id", "")) == str(rid):
-				total += rune_sell_price(rune)
-				sell_rune_ids.append(str(rid))
-				break
-
 	if total == 0:
 		return
 	CollectionData.remove_cards(sell_card_ids)
-	CollectionData.remove_equipment(sell_equipment_uids)
-	CollectionData.remove_runes(sell_rune_ids)
 	shells += total
 	_persist_profile()
 	toast = "貝殻+%d" % total
@@ -936,97 +885,3 @@ func reset_run() -> void:
 	max_sanity = 0
 
 
-# ============================================================
-# 装備管理（store.ts の equipItem/unequipSlot/equipmentPreset系 相当）。
-# CollectionData.inventory.equipment が実体、equipped はそこから見た「装着中」の参照。
-# ============================================================
-
-## store.ts の equipItem()
-func equip_item(equipment_uid: String) -> void:
-	var inst := CollectionData.peek_equipment(CollectionData.inventory.equipment, equipment_uid)
-	if inst.is_empty():
-		return
-	var def := Equipment.get_equipment(inst.get("def_id", ""))
-	if def.is_empty():
-		return
-	equipped[def.get("slot", "")] = inst
-	_persist_profile()
-
-
-## store.ts の unequipSlot()
-func unequip_slot(slot: String) -> void:
-	if not equipped.has(slot):
-		return
-	equipped.erase(slot)
-	_persist_profile()
-
-
-## store.ts の saveEquipmentPreset()：現在の装着状況をプリセット名で保存する
-func save_equipment_preset(preset_name: String) -> void:
-	var trimmed := preset_name.strip_edges()
-	if trimmed.is_empty():
-		return
-	var preset: Dictionary = {}
-	for slot in Equipment.EQUIPMENT_SLOTS:
-		var inst = equipped.get(slot)
-		if inst != null:
-			preset[slot] = inst.get("uid", "")
-	equipment_presets[trimmed] = preset
-	_persist_profile()
-
-
-## store.ts の applyEquipmentPreset()。インベントリに存在しない装備は無視し、toastで通知する。
-func apply_equipment_preset(preset_name: String) -> void:
-	if not equipment_presets.has(preset_name):
-		return
-	var preset: Dictionary = equipment_presets[preset_name]
-	var missing := false
-	for slot in Equipment.EQUIPMENT_SLOTS:
-		if not preset.has(slot):
-			continue
-		var inst := CollectionData.peek_equipment(CollectionData.inventory.equipment, preset[slot])
-		if not inst.is_empty():
-			equipped[slot] = inst
-		else:
-			missing = true
-	_persist_profile()
-	if missing:
-		toast = "一部の装備が見つかりませんでした。"
-
-
-## store.ts の deleteEquipmentPreset()
-func delete_equipment_preset(preset_name: String) -> void:
-	if not equipment_presets.has(preset_name):
-		return
-	equipment_presets.erase(preset_name)
-	_persist_profile()
-
-
-## store.ts の renameEquipmentPreset()。成功したらtrue。
-func rename_equipment_preset(old_name: String, new_name: String) -> bool:
-	var trimmed := new_name.strip_edges()
-	if trimmed.is_empty() or equipment_presets.has(trimmed) or not equipment_presets.has(old_name):
-		return false
-	equipment_presets[trimmed] = equipment_presets[old_name]
-	equipment_presets.erase(old_name)
-	_persist_profile()
-	return true
-
-
-## store.ts の syncEquippedFromInventory()（モジュールトップレベル関数）相当。
-## ルーンの着脱等でinventory側の装備インスタンスが更新された後、
-## GameState.equipped側の参照（コピー）を最新化するために呼ぶ。
-func sync_equipped_from_inventory(equipment_uid: String) -> void:
-	var target_slot := ""
-	for slot in equipped.keys():
-		var inst = equipped[slot]
-		if inst != null and inst.get("uid", "") == equipment_uid:
-			target_slot = slot
-			break
-	if target_slot.is_empty():
-		return
-	var latest := CollectionData.peek_equipment(CollectionData.inventory.equipment, equipment_uid)
-	if latest.is_empty():
-		return
-	equipped[target_slot] = latest
-	_persist_profile()

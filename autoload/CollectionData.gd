@@ -1,12 +1,9 @@
 extends Node
 
-## カード・ルーン・装備・デッキの実体（実ソース src/store/useCollectionStore.ts 相当）。
+## カード・デッキの実体（実ソース src/store/useCollectionStore.ts 相当）。
 ## GameState（ラン中の状態＋プロフィール、game/store.ts 相当）とは別の永続化層。混同しないこと。
 ##
 ## 参照: reference/cthulhu-spire-main/src/store/useCollectionStore.ts
-##
-## equipment/runesの具体的なDictionary形状は scripts/equipment.gd (Equipment.roll_equipment_at_tier
-## の戻り値) / scripts/runes.gd (Runes.roll_rune の戻り値) を正とする。ここで再定義しない。
 
 const DECK_LIMIT := 20  ## 1デッキの最大枚数
 const COPY_LIMIT := 3  ## 同一カードを1デッキに入れられる上限
@@ -14,18 +11,12 @@ const MIN_RUN_DECK := 10  ## 潜航開始に必要な最低枚数（cardEvaluato
 const DEFAULT_DECK_NAME := "デッキ1"
 
 ## cards: {instance_id, base_card_id, origin("starter"|"loot")} の配列
-## runes: {id, effect, value} の配列（Runes.roll_rune()の戻り値の形。フェーズB以降で投入）
-## equipment: {uid, def_id, tier, power, socketed_runes, bonus_stats, obtained_floor, source}
-##            の配列（Equipment.roll_equipment_at_tier()/roll_equipment()の戻り値の形）
 var inventory: Dictionary = {
 	"cards": [],
-	"runes": [],
-	"equipment": [],
 }
 
 var decks: Dictionary = {DEFAULT_DECK_NAME: {}}  ## デッキ名 -> {カードid: 枚数}
 var active_deck: String = DEFAULT_DECK_NAME
-var rune_registry: Dictionary = {}  ## ルーンid -> ルーンDictionary（装備に装着中でも参照可能に）
 var pack_tickets: Dictionary = {}  ## アーキタイプ -> 所持枚数
 
 ## 初期デッキは廃止。新規プロフィールだけ初期チケットを配る。
@@ -59,23 +50,14 @@ var profile_seeded: bool = false
 ## 新規プロフィール、またはコレクションを持たない旧セーブの初期状態。
 func seed_new_profile() -> void:
 	restored_from_profile = false
-	inventory = {"cards": [], "runes": [], "equipment": []}
+	inventory = {"cards": []}
 	decks = {DEFAULT_DECK_NAME: {}}
 	active_deck = DEFAULT_DECK_NAME
 	pack_tickets = {}
-	rune_registry = {}
 	_seed_initial_pack_tickets()
 	if DEBUG_OWN_ALL_CARDS:
 		_grant_all_cards_for_debug()
 		pack_tickets["all"] = maxi(int(pack_tickets.get("all", 0)), 3)
-	var runes: Array = []
-	for effect in Runes.RUNE_CATALOG.keys():
-		for i in range(2):
-			var value: int = Runes.RUNE_CATALOG[effect]
-			var rune := {"id": "rn_%s_%s" % [str(Time.get_ticks_usec()), str(randi())], "effect": effect, "value": value}
-			runes.append(rune)
-			rune_registry[rune.id] = rune
-	inventory.runes = runes
 	profile_seeded = true
 
 
@@ -93,7 +75,6 @@ func export_save() -> Dictionary:
 		"active_deck": active_deck,
 		"inventory": inventory.duplicate(true),
 		"pack_tickets": pack_tickets.duplicate(true),
-		"rune_registry": rune_registry.duplicate(true),
 	}
 
 
@@ -124,12 +105,8 @@ func apply_save(data: Dictionary) -> void:
 	if typeof(raw_inv) == TYPE_DICTIONARY:
 		inv = raw_inv
 	var cards = inv.get("cards", [])
-	var runes = inv.get("runes", [])
-	var equipment = inv.get("equipment", [])
 	inventory = {
 		"cards": cards if typeof(cards) == TYPE_ARRAY else [],
-		"runes": runes if typeof(runes) == TYPE_ARRAY else [],
-		"equipment": equipment if typeof(equipment) == TYPE_ARRAY else [],
 	}
 
 	pack_tickets = {}
@@ -141,15 +118,6 @@ func apply_save(data: Dictionary) -> void:
 		pack_tickets["water"] = int(pack_tickets.get("water", 0)) + int(pack_tickets["deep"])
 		pack_tickets.erase("deep")
 
-	rune_registry = {}
-	var raw_reg = data.get("rune_registry", {})
-	if typeof(raw_reg) == TYPE_DICTIONARY and not raw_reg.is_empty():
-		for rid in raw_reg.keys():
-			rune_registry[str(rid)] = raw_reg[rid]
-	else:
-		for rune in inventory.runes:
-			if typeof(rune) == TYPE_DICTIONARY:
-				rune_registry[str(rune.get("id", ""))] = rune
 	restored_from_profile = true
 	profile_seeded = true
 
@@ -161,21 +129,6 @@ func _seed_initial_pack_tickets() -> void:
 		if key == "all":
 			continue
 		pack_tickets[key] = INITIAL_PACK_TICKETS
-
-
-## GameState.equipped[slot] に入れる装備インスタンスをこのインベントリから取得するヘルパー。
-## equipItem()等が実装されるフェーズB以降で使用する（現状は他の2エージェントとの
-## データ整合性のためのプレースホルダー）。
-static func peek_equipment(inventory_equipment: Array, equipment_uid: String) -> Dictionary:
-	for inst in inventory_equipment:
-		if inst.get("uid", "") == equipment_uid:
-			return inst
-	return {}
-
-
-## useCollectionStore.ts の peekRune() 相当。combat.gd から装備込みステータス計算時に参照される。
-func peek_rune(id: String):
-	return rune_registry.get(id, null)
 
 
 # ============================================================
@@ -298,84 +251,6 @@ func owned_card_counts() -> Dictionary:
 	return counts
 
 
-## useCollectionStore.ts の addLootEquipment()。uidが既に存在する場合は何もしない。
-func add_loot_equipment(equipment_inst: Dictionary) -> void:
-	var equip_uid: String = equipment_inst.get("uid", "")
-	for inst in inventory.equipment:
-		if inst.get("uid", "") == equip_uid:
-			return
-	inventory.equipment.append(equipment_inst)
-
-
-## useCollectionStore.ts の addLootRune()。インベントリとレジストリの両方に追加する
-## （装着中のルーンもrune_registry経由で参照できるようにするため）。
-func add_loot_rune(rune: Dictionary) -> void:
-	inventory.runes.append(rune)
-	rune_registry[rune.get("id", "")] = rune
-
-
-## useCollectionStore.ts の socketRuneToEquipment()。
-## 成功したらtrueを返し、ルーンはinventory.runesから外れてsocket内に移る
-## （rune_registryには残るため、peek_rune()による戦闘中の参照は引き続き可能）。
-func socket_rune_to_equipment(equipment_uid: String, rune_id: String, socket_index: int) -> bool:
-	var gear_idx := -1
-	for i in range(inventory.equipment.size()):
-		if inventory.equipment[i].get("uid", "") == equipment_uid:
-			gear_idx = i
-			break
-	if gear_idx == -1:
-		return false
-	var rune_idx := -1
-	for i in range(inventory.runes.size()):
-		if inventory.runes[i].get("id", "") == rune_id:
-			rune_idx = i
-			break
-	if rune_idx == -1:
-		return false
-
-	var gear: Dictionary = inventory.equipment[gear_idx]
-	var sockets: Array = gear.get("socketed_runes", [])
-	if socket_index < 0 or socket_index >= sockets.size():
-		return false
-	if sockets[socket_index] != null:
-		return false
-
-	var rune: Dictionary = inventory.runes[rune_idx]
-	sockets[socket_index] = rune_id
-	gear.socketed_runes = sockets
-	inventory.runes.remove_at(rune_idx)
-	rune_registry[rune_id] = rune
-	return true
-
-
-## useCollectionStore.ts の unsocketRuneFromEquipment()。
-## rune_registryに元のルーン情報が残っていればそれを、無ければBLK+/2のダミーを復元する
-## （実ソースの `?? { id, effect: "BLK+", value: 2 }` フォールバック相当）。
-func unsocket_rune_from_equipment(equipment_uid: String, socket_index: int) -> bool:
-	var gear_idx := -1
-	for i in range(inventory.equipment.size()):
-		if inventory.equipment[i].get("uid", "") == equipment_uid:
-			gear_idx = i
-			break
-	if gear_idx == -1:
-		return false
-
-	var gear: Dictionary = inventory.equipment[gear_idx]
-	var sockets: Array = gear.get("socketed_runes", [])
-	if socket_index < 0 or socket_index >= sockets.size():
-		return false
-	var rune_id = sockets[socket_index]
-	if rune_id == null:
-		return false
-
-	sockets[socket_index] = null
-	gear.socketed_runes = sockets
-	var restored: Dictionary = rune_registry.get(rune_id, {"id": rune_id, "effect": "BLK+", "value": 2})
-	inventory.runes.append(restored)
-	rune_registry[rune_id] = restored
-	return true
-
-
 func add_loot_card(card_id: String) -> bool:
 	if not Cards.CARDS.has(card_id): return false
 	inventory.cards.append({"instance_id": "ci_%s" % Time.get_ticks_usec(), "base_card_id": card_id, "origin": "loot"})
@@ -401,14 +276,6 @@ func remove_cards(ids: Array) -> void:
 				clamped_counts[card_id] = clamped
 		decks[deck_name] = clamped_counts
 
-
-func remove_equipment(ids: Array) -> void:
-	inventory.equipment = inventory.equipment.filter(func(e): return not ids.has(str(e.get("uid", ""))))
-
-
-## useCollectionStore.ts の removeRunes()
-func remove_runes(ids: Array) -> void:
-	inventory.runes = inventory.runes.filter(func(r): return not ids.has(str(r.get("id", ""))))
 
 func consume_pack_ticket(ticket: String) -> bool:
 	var n := int(pack_tickets.get(ticket, 0))
