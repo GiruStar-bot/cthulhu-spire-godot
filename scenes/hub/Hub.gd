@@ -112,7 +112,7 @@ var _sell_card_row_nodes: Dictionary = {}  ## base_card_id -> {qty_label, minus_
 # カード自体の archetype と枠画像は別定数のまま残す。
 # ============================================================
 
-const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "water", "greatold", "all"]
+const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "water", "greatold", "all", "fire", "wind", "earth", "magic"]
 const DECK_FILTERABLE_RARITIES := ["common", "uncommon", "rare", "legendary"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
 const DECK_RARITY_ORDER := ["common", "uncommon", "rare", "legendary", "status"]
