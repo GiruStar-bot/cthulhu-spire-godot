@@ -1398,7 +1398,7 @@ func _refresh_sell_tab() -> void:
 
 	if _sell_tab == "card":
 		## SellScreen.tsx の grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] 相当。
-		## 1枚あたり最小 Vector2(128,180) のセルを HFlowContainer で折り返し表示する。
+		## 幅は 128 のまま折り返し列数を維持し、サムネはデッキ編成と同じ 88×124。
 		var rows := _sellable_card_rows()
 		if rows.is_empty():
 			var empty_label := Label.new()
@@ -1413,18 +1413,20 @@ func _refresh_sell_tab() -> void:
 			var unit_price: int = GameState.card_sell_price(def)
 
 			var cell := VBoxContainer.new()
-			cell.custom_minimum_size = Vector2(128, 180)
+			cell.custom_minimum_size = Vector2(128, 228)
 			cell.add_theme_constant_override("separation", 4)
 			cell.clip_contents = true
 
-			## SellScreen.tsx の CardView onClick（クリックで最大/解除トグル）相当
+			## SellScreen.tsx の CardView onClick（クリックで最大/解除トグル）相当。
+			## 幅 0 だとセル幅（128）×高さ 82 の横長になる。デッキ編成サムネと同じ縦長に固定する。
 			var thumb_btn := Button.new()
-			thumb_btn.custom_minimum_size = Vector2(0, 82)
+			thumb_btn.custom_minimum_size = Vector2(88, 124)
+			thumb_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			thumb_btn.clip_contents = true
 			thumb_btn.tooltip_text = "%s（所持%d）" % [str(def.get("name", base_card_id)), owned_n]
 			thumb_btn.pressed.connect(_on_sell_card_thumb_pressed.bind(base_card_id, sellable))
 			var art_path: String = Cards.card_art({}, def)
-			var sell_art := _make_art_thumbnail(art_path, str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(0, 82))
+			var sell_art := _make_art_thumbnail(art_path, str(def.get("archetype", "")), str(def.get("rarity", "common")), Vector2(88, 124))
 			sell_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			thumb_btn.add_child(sell_art)
 			var owned_badge := Label.new()
