@@ -26,11 +26,19 @@ const FRAME_BY_ARCHETYPE := {
 	"water": ["res://art/pixel/ui/frame_card_water_9.png", 19],
 }
 ## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
+## 発光は加算合成なので、棚色のような暗い色だとほぼ見えない。枠のハイライトに寄せて明るくしてある。
 const MYTHOS_GLOW_COLOR := {
 	"greatold": Color(0.063, 0.725, 0.506, 1.0),
 	"elder": Color(0.980, 0.863, 0.510, 1.0),
 	"outer": Color(0.627, 0.314, 0.902, 1.0),
 	"all": Color(0.85, 0.55, 1.0, 1.0),
+	"knight": Color(0.70, 0.76, 0.84, 1.0),
+	"magic": Color(0.32, 0.62, 0.95, 1.0),
+	"wind": Color(0.58, 0.86, 0.22, 1.0),
+	"fire": Color(0.96, 0.28, 0.05, 1.0),
+	"earth": Color(0.93, 0.66, 0.12, 1.0),
+	"bastet": Color(0.96, 0.40, 0.55, 1.0),
+	"water": Color(0.12, 0.68, 0.74, 1.0),
 }
 const TAG_TONES := {
 	"attack": Color("6b1f22"),
@@ -43,6 +51,10 @@ const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const FRAME_CANONICAL_W := 96
 ## 余白判定。これ未満のアルファは枠の外（透明パディング）とみなす。
 const FRAME_ALPHA_CUT := 0.10
+## 輪郭に接するこれ未満の半透明は、縮小やアンチエイリアスの薄い縁なので落とす。
+const FRAME_FRINGE_SOLID := 0.98
+## 96px 枠でも、不透明な絵がこの画素以上内側にあるときは余白ごと焼き直す（water）。
+const FRAME_INSET_BAKE := 4
 
 static var _ninepatch_tex_cache: Dictionary = {}
 static var _ninepatch_margin_cache: Dictionary = {}
@@ -157,7 +169,8 @@ func _load_texture_safe(path: String) -> Texture2D:
 ## NinePatchRect の patch_margin はテクスチャ画素 = 画面画素。
 ## 96px より広い枠は 96px 幅へ縮小し、外側の透明余白を切り落としてから載せる。
 ## 余白を残すと枠がカード端から浮いて内側に縮んで見える。
-## 既存の 96px 枠は ArtCache / ResourceLoader のまま（見た目を変えない）。
+## 縮小（LANCZOS）と、元から半透明フチのある枠は輪郭の中間アルファを落としてから測る。
+## 端まで不透明な既存 96px 枠は ArtCache / ResourceLoader のまま（見た目を変えない）。
 static func ninepatch_texture(path: String) -> Texture2D:
 	if path.is_empty():
 		return load(FALLBACK_TEX) as Texture2D
@@ -168,11 +181,6 @@ static func ninepatch_texture(path: String) -> Texture2D:
 	var abs_path: String = ProjectSettings.globalize_path(path)
 	if not abs_path.is_empty() and FileAccess.file_exists(abs_path):
 		loaded_ok = img.load(abs_path) == OK
-	if loaded_ok and img.get_width() <= FRAME_CANONICAL_W * 2:
-		var imported: Texture2D = _imported_texture(path)
-		if imported != null:
-			_ninepatch_tex_cache[path] = imported
-			return imported
 	if not loaded_ok:
 		var imported2: Texture2D = _imported_texture(path)
 		if imported2 != null:
@@ -184,18 +192,25 @@ static func ninepatch_texture(path: String) -> Texture2D:
 	if img.is_compressed():
 		img.decompress()
 	var src_w: int = img.get_width()
-	if src_w > FRAME_CANONICAL_W * 2:
+	var widen: bool = src_w > FRAME_CANONICAL_W * 2
+	if not widen and _content_inset(img) < FRAME_INSET_BAKE:
+		var imported: Texture2D = _imported_texture(path)
+		if imported != null:
+			_ninepatch_tex_cache[path] = imported
+			return imported
+	if widen:
 		var nh: int = maxi(1, int(round(float(img.get_height()) * float(FRAME_CANONICAL_W) / float(src_w))))
 		img.resize(FRAME_CANONICAL_W, nh, Image.INTERPOLATE_LANCZOS)
 		img.fix_alpha_edges()
-		img = _crop_frame_padding(img)
-		_ninepatch_margin_cache[path] = _measure_frame_margin(img)
+	_strip_contour_fringe(img)
+	img = _crop_frame_padding(img)
+	_ninepatch_margin_cache[path] = _measure_frame_margin(img)
 	var baked: Texture2D = ImageTexture.create_from_image(img)
 	_ninepatch_tex_cache[path] = baked
 	return baked
 
 
-## 縮小した枠だけ、実測した枠厚を返す。96px 既存枠は fallback（手調整値）のまま。
+## 縮小した枠と、透明余白を焼き直した枠だけ実測値を返す。端まで不透明な 96px 枠は fallback。
 static func ninepatch_margin(path: String, fallback: int) -> int:
 	if path.is_empty():
 		return fallback
@@ -230,6 +245,61 @@ static func _crop_frame_padding(img: Image) -> Image:
 	if min_x == 0 and min_y == 0 and max_x == w - 1 and max_y == h - 1:
 		return img
 	return img.get_region(Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1))
+
+
+## 不透明画素がテクスチャ端から何px内側にあるか。0 なら端まで絵がある。
+static func _content_inset(img: Image) -> int:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var min_x: int = w
+	var min_y: int = h
+	var max_x: int = -1
+	var max_y: int = -1
+	for y in h:
+		for x in w:
+			if img.get_pixel(x, y).a < FRAME_ALPHA_CUT:
+				continue
+			if x < min_x:
+				min_x = x
+			if y < min_y:
+				min_y = y
+			if x > max_x:
+				max_x = x
+			if y > max_y:
+				max_y = y
+	if max_x < 0:
+		return 0
+	var right: int = w - 1 - max_x
+	var bottom: int = h - 1 - max_y
+	return mini(mini(min_x, min_y), mini(right, bottom))
+
+
+## 透明に接する中間アルファだけを落とす。内側の塗り（完全不透明）は触らない。
+static func _strip_contour_fringe(img: Image) -> void:
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var kill: Array[Vector2i] = []
+	for y in h:
+		for x in w:
+			var a: float = img.get_pixel(x, y).a
+			if a >= FRAME_FRINGE_SOLID or a < FRAME_ALPHA_CUT:
+				continue
+			var touch: bool = x == 0 or y == 0 or x == w - 1 or y == h - 1
+			if not touch and img.get_pixel(x - 1, y).a < FRAME_ALPHA_CUT:
+				touch = true
+			if not touch and img.get_pixel(x + 1, y).a < FRAME_ALPHA_CUT:
+				touch = true
+			if not touch and img.get_pixel(x, y - 1).a < FRAME_ALPHA_CUT:
+				touch = true
+			if not touch and img.get_pixel(x, y + 1).a < FRAME_ALPHA_CUT:
+				touch = true
+			if touch:
+				kill.append(Vector2i(x, y))
+	for i in kill.size():
+		var p: Vector2i = kill[i]
+		var c: Color = img.get_pixel(p.x, p.y)
+		c.a = 0.0
+		img.set_pixel(p.x, p.y, c)
 
 
 ## 四辺の中央で、端から内側の透明窓までの画素を測り、一番厚い辺に合わせる。
