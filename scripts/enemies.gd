@@ -249,7 +249,8 @@ const ENEMIES := {
 	## イベント「アイホートくん」の「戦う」からだけ出る（ランダム遭遇には出ない）。
 	"eihort": {
 		"id": "eihort",
-		"name": "アイホートくん",
+		"dev_name": "アイホートくん",  ## 開発用の呼び名。画面には出さない
+		"name": "？？？",  ## 敵名欄・戦闘ログに出る表示名
 		"art": "res://art/pixel/enemies/eihort.png",
 		"poster": "res://art/pixel/enemies/eihort.png",
 		"maxHp": 35,

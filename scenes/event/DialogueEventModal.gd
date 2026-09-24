@@ -24,8 +24,8 @@ const LINE_HOLD_SEC := 0.4  ## 全文表示後、この秒数で必ず吹き出�
 const BUBBLE_FADE_SEC := 0.22
 const CHOICE_FADE_IN_SEC := 0.6
 const CHOICE_FADE_OUT_SEC := 0.25
-const CHOICE_ALPHA := 0.55  ## 影のようにうっすら
-const CHOICE_HOVER_ALPHA := 0.95
+const CHOICE_ALPHA := 0.85  ## 影のようにうっすら（ただし読める濃さ）
+const CHOICE_HOVER_ALPHA := 1.0
 const OUTRO_FADE_SEC := 0.45
 const BUBBLE_MAX_W := 340.0
 const BUBBLE_PAD := 14.0
@@ -156,11 +156,11 @@ func _make_choice_button(choice: Dictionary) -> Button:
 	button.focus_mode = Control.FOCUS_NONE
 	for style_name in ["normal", "hover", "pressed", "focus", "disabled"]:
 		button.add_theme_stylebox_override(style_name, StyleBoxEmpty.new())
-	button.add_theme_font_size_override("font_size", 22)
+	button.add_theme_font_size_override("font_size", 26)
 	for color_name in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		button.add_theme_color_override(color_name, Color(0.93, 0.89, 0.84))
 	button.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	button.add_theme_constant_override("outline_size", 4)
+	button.add_theme_constant_override("outline_size", 6)
 	button.modulate = Color(1, 1, 1, 0.0)
 	button.visible = false
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
