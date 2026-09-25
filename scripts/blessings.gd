@@ -45,19 +45,21 @@ const VAL_STATS := [
 ]
 
 ## 戯神の取引（12種）。once_flag を持つものは、そのフラグが立ったランでは二度と出ない。
+## パネルに出すのは title の1つだけ。仕様で「」付きの文言があるものはその文言だけ（説明文は出さない＝
+## 銀の鍵の行き先などを先に見せない）。「」が無いものは仕様の効果文をそのまま使う。
 const TRICKSTER_DEALS := {
-	"hp_one_all_pack": {"title": "最大体力1", "text": "体力の最大値が1になり、「全」パックを1枚得る。"},
-	"heal_hp_lose_san": {"title": "身体の修繕", "text": "体力が全回復し、正気度を6失う。"},
-	"heal_san_lose_hp": {"title": "心の修繕", "text": "正気度を6回復し、体力を6失う。"},
-	"hp999_san5": {"title": "肉の器", "text": "体力の最大値が999になり、正気度の最大値が5になる。"},
-	"energy_for_draw": {"title": "急ぐ手", "text": "エナジー+2、ドロー数-2。", "once_flag": "took_energy_for_draw"},
-	"strength_rush": {"title": "筋力をいっぱいゲット！", "text": "筋力を%d〜%d得る。"},
-	"meet_gods": {"title": "神様に会いたい。", "text": "以降の通常戦闘で、30%の確率でボスが現れる。", "once_flag": "wish_gods"},
-	"silver_key": {"title": "銀の鍵を受け取る。", "text": "次の階が「全なる者」との戦闘になる。"},
-	"trickster_again": {"title": "戯神ちゃんにまた会いたい。", "text": "以降のバフイベントは全て戯神になる。", "once_flag": "trickster_always"},
-	"trickster_never": {"title": "戯神ちゃんに会いたくない。", "text": "以降、戯神は現れない。"},
-	"trickster_card": {"title": "戯神ちゃんをデッキに加える。", "text": "カード「戯神ちゃん」をデッキ上限を無視して加える。"},
-	"grimoire": {"title": "「魔導書」を一冊得る。", "text": "魔導書のカードを1枚、デッキ上限を無視して加える。"},
+	"hp_one_all_pack": {"title": "体力の最大値が1になり、「全」パックを1枚得る。"},
+	"heal_hp_lose_san": {"title": "体力が全回復し、正気度を6失う。"},
+	"heal_san_lose_hp": {"title": "正気度を6回復し、体力を6失う。"},
+	"hp999_san5": {"title": "体力の最大値が999になり、正気度の最大値が5になる。"},
+	"energy_for_draw": {"title": "エナジー+2、ドロー数-2。", "once_flag": "took_energy_for_draw"},
+	"strength_rush": {"title": "筋力をいっぱいゲット！"},
+	"meet_gods": {"title": "神様に会いたい。", "once_flag": "wish_gods"},
+	"silver_key": {"title": "銀の鍵を受け取る。"},
+	"trickster_again": {"title": "戯神ちゃんにまた会いたい。", "once_flag": "trickster_always"},
+	"trickster_never": {"title": "戯神ちゃんに会いたくない。"},
+	"trickster_card": {"title": "戯神ちゃんをデッキに加える。"},
+	"grimoire": {"title": "「魔導書」を一冊得る。"},
 }
 
 const TRICKSTER_CARD_ID := "trickster_chan"
@@ -89,7 +91,7 @@ static func strength_rush_range(current_floor: int) -> Vector2i:
 	return Vector2i(3 + step * 3, 6 + step * 3)
 
 
-## パネル3枚ぶんの提示内容を作る。各要素は {kind, title, text, ...}。
+## パネル3枚ぶんの提示内容を作る。各要素は {kind, title, ...}（画面には title だけを出す）。
 static func roll_offers(host: String, flags: Dictionary, current_floor: int, rand: Callable, count: int = 3) -> Array:
 	if host == HOST_VAL:
 		return _roll_val_offers(current_floor, rand, count)
@@ -121,13 +123,11 @@ static func _roll_val_offers(current_floor: int, rand: Callable, count: int) -> 
 			out.append({
 				"kind": "val_decline",
 				"title": "%sに会いたくない" % VAL_DISPLAY_NAME,
-				"text": "以降このランでは、%sは現れない。" % VAL_DISPLAY_NAME,
 			})
 		elif kind == "val_retreat":
 			out.append({
 				"kind": "val_retreat",
 				"title": "撤退する",
-				"text": "戦利品を持ったまま拠点へ戻る。体力と正気度は全回復する。",
 			})
 		elif kind == "val_pack":
 			var pack: String = str(Mulberry32.pick_rand(packs, rand))
@@ -135,7 +135,6 @@ static func _roll_val_offers(current_floor: int, rand: Callable, count: int) -> 
 			out.append({
 				"kind": "val_pack", "pack": pack,
 				"title": "%sパックの排出率アップ" % label,
-				"text": "このランのあいだ、戦利品のパックチケットが%sパックになりやすくなる。" % label,
 			})
 		else:
 			var spec: Dictionary = VAL_STATS[int(floor(float(rand.call()) * VAL_STATS.size())) % VAL_STATS.size()]
@@ -143,7 +142,6 @@ static func _roll_val_offers(current_floor: int, rand: Callable, count: int) -> 
 			out.append({
 				"kind": "val_stat", "stat": str(spec.stat), "n": n,
 				"title": str(spec.label) % n,
-				"text": "このランのあいだ有効。" if str(spec.stat) != "baseBlockPerTurn" else "毎ターン開始時に、ブロックを%d得る。" % n,
 			})
 	return out
 
@@ -161,11 +159,7 @@ static func _roll_trickster_offers(flags: Dictionary, current_floor: int, rand: 
 		var deal_id: String = str(pool[idx])
 		pool.remove_at(idx)
 		var def: Dictionary = TRICKSTER_DEALS[deal_id]
-		var text: String = str(def.text)
-		if deal_id == "strength_rush":
-			var r: Vector2i = strength_rush_range(current_floor)
-			text = text % [r.x, r.y]
-		out.append({"kind": "trickster", "deal": deal_id, "title": str(def.title), "text": text})
+		out.append({"kind": "trickster", "deal": deal_id, "title": str(def.title)})
 	return out
 
 

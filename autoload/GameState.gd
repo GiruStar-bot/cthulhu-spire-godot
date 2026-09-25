@@ -493,7 +493,13 @@ func apply_blessing_offer(offer: Dictionary) -> Dictionary:
 		return {"retreat": true}  ## 画面側がフェードアウトしてから extract_to_hub を呼ぶ
 	elif kind == "trickster":
 		result = _apply_trickster_deal(str(offer.get("deal", "")), title)
-	toast = "%sを得た。" % title if title != "" else ""
+	## 「銀の鍵を受け取る。」など文になっているタイトルはそのまま、短い名前は「〜を得た。」
+	if title == "":
+		toast = ""
+	elif title.ends_with("。"):
+		toast = title
+	else:
+		toast = "%sを得た。" % title
 	blessing_offers = []
 	return result
 

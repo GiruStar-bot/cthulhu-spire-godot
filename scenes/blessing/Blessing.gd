@@ -10,7 +10,6 @@ const FALLBACK_PORTRAITS := {
 	"val": "res://art/pixel/ui/card_back.png",
 	"trickster": "res://art/pixel/ui/nyar_gift.png",
 }
-const BUBBLE_FILL := Color("2A2430")
 const ACCENT_BY_HOST := {"val": Color(0.86, 0.84, 0.72), "trickster": Color(0.91, 0.627, 1.0)}
 ## 立ち絵の高さ（画面比）。上半身の正方形の絵は横に広いので低めにして、パネルの高さと重ねない
 const PORTRAIT_HEIGHT_FRAC := 0.58
@@ -24,9 +23,10 @@ const WIDE_ASPECT := 0.8
 const PORTRAIT_MARGIN := 24.0
 const PORTRAIT_FADE_IN_SEC := 0.4
 const TYPE_MS := 45
-const BUBBLE_MAX_W := 340.0
-const BUBBLE_PAD := 14.0
-const PANEL_SIZE := Vector2(240, 230)
+## パネルはタイトルだけ（効果文は出さない＝選んだ後に起きることを先に見せない）
+const PANEL_SIZE := Vector2(280, 72)  ## 高さは最小値。いちばん長いタイトルに合わせて伸ばす
+const PANEL_FONT := 18
+const PANEL_PAD := 14.0
 const PANEL_GAP := 20.0
 const PANEL_TOP := 64.0
 const FADE_IN_SEC := 0.5
@@ -41,8 +41,7 @@ var _host: String = ""
 var _offers: Array = []
 var _layer: Control
 var _portrait: TextureRect
-var _bubble: PanelContainer
-var _bubble_label: Label
+var _bubble: SpeechBubble
 var _panels: Array = []
 var _typing := false
 var _advance_requested := false
@@ -93,33 +92,15 @@ func _build() -> void:
 	_portrait.modulate.a = 0.0
 	_layer.add_child(_portrait)
 
-	_bubble = PanelContainer.new()
+	_bubble = SpeechBubble.new()
 	_bubble.name = "SpeechBubble"
 	_bubble.visible = false
-	_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = BUBBLE_FILL
-	sb.content_margin_left = BUBBLE_PAD
-	sb.content_margin_right = BUBBLE_PAD
-	sb.content_margin_top = BUBBLE_PAD
-	sb.content_margin_bottom = BUBBLE_PAD + 4.0
-	_bubble.add_theme_stylebox_override("panel", sb)
-	var inner := VBoxContainer.new()
-	inner.add_theme_constant_override("separation", 6)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bubble.add_child(inner)
-	_bubble_label = Label.new()
-	_bubble_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_bubble_label.add_theme_font_size_override("font_size", 20)
-	_bubble_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.98))
-	_bubble_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(_bubble_label)
-	var underline := ColorRect.new()
-	underline.custom_minimum_size = Vector2(0, 1)
-	underline.color = _accent()
-	underline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(underline)
+	_bubble.accent = _accent()
+	_bubble.tail_side = "left"  ## 話者（立ち絵の頭）は吹き出しの左
 	_layer.add_child(_bubble)
+	## 木に入れてから測る（プロジェクトのフォントで幅を決めるため）
+	_bubble.fit_to_text(str(_host_def().get("line", "")))
+	_bubble.set_text("")
 
 	for i in _offers.size():
 		_panels.append(_make_panel(i, _offers[i]))
@@ -158,32 +139,50 @@ func _make_panel(index: int, offer: Dictionary) -> Button:
 	button.add_theme_stylebox_override("pressed", hover)
 	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 16)
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, PANEL_PAD)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 12)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var title := Label.new()
-	title.text = str(offer.get("title", ""))
+	title.name = "Title"
+	title.text = _title_lines(str(offer.get("title", "")))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART  ## 句読点・長音を行頭に置かない
-	title.add_theme_font_size_override("font_size", 19)
+	title.add_theme_font_size_override("font_size", PANEL_FONT)
 	title.add_theme_color_override("font_color", Color(0.96, 0.93, 0.86))
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var text := Label.new()
-	text.text = str(offer.get("text", ""))
-	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text.add_theme_font_size_override("font_size", 15)
-	text.add_theme_color_override("font_color", Color(0.72, 0.66, 0.52))
-	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(title)
-	col.add_child(text)
 	button.add_child(col)
 	button.modulate.a = 0.0
 	button.visible = false
 	button.pressed.connect(_on_offer_pressed.bind(index))
 	_layer.add_child(button)
 	return button
+
+
+## 1行に収まらない長い文は「、」で改行する（「会いたくな／い」のような切れ方を避ける）。
+func _title_lines(text: String) -> String:
+	var font: Font = get_theme_default_font()
+	var inner_w: float = PANEL_SIZE.x - PANEL_PAD * 2.0
+	if font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, PANEL_FONT).x <= inner_w:
+		return text
+	var cut: int = text.find("、")
+	if cut < 0:
+		return text
+	return text.substr(0, cut + 1) + "\n" + text.substr(cut + 1)
+
+
+## いちばん長いタイトルが収まる高さ（全パネル共通）。フォントで直接測る（配置前の Label は幅が決まっていないため）。
+func _panel_height(panel_w: float) -> float:
+	var font: Font = get_theme_default_font()
+	var h: float = PANEL_SIZE.y
+	for p in _panels:
+		var title: Label = (p as Control).find_child("Title", true, false) as Label
+		if title == null:
+			continue
+		var text_h: float = font.get_multiline_string_size(title.text, HORIZONTAL_ALIGNMENT_CENTER, panel_w - PANEL_PAD * 2.0, PANEL_FONT).y
+		h = maxf(h, text_h + PANEL_PAD * 2.0 + 16.0)
+	return h
 
 
 func _layout() -> void:
@@ -196,23 +195,20 @@ func _layout() -> void:
 	var ph: float = vp.y * (PORTRAIT_HEIGHT_FRAC_WIDE if wide else PORTRAIT_HEIGHT_FRAC)
 	var pw: float = ph * aspect
 	_place(_portrait, Rect2(PORTRAIT_MARGIN, vp.y - ph, pw, ph))
-	## 吹き出し：頭の右
-	var bubble_w: float = minf(BUBBLE_MAX_W, vp.x * 0.3)
-	_bubble_label.custom_minimum_size = Vector2(bubble_w - BUBBLE_PAD * 2.0, 0)
-	_bubble.reset_size()
-	var bubble_h: float = maxf(_bubble.get_combined_minimum_size().y, 72.0)
+	## 吹き出し：頭の右。大きさはセリフに合わせて SpeechBubble が決める。しっぽの先が頭の横に来るよう置く
+	var bubble_size: Vector2 = _bubble.size
 	var head_y: float = vp.y - ph + ph * (HEAD_Y_FRAC_WIDE if wide else HEAD_Y_FRAC)
-	var bx: float = PORTRAIT_MARGIN + pw * (BUBBLE_X_FRAC_WIDE if wide else BUBBLE_X_FRAC) + 12.0
-	var by: float = clampf(head_y - bubble_h * 0.35, 24.0, vp.y - bubble_h - 24.0)
-	var bubble_rect := Rect2(bx, by, bubble_w, bubble_h)
-	_place(_bubble, bubble_rect)
+	var bx: float = PORTRAIT_MARGIN + pw * (BUBBLE_X_FRAC_WIDE if wide else BUBBLE_X_FRAC) + 8.0 + SpeechBubble.TAIL_LEN
+	var by: float = clampf(head_y - bubble_size.y * _bubble.tail_y_frac, 24.0, vp.y - bubble_size.y - 24.0)
+	_bubble.set_anchor_position(Vector2(bx, by))
 	## パネル：立ち絵と同じ高さにかかるなら立ち絵より右の残り幅、かからなければ画面幅の中央
 	## 下に文字の選択肢が無いので、立ち絵より上の空きの中で縦中央に置く（上端は PANEL_TOP 以上）
 	var area_left: float = PORTRAIT_MARGIN + pw + 24.0
 	var panel_top: float = PANEL_TOP
-	if PANEL_TOP + PANEL_SIZE.y + 12.0 <= vp.y - ph:
+	var panel_h: float = _panel_height(PANEL_SIZE.x)
+	if PANEL_TOP + panel_h + 12.0 <= vp.y - ph:
 		area_left = 24.0
-		panel_top = maxf(PANEL_TOP, (vp.y - ph - PANEL_SIZE.y) * 0.5)
+		panel_top = maxf(PANEL_TOP, (vp.y - ph - panel_h) * 0.5)
 	var n: int = _panels.size()
 	var row_w: float = PANEL_SIZE.x * n + PANEL_GAP * maxi(0, n - 1)
 	var panel_w: float = PANEL_SIZE.x
@@ -222,7 +218,7 @@ func _layout() -> void:
 	var center_x: float = area_left + (vp.x - area_left) * 0.5
 	var row_x: float = center_x - row_w * 0.5
 	for i in n:
-		_place(_panels[i], Rect2(row_x + i * (panel_w + PANEL_GAP), panel_top, panel_w, PANEL_SIZE.y))
+		_place(_panels[i], Rect2(row_x + i * (panel_w + PANEL_GAP), panel_top, panel_w, panel_h))
 
 
 func _place(c: Control, r: Rect2) -> void:
@@ -252,11 +248,11 @@ func _typewriter(full_text: String) -> void:
 	for i in full_text.length():
 		if _advance_requested or _done:
 			break
-		_bubble_label.text = full_text.substr(0, i + 1)
+		_bubble.set_text(full_text.substr(0, i + 1))
 		if AudioManager != null:
 			AudioManager.play_sfx("gift_type")
 		await get_tree().create_timer(float(TYPE_MS) / 1000.0).timeout
-	_bubble_label.text = full_text
+	_bubble.set_text(full_text)
 	_typing = false
 
 
