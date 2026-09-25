@@ -1,0 +1,78 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/hub/CompassPanel.gd" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoard"]
+bg_color = Color(0.03, 0.03, 0.028, 0.88)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.4, 0.33, 0.22, 0.9)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[node name="CompassPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Layout" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="HeaderRow" type="HBoxContainer" parent="Layout"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="Layout/HeaderRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "羅針盤"
+
+[node name="PointsLabel" type="Label" parent="Layout/HeaderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+vertical_alignment = 1
+text = "ステータスポイント 0 / 0"
+
+[node name="DebugWhiteButton" type="Button" parent="Layout/HeaderRow"]
+visible = false
+layout_mode = 2
+text = "白+1（開発）"
+
+[node name="DebugBlackButton" type="Button" parent="Layout/HeaderRow"]
+visible = false
+layout_mode = 2
+text = "黒+1（開発）"
+
+[node name="ResetButton" type="Button" parent="Layout/HeaderRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 34)
+text = "リセット（無料）"
+
+[node name="BoardFrame" type="PanelContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoard")
+
+[node name="Board" type="Control" parent="Layout/BoardFrame"]
+layout_mode = 2
+clip_contents = true
+
+[node name="InfoLabel" type="Label" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+autowrap_mode = 3
+text = ""

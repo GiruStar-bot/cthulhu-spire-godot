@@ -5,10 +5,13 @@ extends Node
 ##
 ## 参照: reference/cthulhu-spire-main/src/store/useCollectionStore.ts
 
-const DECK_LIMIT := 20  ## 1デッキの最大枚数
+const DECK_LIMIT := 20  ## 1デッキの最大枚数（羅針盤のボーナスを足す前の基礎値）
 const COPY_LIMIT := 3  ## 同一カードを1デッキに入れられる上限
 const MIN_RUN_DECK := 10  ## 潜航開始に必要な最低枚数（cardEvaluator.ts）
 const DEFAULT_DECK_NAME := "デッキ1"
+
+## 羅針盤の「デッキ上限+N」の合計。GameState が羅針盤の変更・読込のたびに書き込む。
+var deck_limit_bonus: int = 0
 
 ## cards: {instance_id, base_card_id, origin("starter"|"loot")} の配列
 var inventory: Dictionary = {
@@ -205,7 +208,7 @@ func add_to_deck(card_id: String) -> bool:
 	for c in inventory.cards:
 		if c.get("base_card_id", "") == card_id:
 			owned += 1
-	if total >= DECK_LIMIT or current >= COPY_LIMIT or current >= owned:
+	if total >= deck_limit() or current >= COPY_LIMIT or current >= owned:
 		return false
 	deck[card_id] = current + 1
 	decks[active_deck] = deck
@@ -226,9 +229,21 @@ func remove_from_deck(card_id: String) -> void:
 
 
 ## cardEvaluator.ts の loadoutError()。問題なければ空文字を返す。
+## 1デッキの最大枚数（羅針盤込み）。
+func deck_limit() -> int:
+	return DECK_LIMIT + maxi(0, deck_limit_bonus)
+
+
 func loadout_error() -> String:
 	var deck: Dictionary = decks.get(active_deck, {})
-	return loadout_error_for(deck)
+	var err: String = loadout_error_for(deck)
+	if err != "":
+		return err
+	## 羅針盤をリセットして上限が下がったとき、超えたデッキでは潜航できない
+	var n: int = deck_size(deck)
+	if n > deck_limit():
+		return "デッキが上限%d枚を超えています（現在 %d）。" % [deck_limit(), n]
+	return ""
 
 
 static func loadout_error_for(deck: Dictionary) -> String:

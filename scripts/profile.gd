@@ -6,29 +6,29 @@ extends RefCounted
 ##
 ## 参照: reference/cthulhu-spire-main/src/game/profile.ts
 
-const STAT_MIN := 0
-const STAT_KEYS := ["hp", "san", "intelligent", "strength", "energy"]
 const MADNESS_STEP := 30
 const SANITY_PENALTY_PER_TIER := 40
-const GRIMOIRE_MIND := 11
-const GRIMOIRE_ENABLED := false  ## 実ソースで無効化済み。移植でも無効のまま踏襲する。
 
 const SAVE_PATH := "user://cthulhu_spire_profile_v1.json"
 
-
-static func empty_stats() -> Dictionary:
-	return {"hp": 0, "san": 0, "intelligent": 0, "strength": 0, "energy": 0}
+const BASE_MAX_HP := 50
+const BASE_MAX_SANITY := 50
+const BASE_ENERGY := 3
 
 
 static func empty_profile() -> Dictionary:
 	return {
 		"player_name": "",
-		"stats": empty_stats(),
 		"best_floor": 0,
 		"wins": 0,
 		"runs": 0,
 		"earned_points": 0,
 		"unspent_points": 0,
+		"compass": [],
+		"transcend": [],
+		"transcend_unlocked": false,
+		"white_points": 0,
+		"black_points": 0,
 		"madness": 0,
 		"sanity": null,
 		"seen_rlyeh": false,
@@ -39,41 +39,15 @@ static func empty_profile() -> Dictionary:
 	}
 
 
-## profile.ts の statSum()
-static func stat_sum(stats: Dictionary) -> int:
-	var total := 0
-	for key in STAT_KEYS:
-		total += max(0, int(stats.get(key, 0)))
-	return total
-
-
 ## 旧仕様の到達階層換算（10層ごとに1）。現在の総ポイントは earned_points。
 ## この式は既存セーブを読み込むときの下限にだけ使う。
 static func total_points(best_floor: int) -> int:
 	return max(0, int(best_floor / 10.0))
 
 
-## profile.ts の statBudget()：totalPoints()のエイリアス
-static func stat_budget(best_floor: int) -> int:
-	return total_points(best_floor)
-
-
 ## profile.ts の riteGain()
 static func rite_gain(floor: int) -> int:
 	return max(0, int(floor / 10.0))
-
-
-## profile.ts の clampStats()
-static func clamp_stats(stats: Dictionary) -> Dictionary:
-	if stats.has("hp") or stats.has("san") or stats.has("strength"):
-		return {
-			"hp": max(STAT_MIN, int(stats.get("hp", 0))),
-			"san": max(STAT_MIN, int(stats.get("san", 0))),
-			"intelligent": max(STAT_MIN, int(stats.get("intelligent", 0))),
-			"strength": max(STAT_MIN, int(stats.get("strength", 0))),
-			"energy": max(STAT_MIN, int(stats.get("energy", 0))),
-		}
-	return empty_stats()
 
 
 ## profile.ts の madnessTiers()
@@ -86,52 +60,20 @@ static func madness_penalty(madness: int) -> int:
 	return madness_tiers(madness) * SANITY_PENALTY_PER_TIER
 
 
-## profile.ts の derivedVitals()
-static func derived_vitals(stats: Dictionary, madness: int = 0) -> Dictionary:
+## ラン開始時の基礎値。bonus は Compass.bonus() の結果（羅針盤の取得済みマスの合算）。
+static func derived_vitals(bonus: Dictionary, madness: int = 0) -> Dictionary:
 	return {
-		"max_hp": 50 + int(stats.get("hp", 0)) * 2,
-		"max_sanity": max(0, 50 + int(stats.get("san", 0)) * 2 - madness_penalty(madness)),
-		"intelligent": int(int(stats.get("intelligent", 0)) / 5.0),
-		"strength": int(int(stats.get("strength", 0)) / 5.0),
-		"energy": 3 + int(int(stats.get("energy", 0)) / 10.0),
+		"max_hp": BASE_MAX_HP + int(bonus.get("max_hp", 0)),
+		"max_sanity": max(0, BASE_MAX_SANITY + int(bonus.get("max_sanity", 0)) - madness_penalty(madness)),
+		"strength": int(bonus.get("strength", 0)),
+		"energy": BASE_ENERGY + int(bonus.get("energy", 0)),
 	}
 
 
-## profile.ts の statFinal()
-static func stat_final(key: String, sp: int, madness: int = 0) -> int:
-	if key == "hp":
-		return 50 + sp * 2
-	if key == "san":
-		return max(0, 50 + sp * 2 - madness_penalty(madness))
-	if key == "energy":
-		return 3 + int(sp / 10.0)
-	return int(sp / 5.0)
-
-
-## profile.ts の statBase()
-static func stat_base(key: String, madness: int = 0) -> int:
-	return stat_final(key, 0, madness)
-
-
-## profile.ts の grimoireOpen()：GRIMOIRE_ENABLEDがfalseなので常にfalse
-static func grimoire_open(stats: Dictionary) -> bool:
-	return GRIMOIRE_ENABLED and int(stats.get("san", 0)) >= GRIMOIRE_MIND
-
-
-## profile.ts の unlockedFeatures()
-static func unlocked_features(stats: Dictionary) -> Array:
-	var out: Array = []
-	if int(stats.get("hp", 0)) >= 6:
-		out.append("重鎧の適性")
-	if int(stats.get("san", 0)) >= 6:
-		out.append("禁断の術の萌芽")
-	if int(stats.get("strength", 0)) >= 6:
-		out.append("儀式の耐性")
-	if int(stats.get("hp", 0)) >= 8:
-		out.append("筋肉による解決")
-	if int(stats.get("intelligent", 0)) >= 8:
-		out.append("理解による代償の制御")
-	return out
+static func _non_negative_int(raw) -> int:
+	if typeof(raw) == TYPE_INT or typeof(raw) == TYPE_FLOAT:
+		return max(0, int(raw))
+	return 0
 
 
 ## profile.ts の homeScene()：常に"title"
@@ -153,16 +95,20 @@ static func load_profile() -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return empty_profile()
 
-	var stats: Dictionary = clamp_stats(parsed.get("stats", empty_stats()))
 	var best_floor: int = max(0, int(parsed.get("best_floor", 0)))
 	## 既存セーブは earned_points が階層÷10 と同じか、キーが無い。
 	## ボス撃破でそれより多く貯めた値は減らさない。
-	var saved_raw = parsed.get("earned_points", 0)
-	var saved_points: int = 0
-	if typeof(saved_raw) == TYPE_INT or typeof(saved_raw) == TYPE_FLOAT:
-		saved_points = max(0, int(saved_raw))
-	var budget: int = max(saved_points, total_points(best_floor))
-	var fitted: Dictionary = empty_stats() if stat_sum(stats) > budget else stats
+	var budget: int = max(_non_negative_int(parsed.get("earned_points", 0)), total_points(best_floor))
+	## 旧ステータス配分（stats）は羅針盤へ置き換えたので全て払い戻す（読み捨てる）。
+	## 羅針盤は一本道として正しいマスだけ残し、総ポイントを超える分は全返却する。
+	var compass: Array = Compass.sanitize(parsed.get("compass", []), Compass.ELEMENTS)
+	if compass.size() > budget:
+		compass = []
+	var white_points: int = _non_negative_int(parsed.get("white_points", 0))
+	var black_points: int = _non_negative_int(parsed.get("black_points", 0))
+	var transcend: Array = Compass.sanitize(parsed.get("transcend", []), Compass.TRANSCEND_SIDES)
+	if Compass.count_in(transcend, ["elder"]) > white_points or Compass.count_in(transcend, ["trickster"]) > black_points:
+		transcend = []
 
 	var sanity_raw = parsed.get("sanity")
 	var sanity = null
@@ -178,10 +124,15 @@ static func load_profile() -> Dictionary:
 
 	var profile := empty_profile()
 	profile.merge(parsed, true)
-	profile.stats = fitted
+	profile.erase("stats")
 	profile.best_floor = best_floor
 	profile.earned_points = budget
-	profile.unspent_points = max(0, budget - stat_sum(fitted))
+	profile.unspent_points = max(0, budget - compass.size())
+	profile.compass = compass
+	profile.transcend = transcend
+	profile.transcend_unlocked = parsed.get("transcend_unlocked", false) == true
+	profile.white_points = white_points
+	profile.black_points = black_points
 	profile.madness = max(0, int(parsed.get("madness", 0)))
 	profile.sanity = sanity
 	profile.seen_rlyeh = not not parsed.get("seen_rlyeh", false)

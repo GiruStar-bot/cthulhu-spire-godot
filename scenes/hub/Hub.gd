@@ -30,14 +30,13 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var descend_status_label: Label = $Root/Body/Content/DescendPanel/DescendLeftColumn/DescendStatusLabel
 @onready var primary_action_button: Button = $Root/Body/Content/DescendPanel/DescendLeftColumn/PrimaryActionButton
 @onready var extract_button: Button = $Root/Body/Content/DescendPanel/DescendLeftColumn/ExtractButton
-@onready var stat_panel: VBoxContainer = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel
-@onready var stat_header_label: Label = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel/StatHeaderLabel
-@onready var stat_rows_container: VBoxContainer = $Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel/StatRowsContainer
 @onready var prepare_deck_select_panel: PanelContainer = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel
 @onready var prepare_deck_list: VBoxContainer = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content/DeckList
 @onready var prepare_selected_deck_label: Label = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content/SelectedDeckLabel
 
 @onready var placeholder_panel: Label = $Root/Body/Content/PlaceholderPanel
+@onready var compass_panel: Control = $Root/Body/Content/CompassPanel
+@onready var transcend_panel: Control = $Root/Body/Content/TranscendPanel
 @onready var commerce_panel: VBoxContainer = $Root/Body/Content/CommercePanel
 @onready var commerce_title: Label = $Root/Body/Content/CommercePanel/CommerceTitle
 @onready var commerce_list: VBoxContainer = $Root/Body/Content/CommercePanel/CommerceList
@@ -87,6 +86,8 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var nav_buttons: Dictionary = {
 	"descend": $Root/Body/Nav/DescendButton,
 	"deck": $Root/Body/Nav/DeckButton,
+	"compass": $Root/Body/Nav/CompassButton,
+	"transcend": $Root/Body/Nav/TranscendButton,
 	"sell": $Root/Body/Nav/SellButton,
 	"shop": $Root/Body/Nav/ShopButton,
 	"packs": $Root/Body/Nav/PacksButton,
@@ -182,6 +183,10 @@ func _ready() -> void:
 	sell_select_all_button.pressed.connect(_on_sell_select_all_pressed)
 	sell_clear_all_button.pressed.connect(_on_sell_clear_all_pressed)
 	sell_confirm_button.pressed.connect(_on_sell_confirm_pressed)
+	compass_panel.compass_changed.connect(_update_header)
+	transcend_panel.compass_changed.connect(_update_header)
+	## 超越羅針盤は場面2（The Dream Island）に初めて入るまで出さない
+	nav_buttons["transcend"].visible = GameState.transcend_unlocked
 	_setup_deck_filters()
 	prepare_deck_select_panel.visible = false
 	_ensure_deck_save_dialog()
@@ -316,6 +321,8 @@ func _hide_all_content_panels() -> void:
 	deck_panel.visible = false
 	sell_panel.visible = false
 	commerce_panel.visible = false
+	compass_panel.visible = false
+	transcend_panel.visible = false
 	placeholder_panel.visible = false
 
 
@@ -345,6 +352,12 @@ func _select_tab(tab_name: String) -> void:
 			deck_panel.visible = true
 		"sell":
 			sell_panel.visible = true
+		"compass":
+			compass_panel.visible = true
+			compass_panel.refresh()
+		"transcend":
+			transcend_panel.visible = GameState.transcend_unlocked
+			transcend_panel.refresh()
 		"shop", "packs":
 			commerce_panel.visible = true
 	if tab_name == "descend":
@@ -373,7 +386,7 @@ func _update_header() -> void:
 		info_label.text = "%s　｜　デッキ %d/%d　｜　貝殻 %d" % [
 			Floors.layer_label(GameState.floor),
 			_deck_count(),
-			CollectionData.DECK_LIMIT,
+			CollectionData.deck_limit(),
 			GameState.shells,
 		]
 		top_right_button.text = "帰還"
@@ -381,7 +394,7 @@ func _update_header() -> void:
 		info_label.text = "最深 %s　｜　デッキ %d/%d　｜　貝殻 %d" % [
 			Floors.layer_label(GameState.best_floor) if GameState.best_floor > 0 else "—",
 			_deck_count(),
-			CollectionData.DECK_LIMIT,
+			CollectionData.deck_limit(),
 			GameState.shells,
 		]
 		top_right_button.text = "タイトル"
@@ -410,18 +423,19 @@ func _update_descend_panel() -> void:
 		primary_action_button.text = "次の層へ沈む"
 		primary_action_button.disabled = false
 		extract_button.visible = true
-		stat_panel.visible = false
 		prepare_deck_select_panel.visible = false
 	else:
 		## PrepareView.tsx 相当。canStart は実ソースでは
 		## `playerName.trim().length > 0 && !loadoutError()` だが、名前入力UIは未実装のため
 		## デッキ枚数チェック（loadoutError()）のみを反映する。
-		descend_status_label.text = "探索準備\n最深到達: %s · 貝殻 %d\n使用デッキ: %s（%d/%d）" % [
+		descend_status_label.text = "探索準備\n最深到達: %s · 貝殻 %d\n使用デッキ: %s（%d/%d）\nステータスポイント 残り %d / %d（羅針盤で使う）" % [
 			Floors.layer_label(GameState.best_floor) if GameState.best_floor > 0 else "未潜航",
 			GameState.shells,
 			CollectionData.active_deck,
 			_deck_count(),
-			CollectionData.DECK_LIMIT,
+			CollectionData.deck_limit(),
+			GameState.unspent_points,
+			GameState.total_points(),
 		]
 		if str(GameState.realm) == "dream":
 			## Dream 探索は後続。誤って waking ランを開始しない。
@@ -431,8 +445,6 @@ func _update_descend_panel() -> void:
 			primary_action_button.text = "潜航開始"
 			primary_action_button.disabled = CollectionData.loadout_error() != ""
 		extract_button.visible = false
-		stat_panel.visible = true
-		_refresh_stat_panel()
 		## 探索準備中は使用デッキを選べる。夢の島では潜航自体を封じているので出さない。
 		var show_deck_select: bool = str(GameState.realm) != "dream"
 		prepare_deck_select_panel.visible = show_deck_select
@@ -447,13 +459,13 @@ func _rebuild_prepare_deck_list() -> void:
 		var deck_name := str(name)
 		var count := CollectionData.deck_size(CollectionData.decks.get(deck_name, {}))
 		var button := Button.new()
-		button.text = "%s    %d/%d" % [deck_name, count, CollectionData.DECK_LIMIT]
+		button.text = "%s    %d/%d" % [deck_name, count, CollectionData.deck_limit()]
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.disabled = deck_name == CollectionData.active_deck
 		button.pressed.connect(_on_prepare_deck_selected.bind(deck_name))
 		prepare_deck_list.add_child(button)
 	var active_count := _deck_count()
-	prepare_selected_deck_label.text = "選択中: %s（%d/%d〜%d）" % [CollectionData.active_deck, active_count, CollectionData.MIN_RUN_DECK, CollectionData.DECK_LIMIT]
+	prepare_selected_deck_label.text = "選択中: %s（%d/%d〜%d）" % [CollectionData.active_deck, active_count, CollectionData.MIN_RUN_DECK, CollectionData.deck_limit()]
 
 
 func _on_prepare_deck_selected(deck_name: String) -> void:
@@ -462,69 +474,6 @@ func _on_prepare_deck_selected(deck_name: String) -> void:
 	_rebuild_prepare_deck_list()
 	_update_header()
 	_update_descend_panel()
-
-
-# ============================================================
-# ステ振りUI（PrepareView.tsx の STAT_UI / StatRow 相当）
-# ============================================================
-
-const STAT_UI := [
-	{"key": "hp", "name": "体力", "tag": "HP"},
-	{"key": "san", "name": "正気", "tag": "SAN"},
-	{"key": "intelligent", "name": "知力", "tag": "INT"},
-	{"key": "strength", "name": "筋力", "tag": "STR"},
-	{"key": "energy", "name": "気力", "tag": "NRG"},
-]
-
-
-func _refresh_stat_panel() -> void:
-	var spent := Profile.stat_sum(GameState.stats)
-	var budget := GameState.total_points()
-	var remain: int = max(0, budget - spent)
-	stat_header_label.text = "使用可能ポイント: %d / 総ポイント: %d" % [remain, budget]
-
-	for child in stat_rows_container.get_children():
-		child.queue_free()
-	for row in STAT_UI:
-		var key: String = row.key
-		var sp: int = int(GameState.stats.get(key, 0))
-		var base: int = Profile.stat_base(key, GameState.madness)
-		var final: int = Profile.stat_final(key, sp, GameState.madness)
-
-		var hrow := HBoxContainer.new()
-		hrow.custom_minimum_size = Vector2(0, 44)
-		hrow.add_theme_constant_override("separation", 8)
-
-		var label := Label.new()
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.text = "%s（%s） SP%d　%d → %d" % [row.name, row.tag, sp, base, final]
-		hrow.add_child(label)
-
-		var minus_btn := Button.new()
-		minus_btn.text = "−"
-		minus_btn.custom_minimum_size = Vector2(42, 36)
-		minus_btn.disabled = sp <= Profile.STAT_MIN
-		minus_btn.pressed.connect(_on_stat_minus_pressed.bind(key))
-		hrow.add_child(minus_btn)
-
-		var plus_btn := Button.new()
-		plus_btn.text = "+"
-		plus_btn.custom_minimum_size = Vector2(42, 36)
-		plus_btn.disabled = remain <= 0
-		plus_btn.pressed.connect(_on_stat_plus_pressed.bind(key))
-		hrow.add_child(plus_btn)
-
-		stat_rows_container.add_child(hrow)
-
-
-func _on_stat_minus_pressed(key: String) -> void:
-	GameState.set_stat(key, int(GameState.stats.get(key, 0)) - 1)
-	_refresh_stat_panel()
-
-
-func _on_stat_plus_pressed(key: String) -> void:
-	GameState.set_stat(key, int(GameState.stats.get(key, 0)) + 1)
-	_refresh_stat_panel()
 
 
 func _deck_count() -> int:
@@ -607,7 +556,7 @@ func _mutate_view_deck_add(card_id: String) -> bool:
 		var total: int = CollectionData.deck_size(_deck_edit_working)
 		var current: int = int(_deck_edit_working.get(card_id, 0))
 		var owned: int = int(CollectionData.owned_card_counts().get(card_id, 0))
-		if total >= CollectionData.DECK_LIMIT or current >= CollectionData.COPY_LIMIT or current >= owned:
+		if total >= CollectionData.deck_limit() or current >= CollectionData.COPY_LIMIT or current >= owned:
 			return false
 		_deck_edit_working[card_id] = current + 1
 		return true
@@ -828,7 +777,7 @@ func _open_pack(archetype: String) -> void:
 		return
 	if not CollectionData.consume_pack_ticket(archetype):
 		return
-	var owner: String = GameState.character if GameState.character != "" else GameState.starter_path(GameState.stats)
+	var owner: String = GameState.character if GameState.character != "" else GameState.starter_path()
 	var rand := Callable(GameState, "_rand")
 	var revealed: Array = []
 	if archetype == "all":
@@ -1447,7 +1396,7 @@ func _make_deck_shelf_tile(deck_name: String, archetype: String, total: int) -> 
 	var tile := Button.new()
 	tile.custom_minimum_size = DECK_SHELF_TILE
 	tile.clip_contents = true
-	tile.tooltip_text = "%s（%d/%d枚）" % [deck_name, total, CollectionData.DECK_LIMIT]
+	tile.tooltip_text = "%s（%d/%d枚）" % [deck_name, total, CollectionData.deck_limit()]
 	tile.pressed.connect(_on_deck_list_open.bind(deck_name))
 	var empty := StyleBoxEmpty.new()
 	tile.add_theme_stylebox_override("normal", empty)
@@ -1528,7 +1477,7 @@ func _refresh_deck_summary() -> void:
 	var deck: Dictionary = _view_deck_counts()
 	var n := CollectionData.deck_size(deck)
 	deck_count_label.text = "%s: %d/%d枚（最低%d枚必要）" % [
-		CollectionData.active_deck, n, CollectionData.DECK_LIMIT, CollectionData.MIN_RUN_DECK,
+		CollectionData.active_deck, n, CollectionData.deck_limit(), CollectionData.MIN_RUN_DECK,
 	]
 	deck_error_label.text = CollectionData.loadout_error_for(deck)
 	deck_error_label.visible = deck_error_label.text != ""
@@ -1735,7 +1684,7 @@ func _on_deck_add_pressed(card_id: String) -> void:
 	var in_deck: int = CollectionData.copies_of_base(deck, card_id)
 	var owned_count: int = int(owned.get(card_id, 0))
 	var deck_total: int = CollectionData.deck_size(deck)
-	if deck_total >= CollectionData.DECK_LIMIT or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count:
+	if deck_total >= CollectionData.deck_limit() or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count:
 		_sync_inspector_actions()
 		return
 	if not _mutate_view_deck_add(card_id):
@@ -2062,7 +2011,7 @@ func _sync_inspector_actions() -> void:
 	if _inspector_minus != null and is_instance_valid(_inspector_minus):
 		_inspector_minus.disabled = in_deck <= 0
 	if _inspector_plus != null and is_instance_valid(_inspector_plus):
-		_inspector_plus.disabled = deck_total >= CollectionData.DECK_LIMIT or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count
+		_inspector_plus.disabled = deck_total >= CollectionData.deck_limit() or in_deck >= CollectionData.COPY_LIMIT or in_deck >= owned_count
 
 
 func _on_inspector_plus() -> void:
