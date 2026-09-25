@@ -15,12 +15,17 @@ const ARCHETYPE_LABELS := {
 	"offering": "供物",
 	"greatold": "旧支配者",
 	"all": "全",
-	"earth": "豊穣/地",
+	"earth": "豊穣",
 	"wind": "風",
 	"fire": "火",
 	"magic": "魔導",
 	"bastet": "猫",
 	"chaos": "混沌",  ## 戯神ちゃん専用。専用フレームは未作成（汎用枠）
+}
+
+## 主属性とは別の検索条件。手札条件の判定（has_sub_archetype）とは独立。
+const SUB_ARCHETYPE_LABELS := {
+	"earth": "地",
 }
 
 const ART_FALLBACK := {
@@ -1288,33 +1293,6 @@ const CARDS := {
 			},
 		],
 	},
-	"buckler": {
-		"id": "buckler",
-		"name": "バックラー",
-		"type": "skill",
-		"cost": 0,
-		"sell_price": 20,
-		"drop_weight": 9,
-		"owner": "shared",
-		"text": "ブロック4。",
-		"upgradedText": "ブロック4。",
-		"flavor": "",
-		"art": "res://art/pixel/cards/buckler.jpg",
-		"target": "none",
-		"shop": true,
-		"effects": [
-			{
-				"t": "block",
-				"n": 4,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "block",
-				"n": 4,
-			},
-		],
-	},
 	"beer": {
 		"id": "beer",
 		"name": "ビール瓶",
@@ -1565,7 +1543,7 @@ const CARDS := {
 	## ---- 豊穣・シュブ＝ニグラス ----
 	"black_sheep": {
 		"id": "black_sheep", "name": "黒羊", "type": "skill", "aiTag": "effect",
-		"archetype": "earth", "subArchetypes": ["earth"],
+		"archetype": "earth",
 		"cost": 0, "owner": "shared",
 		"unobtainable": true, "token": true, "vanishOnUse": true,
 		"text": "", "upgradedText": "", "flavor": "", "art": "", "target": "none",
@@ -1573,7 +1551,7 @@ const CARDS := {
 	},
 	"darkness": {
 		"id": "darkness", "name": "闇", "type": "skill", "aiTag": "effect",
-		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
+		"archetype": "earth", "subArchetypes": ["fertility"],
 		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "デッキから「豊穣」カードを3枚手札に加える。",
 		"upgradedText": "デッキから「豊穣」カードを3枚手札に加える。",
@@ -1583,7 +1561,7 @@ const CARDS := {
 	},
 	"spawn": {
 		"id": "spawn", "name": "落とし子", "type": "skill", "aiTag": "effect",
-		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
+		"archetype": "earth", "subArchetypes": ["fertility"],
 		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "手札に「黒羊」を4枚加える。以降、毎ターン開始時に「黒羊」を1枚手札に加える。",
 		"upgradedText": "手札に「黒羊」を4枚加える。以降、毎ターン開始時に「黒羊」を1枚手札に加える。",
@@ -1599,7 +1577,7 @@ const CARDS := {
 	},
 	"nourishment": {
 		"id": "nourishment", "name": "滋養", "type": "skill", "aiTag": "defense",
-		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
+		"archetype": "earth", "subArchetypes": ["fertility"],
 		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"requireId": "black_sheep", "requireN": 1,
 		"text": "「黒羊」を1枚消滅させて使用可能。正気度3を失う。体力20回復。",
@@ -1652,7 +1630,7 @@ const CARDS := {
 	},
 	"mother_goddess": {
 		"id": "mother_goddess", "name": "母なる神性", "type": "skill", "aiTag": "effect",
-		"archetype": "earth", "subArchetypes": ["earth", "fertility"],
+		"archetype": "earth", "subArchetypes": ["fertility"],
 		"cost": 2, "sell_price": 10, "drop_weight": 21, "pack_weight": 45, "enemy_tier": 2, "owner": "shared",
 		"text": "「黒羊」を手札上限まで加える。この戦闘中、ターン開始時に「黒羊」を追加で1枚加える。",
 		"upgradedText": "「黒羊」を手札上限まで加える。この戦闘中、ターン開始時に「黒羊」を追加で1枚加える。",
@@ -2085,10 +2063,9 @@ const CARDS := {
 		"drop_weight": 10,
 		"enemy_tier": 1,
 		"owner": "investigator",
-		"subArchetypes": ["earth"],
 		"vanishOnUse": true,
-		"text": "（テスト）使用後に完全に消滅する。サブ属性「地」。",
-		"upgradedText": "（テスト）使用後に完全に消滅する。サブ属性「地」。",
+		"text": "（テスト）使用後に完全に消滅する。",
+		"upgradedText": "（テスト）使用後に完全に消滅する。",
 		"art": "",
 		"target": "none",
 		"effects": [],

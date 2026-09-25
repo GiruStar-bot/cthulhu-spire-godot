@@ -322,7 +322,7 @@ func _refresh_hud() -> void:
 		"max_sanity": int(player.maxSanity),
 		"energy": int(state.get("energy", 0)),
 		"max_energy": int(state.get("maxEnergy", 0)),
-		"block": int(state.get("block", 0)),
+		"block": CombatLogic.displayed_block(state),
 		"strength": int(state.get("strength", 0)),
 		"weak": int(state.get("weak", 0)),
 		"poison": int(state.get("poison", 0)),

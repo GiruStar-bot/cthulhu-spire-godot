@@ -270,7 +270,7 @@ const ENEMIES := {
 		"biome": "reef",
 		"maxHp": 18,
 		"trait": "flee",
-		"deck": ["buckler"],
+		"deck": ["sea"],  ## バックラー削除。小さい防御は既存の「海」（ブロック6）
 	},
 }
 
