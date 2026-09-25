@@ -20,6 +20,8 @@ const FRAME_BY_ARCHETYPE := {
 	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 20],
 	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 11],
 	"water": ["res://art/pixel/ui/frame_card_water_9.png", 19],
+	## 戯神ちゃん（混沌）に専用枠は無い。見た目だけ外宇宙枠を使う。
+	"chaos": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
 }
 ## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
 ## 発光は加算合成なので、棚色のような暗い色だとほぼ見えない。枠のハイライトに寄せて明るくしてある。
@@ -35,6 +37,7 @@ const MYTHOS_GLOW_COLOR := {
 	"earth": Color(0.93, 0.66, 0.12, 1.0),
 	"bastet": Color(0.96, 0.40, 0.55, 1.0),
 	"water": Color(0.12, 0.68, 0.74, 1.0),
+	"chaos": Color(0.627, 0.314, 0.902, 1.0),
 }
 ## 効果テキスト中で強調する属性の字。色は枠グロー（MYTHOS_GLOW_COLOR）と揃える。
 const BODY_KEYWORDS := {"水": "water", "火": "fire", "地": "earth", "風": "wind"}

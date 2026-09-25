@@ -20,7 +20,7 @@ const ARCHETYPE_LABELS := {
 	"fire": "火",
 	"magic": "魔導",
 	"bastet": "猫",
-	"chaos": "混沌",  ## 戯神ちゃん専用。専用フレームは未作成（汎用枠）
+	"chaos": "混沌",  ## 戯神ちゃん専用。枠は外宇宙フレームを流用する。
 }
 
 const ART_FALLBACK := {
