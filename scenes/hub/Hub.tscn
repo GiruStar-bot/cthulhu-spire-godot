@@ -465,8 +465,14 @@ offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 2
 clip_contents = true
+texture_filter = 1
 
-[node name="MapArt" type="TextureRect" parent="Root/Body/Content/ExploreMap"]
+[node name="MapCanvas" type="Control" parent="Root/Body/Content/ExploreMap"]
+layout_mode = 0
+mouse_filter = 2
+texture_filter = 1
+
+[node name="MapArt" type="TextureRect" parent="Root/Body/Content/ExploreMap/MapCanvas"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -474,10 +480,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 expand_mode = 1
-stretch_mode = 1
+stretch_mode = 0
 mouse_filter = 2
+texture_filter = 1
 
-[node name="MapMarkers" type="Control" parent="Root/Body/Content/ExploreMap"]
+[node name="MapMarkers" type="Control" parent="Root/Body/Content/ExploreMap/MapCanvas"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -486,26 +493,21 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="MapToast" type="Label" parent="Root/Body/Content/ExploreMap"]
+[node name="MapCatcher" type="Control" parent="Root/Body/Content/ExploreMap"]
 visible = false
 layout_mode = 1
-anchors_preset = 12
-anchor_top = 1.0
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -48.0
-offset_right = -24.0
-offset_bottom = -12.0
 grow_horizontal = 2
-grow_vertical = 0
-theme_override_colors/font_color = Color(0.95, 0.86, 0.62, 1)
-theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.04, 0.95)
-theme_override_constants/outline_size = 6
-theme_override_font_sizes/font_size = 16
-horizontal_alignment = 1
-vertical_alignment = 1
-text = ""
+grow_vertical = 2
+
+[node name="MapFloat" type="PanelContainer" parent="Root/Body/Content/ExploreMap"]
+visible = false
+z_index = 2
+layout_mode = 0
+offset_right = 240.0
+offset_bottom = 120.0
 
 [node name="CompassPanel" parent="Root/Body/Content" instance=ExtResource("3")]
 visible = false
