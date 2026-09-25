@@ -768,11 +768,12 @@ func _refresh_commerce() -> void:
 func _on_buy_card_pack() -> void:
 	if _pack_open != null and is_instance_valid(_pack_open):
 		return
+	var owned_before: Dictionary = CollectionData.owned_card_counts().duplicate()
 	var result: Array = GameState.buy_card_pack()
 	if result.is_empty():
 		return
 	_last_pack_result = []
-	_launch_pack_open(NORMAL_PACK_ART, result)
+	_launch_pack_open(NORMAL_PACK_ART, result, owned_before)
 
 
 ## ShopPanel.tsx の clearPackResult() 相当
@@ -788,6 +789,8 @@ func _open_pack(archetype: String) -> void:
 		return
 	if not CollectionData.consume_pack_ticket(archetype):
 		return
+	## NEW 判定用。add_loot_card で所持に入る「前」の状態を控えておく。
+	var owned_before: Dictionary = CollectionData.owned_card_counts().duplicate()
 	var owner: String = GameState.character if GameState.character != "" else GameState.starter_path()
 	var rand := Callable(GameState, "_rand")
 	var revealed: Array = []
@@ -814,10 +817,10 @@ func _open_pack(archetype: String) -> void:
 			revealed.append(def_id)
 	var art_path: String = _pack_open_art_path(archetype)
 	GameState._persist_profile()
-	_launch_pack_open(art_path, revealed)
+	_launch_pack_open(art_path, revealed, owned_before)
 
 
-func _launch_pack_open(pack_art: String, card_ids: Array) -> void:
+func _launch_pack_open(pack_art: String, card_ids: Array, owned_before: Variant = null) -> void:
 	if card_ids.is_empty():
 		_refresh_commerce()
 		return
@@ -828,7 +831,7 @@ func _launch_pack_open(pack_art: String, card_ids: Array) -> void:
 	node.move_to_front()
 	_pack_open = node
 	node.connect("closed", _on_pack_open_closed)
-	node.call("setup", pack_art, card_ids)
+	node.call("setup", pack_art, card_ids, owned_before)
 
 
 func _pack_open_art_path(archetype: String) -> String:

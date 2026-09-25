@@ -17,14 +17,51 @@ const MYTHOS_ARCHETYPES := ["greatold", "elder", "outer", "all"]
 const FLIP_HALF_S := 0.22
 const DEAL_S := 0.20
 const MYTHOS_POP_S := 0.50
+## 属性の光（デザインくん #78 の色表のピーク値）。旧神＝石茶・旧支配者＝深緑・外宇宙＝紫・全＝金（外周に虹）。
+## pack_glow_*.png がある場合は素材側の色を使い、これはフォールバックの放射グラデにだけ掛ける。
 const MYTHOS_LIGHT := {
-	"greatold": Color(0.063, 0.725, 0.506, 1.0),
-	"elder": Color(0.980, 0.863, 0.510, 1.0),
-	"outer": Color(0.627, 0.314, 0.902, 1.0),
-	"all": Color(0.85, 0.55, 1.0, 1.0),
+	"elder": Color("#C9A57A"),
+	"greatold": Color("#4F9A7A"),
+	"outer": Color("#A98BD1"),
+	"all": Color("#F2E3A0"),
 }
+const GLOW_ART_FMT := "res://art/pixel/fx/pack_glow_%s.png"
+const SPARKLE_ART_FMT := "res://art/pixel/fx/pack_sparkle_%s.png"
+const NEW_BADGE_ART := "res://art/pixel/ui/badge_new.png"
+const SPARKLE_FRAMES := 4
+const SPARKLE_COUNT := {"elder": 2, "greatold": 3, "outer": 4, "all": 7}
+const TELL_ALPHA_MIN := 0.3
+const TELL_ALPHA_MAX := 0.7
+const HIT_GLOW_SCALE := 1.15
+const HIT_GLOW_FADE := {"elder": 0.4, "greatold": 0.5, "outer": 0.6, "all": 1.2}  ## 光の余韻を当たり音の尺に合わせる
+## 当たりの強さ順（旧神 < 旧支配者 < 外宇宙 < 全）。音も光もこの順で派手にする。
+const MYTHOS_RANK := {"elder": 1, "greatold": 2, "outer": 3, "all": 4}
+
+## ---- 開封の尺と音（音楽くん・UIくん・働き者くんの仕様） ----
+const SHAKE_STEP_S := 0.24  ## 揺れ 1 回の長さ。5 回で約 1.2 秒
+const SHAKE_ANGLES := [-3.0, 3.0, -2.5, 2.5, 0.0]
+const SHAKE_PITCHES := [1.0, 1.06, 1.12, 1.19, 1.26]  ## 半音ずつ上げる
+const DEAL_STAGGER_S := 0.08
+const DEAL_PITCH_STEP := 0.03  ## 配り 1 枚ごとに pitch_scale を +0.03
+const HIT_HOLD_S := 0.4  ## 当たりを捲ったら拡大して止める時間（入力も止める）
+const HIT_HOLD_SCALE := 1.16
+const NEW_DELAY_S := 0.15  ## 当たり音と pack_new をぶつけない遅れ
+const FLASH_ALPHA := 0.6  ## 破裂時の白フラッシュ。全面真っ白にはしない
+const IDLE_FADE_OUT_S := 0.1
+const BGM_DUCK_DB := -12.0
+const BGM_RESTORE_S := 0.5
+const TELL_PULSE_S := 0.6
+## NEW バッジ（UIくん指定）：左上、24×10px、DotGothic16 8px、地 #D8B84A・文字 #1A1020
+const NEW_BADGE_SIZE := Vector2(24, 10)
+const NEW_BADGE_BG := Color("#D8B84A")
+const NEW_BADGE_FG := Color("#1A1020")
+const NEW_BADGE_FONT_SIZE := 8
+const NEW_BADGE_HOP_PX := 2.0
 
 var _card_ids: Array = []
+var _new_flags: Array = []  ## 開封前に未所持だったカードか（同じパックで 2 枚目以降は false）
+var _holding: bool = false  ## 当たり拡大中は次のめくりを受け付けない
+var _flash: ColorRect
 var _pack_art: String = ""
 var _phase: String = "idle"
 var _flipped: Array = []
@@ -48,16 +85,31 @@ func _ready() -> void:
 	_build()
 
 
-func setup(pack_art: String, card_ids: Array) -> void:
+## owned_before：開封でコレクションに足す「前」の所持枚数（CollectionData.owned_card_counts() の写し）。
+## null なら NEW 判定をしない。
+func setup(pack_art: String, card_ids: Array, owned_before: Variant = null) -> void:
 	_pack_art = pack_art
 	_card_ids.clear()
 	for item in card_ids:
 		_card_ids.append(str(item))
 	_flipped.clear()
-	for _i in _card_ids.size():
+	_new_flags.clear()
+	var seen: Dictionary = {}
+	for id in _card_ids:
 		_flipped.append(false)
+		var is_new: bool = owned_before is Dictionary and int((owned_before as Dictionary).get(id, 0)) <= 0 and not seen.has(id)
+		_new_flags.append(is_new)
+		seen[id] = true
 	_phase = "idle"
+	AudioManager.duck_bgm(BGM_DUCK_DB)
+	AudioManager.play_sfx_loop("pack_idle")
 	_show_idle()
+
+
+func _exit_tree() -> void:
+	## 閉じる以外の経路で消えても、ループと BGM の下げを残さない。
+	AudioManager.stop_sfx_loop(IDLE_FADE_OUT_S)
+	AudioManager.restore_bgm(BGM_RESTORE_S)
 
 
 func _build() -> void:
@@ -96,8 +148,11 @@ func _build() -> void:
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_hint)
 	_skip = PIXEL_BUTTON.instantiate() as Button
-	_skip.text = "スキップ"
-	_skip.custom_minimum_size = Vector2(108, 36)
+	_skip.text = "全部めくる"
+	_skip.custom_minimum_size = Vector2(120, 32)
+	_skip.add_theme_font_size_override("font_size", 12)
+	_skip.modulate = Color(1, 1, 1, 0.82)  ## 控えめなサブボタン扱い
+	_skip.visible = false  ## 配り終わってから出す
 	_skip.pressed.connect(_skip_all)
 	add_child(_skip)
 	_close = PIXEL_BUTTON.instantiate() as Button
@@ -110,6 +165,12 @@ func _build() -> void:
 	_row.name = "CardRow"
 	_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_row)
+	_flash = ColorRect.new()
+	_flash.name = "BurstFlash"
+	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_flash.color = Color(1, 1, 1, 0)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_flash)
 	resized.connect(_layout_chrome)
 	call_deferred("_layout_chrome")
 
@@ -119,8 +180,8 @@ func _layout_chrome() -> void:
 	if view.x < 8.0 or view.y < 8.0:
 		view = get_viewport_rect().size
 	_compute_stage_sizes(view)
-	_skip.position = Vector2(view.x - 128.0, 16.0)
-	_skip.size = Vector2(108, 36)
+	_skip.size = Vector2(120, 32)
+	_skip.position = Vector2(view.x - 120.0 - 20.0, view.y - 32.0 - 20.0)  ## 右下
 	_close.size = Vector2(160, 44)
 	_close.position = Vector2(view.x * 0.5 - 80.0, view.y * 0.86)
 	_pack.custom_minimum_size = _pack_size
@@ -164,7 +225,7 @@ func _show_idle() -> void:
 	_hint.visible = true
 	_hint.text = "タップして開封"
 	_close.visible = false
-	_skip.visible = true
+	_skip.visible = false
 	_kill_idle()
 	_idle_tween = create_tween().set_loops()
 	_idle_tween.tween_property(_pack, "modulate", Color(1.10, 1.06, 0.98, 1.0), 1.2).set_trans(Tween.TRANS_SINE)
@@ -193,12 +254,11 @@ func _begin_open() -> void:
 	_pack.modulate = Color.WHITE
 	if _seq_tween != null and is_instance_valid(_seq_tween):
 		_seq_tween.kill()
+	AudioManager.stop_sfx_loop(IDLE_FADE_OUT_S)
 	_seq_tween = create_tween()
-	_seq_tween.tween_property(_pack, "rotation_degrees", -3.0, 0.09)
-	_seq_tween.tween_property(_pack, "rotation_degrees", 3.0, 0.09)
-	_seq_tween.tween_property(_pack, "rotation_degrees", -2.0, 0.09)
-	_seq_tween.tween_property(_pack, "rotation_degrees", 2.0, 0.09)
-	_seq_tween.tween_property(_pack, "rotation_degrees", 0.0, 0.09)
+	for i in SHAKE_ANGLES.size():
+		_seq_tween.tween_callback(AudioManager.play_sfx.bind("pack_shake", float(SHAKE_PITCHES[i])))
+		_seq_tween.tween_property(_pack, "rotation_degrees", float(SHAKE_ANGLES[i]), SHAKE_STEP_S).set_trans(Tween.TRANS_SINE)
 	_seq_tween.tween_callback(_burst_pack)
 
 
@@ -208,6 +268,9 @@ func _burst_pack() -> void:
 	_phase = "bursting"
 	if _seq_tween != null and is_instance_valid(_seq_tween):
 		_seq_tween.kill()
+	## pack_burst の頭（破裂音）と白フラッシュを同じフレームに合わせる。
+	AudioManager.play_sfx("pack_burst")
+	_flash_once()
 	_seq_tween = create_tween()
 	_seq_tween.tween_property(_pack, "scale", Vector2(1.12, 1.12), 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_seq_tween.parallel().tween_property(_pack, "modulate", Color(1.18, 1.12, 1.02, 1.0), 0.18)
@@ -242,13 +305,50 @@ func _deal_cards(instant: bool = false) -> void:
 			root.scale = Vector2(0.42, 0.42)
 			root.modulate.a = 0.0
 			var tw := root.create_tween()
-			tw.tween_interval(0.08 * float(i))
+			tw.tween_interval(DEAL_STAGGER_S * float(i))
+			tw.tween_callback(AudioManager.play_sfx.bind("pack_deal", 1.0 + DEAL_PITCH_STEP * float(i)))
 			tw.tween_property(root, "position", dest, DEAL_S).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			tw.parallel().tween_property(root, "scale", Vector2.ONE, DEAL_S)
 			tw.parallel().tween_property(root, "modulate:a", 1.0, DEAL_S)
 	_hint.visible = true
 	_hint.text = "カードをタップしてめくる"
+	## instant（全部めくる経由）のときは予兆も出さない。呼び出し側がそのまま全部捲る。
+	if not instant:
+		var deal_end_s: float = DEAL_STAGGER_S * float(maxi(0, n - 1)) + DEAL_S
+		get_tree().create_timer(deal_end_s).timeout.connect(_on_deal_finished)
 	_layout_chrome()
+
+
+## 配り終わり：「全部めくる」を出し、伏せた当たりを脈打たせて予兆音を 1 回鳴らす。
+func _on_deal_finished() -> void:
+	if _phase != "revealing":
+		return
+	_skip.visible = true
+	var any_tell: bool = false
+	for i in _slots.size():
+		if _flipped[i]:
+			continue
+		var arch: String = _arch_of(str(_slots[i]["def_id"]))
+		if MYTHOS_ARCHETYPES.has(arch):
+			_start_tell_pulse(_slots[i], arch)
+			any_tell = true
+	if any_tell:
+		AudioManager.play_sfx("pack_tell")
+	_layout_chrome()
+
+
+## 伏せた当たりの予兆。背後の光輪の不透明度を 0.3〜0.7 で脈打たせる（強い属性ほど上限寄り）。
+func _start_tell_pulse(slot: Dictionary, arch: String) -> void:
+	var glow: TextureRect = slot["glow"]
+	var tint: Color = Color.WHITE if bool(slot.get("glow_art", false)) else MYTHOS_LIGHT[arch]
+	var rank: int = int(MYTHOS_RANK.get(arch, 1))
+	var hi: float = lerpf(TELL_ALPHA_MIN + 0.15, TELL_ALPHA_MAX, float(rank - 1) / 3.0)
+	glow.scale = Vector2.ONE
+	glow.modulate = Color(tint.r, tint.g, tint.b, TELL_ALPHA_MIN)
+	var tw := glow.create_tween().set_loops()
+	tw.tween_property(glow, "modulate:a", hi, TELL_PULSE_S).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(glow, "modulate:a", TELL_ALPHA_MIN, TELL_PULSE_S).set_trans(Tween.TRANS_SINE)
+	slot["tell_tween"] = tw
 
 
 func _make_slot(index: int, def_id: String) -> Dictionary:
@@ -267,7 +367,15 @@ func _make_slot(index: int, def_id: String) -> Dictionary:
 	glow.stretch_mode = TextureRect.STRETCH_SCALE
 	glow.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	glow.texture = _make_radial_glow_texture()
+	var slot_arch: String = _arch_of(def_id)
+	var glow_art: Texture2D = null
+	if MYTHOS_ARCHETYPES.has(slot_arch):
+		glow_art = _load_texture_safe(GLOW_ART_FMT % slot_arch)
+	if glow_art != null:
+		glow.texture = glow_art
+		glow.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	else:
+		glow.texture = _make_radial_glow_texture()
 	var add_mat := CanvasItemMaterial.new()
 	add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	glow.material = add_mat
@@ -297,13 +405,56 @@ func _make_slot(index: int, def_id: String) -> Dictionary:
 	front.visible = false
 	front.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(front)
+	var badge: Control = null
+	if index < _new_flags.size() and bool(_new_flags[index]):
+		badge = _make_new_badge()
+		root.add_child(badge)
 	return {
 		"root": root,
 		"glow": glow,
 		"back": back,
 		"front": front,
 		"def_id": def_id,
+		"badge": badge,
+		"tell_tween": null,
+		"glow_art": glow_art != null,
 	}
+
+
+## NEW バッジ。カード左上（右上のコストと重ならない位置）。捲るまで隠す。
+## badge_new.png（デザインくん #78）があればそれを整数倍で、無ければ地色＋ドット文字で描く。
+func _make_new_badge() -> Control:
+	var art: Texture2D = _load_texture_safe(NEW_BADGE_ART)
+	var badge: Control
+	if art != null:
+		var tr := TextureRect.new()
+		tr.texture = art
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_SCALE
+		badge = tr
+	else:
+		var panel := PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = NEW_BADGE_BG
+		panel.add_theme_stylebox_override("panel", sb)
+		var label := Label.new()
+		label.text = "NEW"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", NEW_BADGE_FONT_SIZE)
+		label.add_theme_color_override("font_color", NEW_BADGE_FG)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(label)
+		badge = panel
+	badge.name = "NewBadge"
+	badge.custom_minimum_size = NEW_BADGE_SIZE
+	badge.size = NEW_BADGE_SIZE
+	badge.position = Vector2(4, 4)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.visible = false
+	badge.z_index = 2
+	return badge
 
 
 func _layout_row() -> void:
@@ -339,7 +490,7 @@ func _layout_row() -> void:
 
 
 func _on_slot_input(event: InputEvent, index: int) -> void:
-	if _phase != "revealing":
+	if _phase != "revealing" or _holding:
 		return
 	if index < 0 or index >= _flipped.size():
 		return
@@ -350,7 +501,7 @@ func _on_slot_input(event: InputEvent, index: int) -> void:
 
 
 func _flip_card(index: int) -> void:
-	if _phase != "revealing":
+	if _phase != "revealing" or _holding:
 		return
 	if index < 0 or index >= _slots.size():
 		return
@@ -360,7 +511,8 @@ func _flip_card(index: int) -> void:
 	var slot: Dictionary = _slots[index]
 	var root: Control = slot["root"]
 	root.set_meta("flipping", true)
-	AudioManager.play_sfx("select")
+	_stop_tell_pulse(slot)
+	AudioManager.play_sfx("pack_flip")
 	var tw := root.create_tween()
 	tw.tween_property(root, "scale:x", 0.04, FLIP_HALF_S).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.tween_callback(_swap_face.bind(index))
@@ -374,6 +526,9 @@ func _swap_face(index: int) -> void:
 	var slot: Dictionary = _slots[index]
 	(slot["back"] as CanvasItem).visible = false
 	(slot["front"] as CanvasItem).visible = true
+	var badge: Control = slot.get("badge")
+	if badge != null:
+		badge.visible = true
 
 
 func _after_flip(index: int) -> void:
@@ -383,12 +538,57 @@ func _after_flip(index: int) -> void:
 	var root: Control = slot["root"]
 	root.set_meta("flipping", false)
 	root.scale = Vector2.ONE
-	var def: Dictionary = Cards.get_card(str(slot["def_id"]))
-	var arch: String = str(def.get("archetype", ""))
-	var is_mythos: bool = MYTHOS_ARCHETYPES.has(arch)
-	if is_mythos:
+	var arch: String = _arch_of(str(slot["def_id"]))
+	var is_new: bool = index < _new_flags.size() and bool(_new_flags[index])
+	if slot.get("badge") != null:
+		_hop_badge(slot["badge"])
+	if MYTHOS_ARCHETYPES.has(arch):
+		## 当たり：属性音＋光、0.4 秒拡大して止める。その間は次のめくりを受け付けない。
+		_holding = true
+		AudioManager.play_sfx("pack_hit_%s" % arch)
+		if is_new:
+			get_tree().create_timer(NEW_DELAY_S).timeout.connect(AudioManager.play_sfx.bind("pack_new"))
 		_play_mythos_fx(slot, arch)
+		get_tree().create_timer(MYTHOS_POP_S * 0.35 + HIT_HOLD_S).timeout.connect(_end_hold)
+		return
+	if is_new:
+		AudioManager.play_sfx("pack_new")
 	_check_done()
+
+
+func _end_hold() -> void:
+	_holding = false
+	if not is_inside_tree():
+		return
+	_check_done()
+
+
+func _hop_badge(badge: Control) -> void:
+	var base_y: float = badge.position.y
+	var tw := badge.create_tween()
+	tw.tween_property(badge, "position:y", base_y - NEW_BADGE_HOP_PX, 0.08).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(badge, "position:y", base_y, 0.10).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func _stop_tell_pulse(slot: Dictionary) -> void:
+	var tw = slot.get("tell_tween")
+	if tw is Tween and (tw as Tween).is_valid():
+		(tw as Tween).kill()
+	slot["tell_tween"] = null
+	(slot["glow"] as CanvasItem).modulate.a = 0.0
+
+
+func _arch_of(def_id: String) -> String:
+	var def: Dictionary = Cards.get_card(def_id)
+	return str(def.get("archetype", ""))
+
+
+## 破裂時に 1 フレームだけ白く飛ばす（不透明度 60%）。
+func _flash_once() -> void:
+	_flash.color = Color(1, 1, 1, FLASH_ALPHA)
+	var tw := _flash.create_tween()
+	tw.tween_interval(1.0 / 60.0)
+	tw.tween_callback(func() -> void: _flash.color = Color(1, 1, 1, 0))
 
 
 func _make_radial_glow_texture() -> GradientTexture2D:
@@ -410,39 +610,74 @@ func _make_radial_glow_texture() -> GradientTexture2D:
 	return tex
 
 
-## 属性（旧支配者・旧神・外宇宙・全）のカードだけ、属性色で光らせて弾ませる。
+## 属性（旧支配者・旧神・外宇宙・全）のカード：光輪を不透明度 1.0 で出し、0.4 秒の拡大に合わせて
+## 1.0 から 1.15 へ広げてからフェード。光の粒を散らす（全だけ多め・余韻長め）。
 func _play_mythos_fx(slot: Dictionary, arch: String) -> void:
 	var glow: TextureRect = slot["glow"]
 	var root: Control = slot["root"]
-	var light: Color = MYTHOS_LIGHT[arch]
-	glow.modulate = Color(light.r, light.g, light.b, 0.0)
-	glow.scale = Vector2(0.82, 0.82)
+	var tint: Color = Color.WHITE if bool(slot.get("glow_art", false)) else MYTHOS_LIGHT[arch]
+	glow.modulate = Color(tint.r, tint.g, tint.b, 1.0)
+	glow.scale = Vector2.ONE
 	var glow_tw := glow.create_tween()
-	glow_tw.tween_property(glow, "modulate:a", 0.72, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	glow_tw.parallel().tween_property(glow, "scale", Vector2(1.28, 1.28), 0.28).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	glow_tw.tween_property(glow, "modulate:a", 0.0, 0.55).set_trans(Tween.TRANS_SINE)
-	glow_tw.parallel().tween_property(glow, "scale", Vector2(1.08, 1.08), 0.55)
+	glow_tw.tween_property(glow, "scale", Vector2(HIT_GLOW_SCALE, HIT_GLOW_SCALE), MYTHOS_POP_S * 0.35 + HIT_HOLD_S).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	glow_tw.tween_property(glow, "modulate:a", 0.0, float(HIT_GLOW_FADE.get(arch, 0.5))).set_trans(Tween.TRANS_SINE)
 	var pop := root.create_tween()
-	pop.tween_property(root, "scale", Vector2(1.16, 1.16), MYTHOS_POP_S * 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pop.tween_property(root, "scale", Vector2(HIT_HOLD_SCALE, HIT_HOLD_SCALE), MYTHOS_POP_S * 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pop.tween_interval(HIT_HOLD_S)
 	pop.tween_property(root, "scale", Vector2.ONE, MYTHOS_POP_S * 0.65).set_trans(Tween.TRANS_SINE)
+	_spawn_sparkles(root, arch)
+
+
+func _spawn_sparkles(root: Control, arch: String) -> void:
+	var tex: Texture2D = _load_texture_safe(SPARKLE_ART_FMT % arch)
+	if tex == null:
+		return
+	var count: int = int(SPARKLE_COUNT.get(arch, 2))
+	var center: Vector2 = _card_size * 0.5
+	var life: float = float(HIT_GLOW_FADE.get(arch, 0.5)) + 0.2
+	for i in count:
+		var sp := Sprite2D.new()
+		sp.texture = tex
+		sp.hframes = SPARKLE_FRAMES
+		sp.frame = 0
+		sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		sp.scale = Vector2(2, 2)  ## 整数倍のみ
+		sp.z_index = 3
+		var ang: float = TAU * (float(i) + randf() * 0.6) / float(count)
+		var start: Vector2 = center + Vector2(cos(ang), sin(ang)) * (_card_size.x * 0.35)
+		var dest: Vector2 = center + Vector2(cos(ang), sin(ang)) * (_card_size.x * 0.75)
+		sp.position = start
+		root.add_child(sp)
+		var tw := sp.create_tween()
+		tw.tween_property(sp, "position", dest, life).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(sp, "frame", SPARKLE_FRAMES - 1, life)
+		tw.parallel().tween_property(sp, "modulate:a", 0.0, life).set_delay(life * 0.5)
+		tw.tween_callback(sp.queue_free)
 
 
 func _check_done() -> void:
-	if _flipped.is_empty():
+	if _flipped.is_empty() or _phase == "done":
 		return
 	for flag in _flipped:
 		if not flag:
 			return
 	_phase = "done"
+	AudioManager.play_sfx("pack_done")
 	_hint.text = ""
 	_close.visible = true
 	_skip.visible = false
 	_layout_chrome()
 
 
+## 「全部めくる」：一斉に捲り、鳴らすのは一番強い当たり音 1 回と pack_done だけ。
+## 未所持が 1 枚でもあれば、当たり音の 0.15 秒後に pack_new を 1 回。NEW バッジは残す。
 func _skip_all() -> void:
 	if _phase == "done":
 		return
+	_holding = false
+	AudioManager.stop_sfx_loop(IDLE_FADE_OUT_S)
+	var best_arch: String = ""
+	var any_new: bool = false
 	_kill_idle()
 	if _seq_tween != null and is_instance_valid(_seq_tween):
 		_seq_tween.kill()
@@ -456,11 +691,30 @@ func _skip_all() -> void:
 		root.set_meta("flipping", false)
 		root.scale = Vector2.ONE
 		root.modulate.a = 1.0
+		if not _flipped[i]:
+			var arch: String = _arch_of(str(slot["def_id"]))
+			if int(MYTHOS_RANK.get(arch, 0)) > int(MYTHOS_RANK.get(best_arch, 0)):
+				best_arch = arch
+			if i < _new_flags.size() and bool(_new_flags[i]):
+				any_new = true
+		_stop_tell_pulse(slot)
 		(slot["back"] as CanvasItem).visible = false
 		(slot["front"] as CanvasItem).visible = true
 		(slot["glow"] as CanvasItem).modulate.a = 0.0
+		var badge: Control = slot.get("badge")
+		if badge != null:
+			badge.visible = true
 		_flipped[i] = true
 	_layout_row()
+	if best_arch != "":
+		AudioManager.play_sfx("pack_hit_%s" % best_arch)
+	if any_new:
+		get_tree().create_timer(NEW_DELAY_S).timeout.connect(AudioManager.play_sfx.bind("pack_new"))
+	if best_arch != "":
+		## 当たり音の頭が鳴り切ってから締める。
+		get_tree().create_timer(HIT_HOLD_S).timeout.connect(AudioManager.play_sfx.bind("pack_done"))
+	else:
+		AudioManager.play_sfx("pack_done")
 	_phase = "done"
 	_pack.visible = false
 	_hint.text = ""
