@@ -23,7 +23,7 @@ const ARCHETYPE_LABELS := {
 	"chaos": "混沌",  ## 戯神ちゃん専用。枠は外宇宙フレームを流用する。
 }
 
-## 主属性とは別の検索条件。手札条件の判定（has_sub_archetype）とは独立。
+## デッキ検索のサブ属性。地は has_sub_archetype も subArchetypes だけを見る。
 const SUB_ARCHETYPE_LABELS := {
 	"earth": "地",
 }
@@ -2146,7 +2146,9 @@ static func has_tag(def: Dictionary, tag: String) -> bool:
 
 
 static func has_sub_archetype(def: Dictionary, sub: String) -> bool:
-	if sub != "" and str(def.get("archetype", "")) == sub:
+	## 地は subArchetypes にあるカードだけ。豊穣（主属性 earth）は地にしない。
+	## 火・水・風などは、主属性がその元素なら同じ元素として扱う。
+	if sub != "" and sub != "earth" and str(def.get("archetype", "")) == sub:
 		return true
 	var subs = def.get("subArchetypes", [])
 	return subs is Array and subs.has(sub)
