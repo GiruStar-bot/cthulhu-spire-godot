@@ -187,6 +187,19 @@ text = "グラフィック"
 layout_mode = 2
 text = "フルスクリーンを許可"
 
+[node name="MotionRow" type="VBoxContainer" parent="SettingsPanel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="ReduceMotionCheck" type="CheckButton" parent="SettingsPanel/Margin/Content/MotionRow"]
+layout_mode = 2
+text = "画面の揺れ・歪みを減らす"
+
+[node name="ReduceMotionCaption" type="Label" parent="SettingsPanel/Margin/Content/MotionRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 8
+text = "酔いやすい方向け"
+
 [node name="CloseButton" parent="SettingsPanel/Margin/Content" instance=ExtResource("3")]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 38)

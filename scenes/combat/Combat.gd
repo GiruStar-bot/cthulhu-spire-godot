@@ -11,7 +11,6 @@ const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
 const PILE_BUTTON_Z := 30
 const DISSOLVE_SHADER := preload("res://scenes/combat/enemy_dissolve.gdshader")
 const DISSOLVE_NOISE := preload("res://art/pixel/ui/dissolve_noise.png")
-const VERTIGO_SHADER := preload("res://scenes/combat/screen_vertigo.gdshader")
 const SHOCK_CARDS := ["migo_gun"]
 const SHOCK_CORE := Color(0.70, 0.95, 0.28, 0.95)
 const SHOCK_GLOW := Color(0.48, 0.12, 0.62, 0.38)
@@ -77,9 +76,10 @@ var _prev_hp: int = -1
 var _prev_sanity: int = -1
 var _prev_block: int = -1
 var _fx_canvas: CanvasLayer
-var _vertigo_rect: ColorRect
-var _vertigo_mat: ShaderMaterial
-var _vertigo_tween: Tween
+## 正気度の演出（払った／削られた／低い状態）。旧 _fx_vertigo（全画面ぼかし・歪み）の置き換え。
+var _sanity_fx: SanityFx
+## 直前にプレイしたカードの画面位置（雫の出発点）。不明なら手札の中央。
+var _sanity_drop_from: Vector2 = Vector2(-1.0, -1.0)
 var _shield: Polygon2D
 var _shield_tween: Tween
 var _hurt_flash: ColorRect
@@ -90,6 +90,7 @@ var _draw_in_tweens: Dictionary = {}
 
 func _ready() -> void:
 	_build_chrome()
+	_ensure_sanity_fx()
 	if log_scroll:
 		log_scroll.resized.connect(_fit_log_label)
 	if enemy_row and not enemy_row.resized.is_connected(_layout_enemies):
@@ -178,6 +179,7 @@ func _play_card(card_uid: String, target_id) -> void:
 		return
 	var selected_card = _find_hand(card_uid)
 	var card_type := str(Cards.get_card(str(selected_card.defId)).get("type", "skill")) if selected_card else "skill"
+	_sanity_drop_from = _hand_card_center(card_uid)
 	var played: Dictionary = CombatLogic.play_card(state, player, card_uid, target_id, Callable(GameState, "_rand"))
 	if played.get("error"):
 		message_label.text = str(played.error)
@@ -276,6 +278,9 @@ func _check_result() -> void:
 		return
 	resolving = true
 	end_turn_button.disabled = true
+	## 戦闘が終わったら（敗北演出の開始を含む）持続音と四隅の縁取りを止める
+	if _sanity_fx != null and is_instance_valid(_sanity_fx):
+		_sanity_fx.stop_all()
 	GameState.prune_run_deck()
 	if result == "win":
 		if GameState.note_boss_status_point(state):
@@ -1325,22 +1330,6 @@ func _ensure_fx() -> void:
 	_fx_canvas.name = "CombatFx"
 	_fx_canvas.layer = 80
 	add_child(_fx_canvas)
-	var copy := BackBufferCopy.new()
-	copy.copy_mode = BackBufferCopy.COPY_MODE_VIEWPORT
-	_fx_canvas.add_child(copy)
-	_vertigo_mat = ShaderMaterial.new()
-	_vertigo_mat.shader = VERTIGO_SHADER
-	_vertigo_mat.set_shader_parameter("blur", 0.0)
-	_vertigo_mat.set_shader_parameter("warp", 0.0)
-	_vertigo_mat.set_shader_parameter("time_shift", 0.0)
-	_vertigo_rect = ColorRect.new()
-	_vertigo_rect.name = "Vertigo"
-	_vertigo_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_vertigo_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_vertigo_rect.color = Color(1, 1, 1, 1)
-	_vertigo_rect.material = _vertigo_mat
-	_vertigo_rect.visible = false
-	_fx_canvas.add_child(_vertigo_rect)
 	_shield = Polygon2D.new()
 	_shield.name = "HitShield"
 	_shield.color = Color(0.72, 0.92, 1.0, 0.42)
@@ -1377,57 +1366,51 @@ func _run_player_hit_fx() -> void:
 	## HP減は痛み用（毒・貫通・無防御被弾）。盾とは分離。
 	if _prev_hp >= 0 and hp_now < _prev_hp:
 		_fx_player_hurt()
-	if _prev_sanity >= 0 and san_now < _prev_sanity:
-		_fx_vertigo()
-		AudioManager.play_sfx("hurt_sanity")
+	_run_sanity_fx(san_now)
 	_prev_hp = hp_now
 	_prev_sanity = san_now
 	_prev_block = block_now
 
 
-func _fx_vertigo() -> void:
-	_ensure_fx()
-	if _vertigo_tween != null and is_instance_valid(_vertigo_tween):
-		_vertigo_tween.kill()
-	_vertigo_rect.visible = true
-	var blur_now: float = float(_vertigo_mat.get_shader_parameter("blur"))
-	var warp_now: float = float(_vertigo_mat.get_shader_parameter("warp"))
-	_vertigo_tween = create_tween()
-	_vertigo_tween.set_trans(Tween.TRANS_SINE)
-	_vertigo_tween.set_parallel(true)
-	_vertigo_tween.tween_method(_set_vertigo_blur, blur_now, 0.82, 0.22).set_ease(Tween.EASE_OUT)
-	_vertigo_tween.tween_method(_set_vertigo_warp, warp_now, 0.70, 0.22).set_ease(Tween.EASE_OUT)
-	_vertigo_tween.tween_method(_set_vertigo_time, 0.0, 3.2, 0.66)
-	_vertigo_tween.set_parallel(false)
-	_vertigo_tween.tween_interval(0.06)
-	_vertigo_tween.set_parallel(true)
-	_vertigo_tween.tween_method(_set_vertigo_blur, 0.82, 0.0, 0.38).set_ease(Tween.EASE_IN)
-	_vertigo_tween.tween_method(_set_vertigo_warp, 0.70, 0.0, 0.38).set_ease(Tween.EASE_IN)
-	_vertigo_tween.set_parallel(false)
-	_vertigo_tween.tween_callback(_hide_vertigo)
+func _ensure_sanity_fx() -> void:
+	if _sanity_fx != null and is_instance_valid(_sanity_fx):
+		return
+	_sanity_fx = SanityFx.new()
+	add_child(_sanity_fx)
+	_sanity_fx.hit_shown.connect(_on_sanity_hit_shown)
 
 
-func _set_vertigo_blur(value: float) -> void:
-	if _vertigo_mat != null:
-		_vertigo_mat.set_shader_parameter("blur", value)
+## 正気度の減少を理由別に読んで演出する。CombatLogic が c.sanityLossPaid / c.sanityLossHit に
+## 累計した値を使い、使ったら 0 に戻す。理由の分からない減少（将来の追加経路など）は「削られた」扱い。
+func _run_sanity_fx(san_now: int) -> void:
+	_ensure_sanity_fx()
+	var paid: int = int(state.get("sanityLossPaid", 0))
+	var hit: int = int(state.get("sanityLossHit", 0))
+	state["sanityLossPaid"] = 0
+	state["sanityLossHit"] = 0
+	if _prev_sanity >= 0 and san_now < _prev_sanity and paid <= 0 and hit <= 0:
+		hit = _prev_sanity - san_now
+	if paid > 0 or hit > 0:
+		var from: Vector2 = _sanity_drop_from
+		if from.x < 0.0:
+			from = hand_row.get_global_rect().get_center() if hand_row else get_viewport_rect().size * 0.5
+		_sanity_fx.play_loss(paid, hit, from, hud_panel.sanity_bar_global_rect())
+	_sanity_drop_from = Vector2(-1.0, -1.0)
+	if str(state.get("result", "ongoing")) == "ongoing":
+		_sanity_fx.set_sanity(san_now, int(player.get("maxSanity", 0)))
 
 
-func _set_vertigo_warp(value: float) -> void:
-	if _vertigo_mat != null:
-		_vertigo_mat.set_shader_parameter("warp", value)
+func _on_sanity_hit_shown(crack_tex: Texture2D, shake: bool) -> void:
+	hud_panel.flash_sanity_crack(crack_tex, shake)
 
 
-func _set_vertigo_time(value: float) -> void:
-	if _vertigo_mat != null:
-		_vertigo_mat.set_shader_parameter("time_shift", value)
-
-
-func _hide_vertigo() -> void:
-	if _vertigo_rect != null:
-		_vertigo_rect.visible = false
-	if _vertigo_mat != null:
-		_vertigo_mat.set_shader_parameter("blur", 0.0)
-		_vertigo_mat.set_shader_parameter("warp", 0.0)
+func _hand_card_center(card_uid: String) -> Vector2:
+	if hand_row == null:
+		return Vector2(-1.0, -1.0)
+	for child in hand_row.get_children():
+		if child is CombatCard and (child as CombatCard).card_uid == card_uid:
+			return (child as CombatCard).get_global_rect().get_center()
+	return Vector2(-1.0, -1.0)
 
 
 func _fx_shield() -> void:
