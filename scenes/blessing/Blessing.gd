@@ -12,7 +12,15 @@ const FALLBACK_PORTRAITS := {
 }
 const BUBBLE_FILL := Color("2A2430")
 const ACCENT_BY_HOST := {"val": Color(0.86, 0.84, 0.72), "trickster": Color(0.91, 0.627, 1.0)}
+## 立ち絵の高さ（画面比）。上半身の正方形の絵は横に広いので低めにして、パネルの高さと重ねない
 const PORTRAIT_HEIGHT_FRAC := 0.58
+const PORTRAIT_HEIGHT_FRAC_WIDE := 0.5
+## 吹き出しの位置（立ち絵の幅・高さに対する割合）。上半身の絵は頭が大きいので右・下寄り
+const BUBBLE_X_FRAC := 0.62
+const BUBBLE_X_FRAC_WIDE := 0.8
+const HEAD_Y_FRAC := 0.18
+const HEAD_Y_FRAC_WIDE := 0.26
+const WIDE_ASPECT := 0.8
 const PORTRAIT_MARGIN := 24.0
 const PORTRAIT_FADE_IN_SEC := 0.4
 const TYPE_MS := 45
@@ -211,10 +219,11 @@ func _make_text_choice(label: String, handler: Callable) -> Button:
 func _layout() -> void:
 	var vp: Vector2 = get_viewport_rect().size
 	## 立ち絵：左下
-	var ph: float = vp.y * PORTRAIT_HEIGHT_FRAC
 	var aspect: float = 2.0 / 3.0
 	if _portrait.texture != null and _portrait.texture.get_size().y > 0.0:
 		aspect = _portrait.texture.get_size().x / _portrait.texture.get_size().y
+	var wide: bool = aspect >= WIDE_ASPECT
+	var ph: float = vp.y * (PORTRAIT_HEIGHT_FRAC_WIDE if wide else PORTRAIT_HEIGHT_FRAC)
 	var pw: float = ph * aspect
 	_place(_portrait, Rect2(PORTRAIT_MARGIN, vp.y - ph, pw, ph))
 	## 吹き出し：頭の右
@@ -222,13 +231,15 @@ func _layout() -> void:
 	_bubble_label.custom_minimum_size = Vector2(bubble_w - BUBBLE_PAD * 2.0, 0)
 	_bubble.reset_size()
 	var bubble_h: float = maxf(_bubble.get_combined_minimum_size().y, 72.0)
-	var head_y: float = vp.y - ph + ph * 0.18
-	var bx: float = PORTRAIT_MARGIN + pw * 0.62 + 12.0
+	var head_y: float = vp.y - ph + ph * (HEAD_Y_FRAC_WIDE if wide else HEAD_Y_FRAC)
+	var bx: float = PORTRAIT_MARGIN + pw * (BUBBLE_X_FRAC_WIDE if wide else BUBBLE_X_FRAC) + 12.0
 	var by: float = clampf(head_y - bubble_h * 0.35, 24.0, vp.y - bubble_h - 24.0)
 	var bubble_rect := Rect2(bx, by, bubble_w, bubble_h)
 	_place(_bubble, bubble_rect)
-	## パネル：立ち絵より右の残り幅の中央
+	## パネル：立ち絵と同じ高さにかかるなら立ち絵より右の残り幅、かからなければ画面幅の中央
 	var area_left: float = PORTRAIT_MARGIN + pw + 24.0
+	if PANEL_TOP + PANEL_SIZE.y + 12.0 <= vp.y - ph:
+		area_left = 24.0
 	var n: int = _panels.size()
 	var row_w: float = PANEL_SIZE.x * n + PANEL_GAP * maxi(0, n - 1)
 	var panel_w: float = PANEL_SIZE.x
