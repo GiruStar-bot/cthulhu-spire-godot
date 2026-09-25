@@ -70,6 +70,10 @@ var current_bgm := "none"
 var _bgm_player: AudioStreamPlayer
 var _sfx_players: Array[AudioStreamPlayer] = []
 var _sfx_streams: Dictionary = {}
+var _loop_player: AudioStreamPlayer
+var _loop_tween: Tween
+var _bgm_duck_tween: Tween
+var _bgm_duck_db: float = 0.0
 
 
 func _ready() -> void:
@@ -106,6 +110,11 @@ func _create_players() -> void:
 		player.bus = SFX_BUS
 		add_child(player)
 		_sfx_players.append(player)
+	## ループ効果音（パック開封待ちなど）専用。SFX バスに流す。
+	_loop_player = AudioStreamPlayer.new()
+	_loop_player.name = "SfxLoopPlayer"
+	_loop_player.bus = SFX_BUS
+	add_child(_loop_player)
 
 
 func _on_bgm_finished() -> void:
@@ -169,7 +178,9 @@ func resolve_card_sfx(def_id: String, card_type: String, vfx_kind: String = "") 
 		_:
 			return "vfx_impact"
 
-func play_sfx(cue: String) -> void:
+## pitch_scale を渡すと音程を変えて鳴らす（パックの揺れ・配りで段階的に上げる用）。
+## 省略時（0 以下）は従来どおり 1.0。
+func play_sfx(cue: String, pitch_scale: float = 0.0) -> void:
 	var sample := _sample_for(cue)
 	var path := str(SFX_PATHS.get(sample, ""))
 	var stream := _load_stream(path)
@@ -178,7 +189,7 @@ func play_sfx(cue: String) -> void:
 	var player := _next_sfx_player()
 	player.stop()
 	player.stream = stream
-	player.pitch_scale = 1.0
+	player.pitch_scale = pitch_scale if pitch_scale > 0.0 else 1.0
 	## gift_type: Undertale-ish blip with light pitch jitter (±5%)
 	if sample == "gift_type":
 		player.pitch_scale = randf_range(0.95, 1.05)
@@ -197,8 +208,103 @@ func play_cues(cues: Array) -> void:
 			play_sfx(key)
 
 
+## ボタン確定音。専用の ui_click があればそれ、無ければ従来の select。
+## ホバーでは鳴らさない（pressed にだけ繋いでいる）。
 func play_ui() -> void:
-	play_sfx("select")
+	if has_sfx("ui_click"):
+		play_sfx("ui_click")
+	else:
+		play_sfx("select")
+
+
+## キーが登録済みで、ファイルも読み込めるか。
+func has_sfx(cue: String) -> bool:
+	var path := str(SFX_PATHS.get(_sample_for(cue), ""))
+	return path != "" and ResourceLoader.exists(path)
+
+
+## ループ効果音を 1 本だけ鳴らす（既に同じものが鳴っていれば何もしない）。
+## WAV は取り込み設定に関係なく、ここで前方ループに切り替える。
+func play_sfx_loop(cue: String, fade_in_s: float = 0.0) -> void:
+	var path := str(SFX_PATHS.get(_sample_for(cue), ""))
+	var stream := _load_stream(path)
+	if stream == null or _loop_player == null:
+		return
+	_kill_loop_tween()
+	var looped := _make_looping(stream)
+	if _loop_player.playing and _loop_player.stream == looped:
+		_loop_player.volume_db = 0.0
+		return
+	_loop_player.stop()
+	_loop_player.stream = looped
+	_loop_player.volume_db = -40.0 if fade_in_s > 0.0 else 0.0
+	_loop_player.play()
+	if fade_in_s > 0.0:
+		_loop_tween = create_tween()
+		_loop_tween.tween_property(_loop_player, "volume_db", 0.0, fade_in_s)
+
+
+## ループ効果音を止める。fade_out_s 秒かけて下げてから停止する。
+func stop_sfx_loop(fade_out_s: float = 0.1) -> void:
+	if _loop_player == null or not _loop_player.playing:
+		return
+	_kill_loop_tween()
+	if fade_out_s <= 0.0:
+		_loop_player.stop()
+		return
+	_loop_tween = create_tween()
+	_loop_tween.tween_property(_loop_player, "volume_db", -40.0, fade_out_s)
+	_loop_tween.tween_callback(_loop_player.stop)
+
+
+## BGM を一時的に下げる（パック開封中など）。音量設定（バス）とは別に、プレイヤー側で下げる。
+func duck_bgm(db: float = -12.0, fade_s: float = 0.2) -> void:
+	_tween_bgm_duck(db, fade_s)
+
+
+## duck_bgm で下げた BGM を戻す。
+func restore_bgm(fade_s: float = 0.5) -> void:
+	_tween_bgm_duck(0.0, fade_s)
+
+
+func _tween_bgm_duck(target_db: float, fade_s: float) -> void:
+	_bgm_duck_db = target_db
+	if _bgm_duck_tween != null and _bgm_duck_tween.is_valid():
+		_bgm_duck_tween.kill()
+	if _bgm_player == null:
+		return
+	if fade_s <= 0.0:
+		_bgm_player.volume_db = target_db
+		return
+	_bgm_duck_tween = create_tween()
+	_bgm_duck_tween.tween_property(_bgm_player, "volume_db", target_db, fade_s)
+
+
+func _kill_loop_tween() -> void:
+	if _loop_tween != null and _loop_tween.is_valid():
+		_loop_tween.kill()
+	_loop_tween = null
+
+
+func _make_looping(stream: AudioStream) -> AudioStream:
+	if stream is AudioStreamWAV:
+		var wav := stream as AudioStreamWAV
+		if wav.loop_mode != AudioStreamWAV.LOOP_DISABLED:
+			return wav
+		var key := "loop::%s" % wav.resource_path
+		if _sfx_streams.has(key):
+			return _sfx_streams[key] as AudioStream
+		var copy := wav.duplicate() as AudioStreamWAV
+		copy.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		copy.loop_begin = 0
+		copy.loop_end = int(round(wav.get_length() * float(wav.mix_rate)))
+		_sfx_streams[key] = copy
+		return copy
+	if stream is AudioStreamOggVorbis:
+		(stream as AudioStreamOggVorbis).loop = true
+	elif stream is AudioStreamMP3:
+		(stream as AudioStreamMP3).loop = true
+	return stream
 
 
 func set_music_volume(value: float) -> void:
