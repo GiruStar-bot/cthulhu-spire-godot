@@ -40,6 +40,12 @@ const SFX_PATHS := {
 	"vfx_arrow": "res://audio/sfx/sfx_vfx_arrow.wav",
 	"cat_hiss": "res://audio/sfx/sfx_cat_hiss.wav",
 	"electric": "res://audio/sfx/sfx_electric.wav",
+	## 正気度（音楽くん / sanity）
+	"sanity_pay": "res://audio/sfx/sfx_sanity_pay.wav",
+	"sanity_hit": "res://audio/sfx/sfx_sanity_hit.wav",
+	"sanity_low_1": "res://audio/sfx/sfx_sanity_low_1.wav",
+	"sanity_low_2": "res://audio/sfx/sfx_sanity_low_2.wav",
+	"sanity_low_3": "res://audio/sfx/sfx_sanity_low_3.wav",
 	## パック開封（音楽くん / pack-open）
 	"pack_idle": "res://audio/sfx/sfx_pack_idle.wav",
 	"pack_shake": "res://audio/sfx/sfx_pack_shake.wav",
