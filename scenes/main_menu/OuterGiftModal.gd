@@ -2,11 +2,10 @@ extends CanvasLayer
 class_name OuterGiftModal
 
 ## DreamTitle プレイ直後の「外宇宙の贈り物」演出。
-## ニャル中央 + 頭横吹き出し（タイプライター）→ デッキ授与 → 貰う。
+## ニャル中央 + 頭横吹き出し（共通部品 SpeechBubble、タイプライター）→ デッキ授与 → 貰う。
 ## 下部ティッカー帯は使わない。タイトル Stage を隠し、フル dim。
 
 const ACCENT := Color(0.91, 0.627, 1.0)  ## #E8A0FF
-const BUBBLE_FILL := Color("2A2430")
 const PACK_ART_PRIMARY := "res://art/pixel/cards/outer_gift.jpg"
 const PACK_ART_FALLBACK_A := "res://art/pixel/packs/pack_outer_nobackground.png"
 const PACK_ART_FALLBACK_B := "res://art/pixel/packs/pack_outer.jpg"
@@ -23,8 +22,10 @@ const TYPE_MS := 45  ## Undertale-ish char delay (~45ms)
 const TYPE_MS_JITTER := 0  ## reserved; keep fixed ~45ms per steering
 const LINE_AUTO_SEC := 1.6
 const NYAR_DRIFT_PX := 36.0
-const BUBBLE_MAX_W := 340.0
-const BUBBLE_PAD := 14.0
+## 吹き出しを置く頭の位置（ニャルの矩形に対する割合）と、頭の中心からしっぽの先までの距離（ニャルの幅に対する割合）
+const HEAD_Y_FRAC := 0.18
+const HEAD_GAP_FRAC := 0.14
+const BUBBLE_SCREEN_MARGIN := 16.0
 const FRAME_PATCH_MARGIN := 19
 
 signal proceeded
@@ -32,9 +33,7 @@ signal proceeded
 var _dim: ColorRect
 var _root: Control
 var _nyar: TextureRect
-var _bubble: PanelContainer
-var _bubble_label: Label
-var _underline: ColorRect
+var _bubble: SpeechBubble
 var _card_slot: Control
 var _proceed_btn: BaseButton
 var _hidden_chrome: Array = []
@@ -129,43 +128,10 @@ func _build() -> void:
 	_root.add_child(_nyar)
 	_layout_nyar()
 
-	_bubble = PanelContainer.new()
+	_bubble = SpeechBubble.new()
 	_bubble.name = "SpeechBubble"
 	_bubble.visible = false
-	_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bubble_sb := StyleBoxFlat.new()
-	bubble_sb.bg_color = BUBBLE_FILL
-	bubble_sb.set_corner_radius_all(0)
-	bubble_sb.set_border_width_all(0)
-	bubble_sb.content_margin_left = BUBBLE_PAD
-	bubble_sb.content_margin_right = BUBBLE_PAD
-	bubble_sb.content_margin_top = BUBBLE_PAD
-	bubble_sb.content_margin_bottom = BUBBLE_PAD + 4.0
-	_bubble.add_theme_stylebox_override("panel", bubble_sb)
-
-	var bubble_inner := VBoxContainer.new()
-	bubble_inner.add_theme_constant_override("separation", 6)
-	bubble_inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bubble.add_child(bubble_inner)
-
-	_bubble_label = Label.new()
-	_bubble_label.name = "BubbleText"
-	_bubble_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_bubble_label.custom_minimum_size = Vector2(BUBBLE_MAX_W - BUBBLE_PAD * 2.0, 0)
-	_bubble_label.add_theme_font_size_override("font_size", 20)
-	_bubble_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.98))
-	_bubble_label.text = ""
-	_bubble_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bubble_inner.add_child(_bubble_label)
-
-	_underline = ColorRect.new()
-	_underline.name = "CandyUnderline"
-	_underline.custom_minimum_size = Vector2(0, 1)
-	_underline.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_underline.color = ACCENT
-	_underline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bubble_inner.add_child(_underline)
-
+	_bubble.accent = ACCENT
 	_root.add_child(_bubble)
 
 	_card_slot = Control.new()
@@ -261,35 +227,15 @@ func _layout_nyar() -> void:
 	_nyar.offset_bottom = target_h * 0.5
 
 
+## 吹き出しをニャルの頭の横に置き、しっぽを頭へ向ける（右隣を優先、溢れたら左）。
 func _layout_bubble_beside_head() -> void:
-	## 頭はニャル上〜中部。吹き出しは頭の右隣を優先、溢れたら左へ。
-	await get_tree().process_frame
-	var nyar_rect := _nyar.get_rect()
-	var vp_size := _root.size
+	var nyar_rect: Rect2 = _nyar.get_rect()
+	var vp_size: Vector2 = _root.size
 	if vp_size.x <= 1.0 or vp_size.y <= 1.0:
 		vp_size = get_viewport().get_visible_rect().size
-	var head_y: float = nyar_rect.position.y + nyar_rect.size.y * 0.18
-	var bubble_w: float = mini(BUBBLE_MAX_W, vp_size.x * 0.42)
-	_bubble_label.custom_minimum_size = Vector2(bubble_w - BUBBLE_PAD * 2.0, 0)
-	_bubble.reset_size()
-	await get_tree().process_frame
-	var bubble_h: float = maxf(_bubble.get_combined_minimum_size().y, 72.0)
-	var gap := 12.0
-	var prefer_right_x: float = nyar_rect.position.x + nyar_rect.size.x * 0.62 + gap
-	var left_x: float = nyar_rect.position.x + nyar_rect.size.x * 0.38 - gap - bubble_w
-	var use_right := prefer_right_x + bubble_w <= vp_size.x - 16.0
-	var bx: float = prefer_right_x if use_right else maxf(16.0, left_x)
-	var by: float = clampf(head_y - bubble_h * 0.35, 24.0, vp_size.y - bubble_h - 24.0)
-	_bubble.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	_bubble.anchor_left = 0.0
-	_bubble.anchor_top = 0.0
-	_bubble.anchor_right = 0.0
-	_bubble.anchor_bottom = 0.0
-	_bubble.offset_left = bx
-	_bubble.offset_top = by
-	_bubble.offset_right = bx + bubble_w
-	_bubble.offset_bottom = by + bubble_h
-	_bubble.custom_minimum_size = Vector2(bubble_w, bubble_h)
+	var head := Vector2(nyar_rect.get_center().x, nyar_rect.position.y + nyar_rect.size.y * HEAD_Y_FRAC)
+	var bounds := Rect2(Vector2.ONE * BUBBLE_SCREEN_MARGIN, vp_size - Vector2.ONE * BUBBLE_SCREEN_MARGIN * 2.0)
+	_bubble.place_beside(head, nyar_rect.size.x * HEAD_GAP_FRAC, bounds)
 
 
 func _run_sequence() -> void:
@@ -308,8 +254,6 @@ func _run_sequence() -> void:
 
 	## 2) 吹き出し行1（タイプライター／行頭 gift_talk なし）
 	_phase = "line1"
-	_bubble.visible = true
-	await _layout_bubble_beside_head()
 	await _typewriter_line("やあ、%s！君に会えて嬉しいよ" % _player_display_name())
 	if _finished:
 		return
@@ -357,24 +301,26 @@ func _run_sequence() -> void:
 func _typewriter_line(full_text: String) -> void:
 	_typing = true
 	_advance_requested = false
-	_bubble_label.text = ""
+	## 全文で大きさを決めてから頭の横に置く（行ごとに伸縮する）
+	_bubble.fit_to_text(full_text)
+	_bubble.set_text("")
+	_layout_bubble_beside_head()
 	_bubble.visible = true
 	var i := 0
 	var n := full_text.length()
 	while i < n and not _finished:
 		if _advance_requested:
-			_bubble_label.text = full_text
+			_bubble.set_text(full_text)
 			_advance_requested = false
 			break
 		i += 1
-		_bubble_label.text = full_text.substr(0, i)
+		_bubble.set_text(full_text.substr(0, i))
 		## 毎文字 gift_type（pitch ±5% は AudioManager 側）
 		if AudioManager != null:
 			AudioManager.play_sfx("gift_type")
 		await get_tree().create_timer(float(TYPE_MS) / 1000.0).timeout
-	_bubble_label.text = full_text
+	_bubble.set_text(full_text)
 	_typing = false
-	await _layout_bubble_beside_head()
 
 
 func _fade_bubble_out() -> void:

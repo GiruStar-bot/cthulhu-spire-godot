@@ -2,7 +2,7 @@ extends CanvasLayer
 class_name DialogueEventModal
 
 ## 立ち絵＋吹き出しで進む会話イベント（OuterGiftModal の演出パターンを流用した汎用版）。
-## 立ち絵が中央にフェードイン → 頭横の吹き出しにタイプライターで台詞 → 表示し終えて
+## 立ち絵が中央にフェードイン → 頭横の吹き出し（共通部品 SpeechBubble）にタイプライターで台詞 → 表示し終えて
 ## LINE_HOLD_SEC 後に吹き出しが自動で消える → 立ち絵の両脇に文字だけの選択肢がうっすら出る。
 ## reply を持つ選択肢は、選択肢を消して返事を同じ吹き出しで出し、全体をフェードアウトしてから通知する。
 ## reply の無い選択肢は演出を挟まずすぐ通知する。遷移（GameState 呼び出し）は呼び出し側の責務。
@@ -15,7 +15,6 @@ class_name DialogueEventModal
 
 signal choice_selected(choice_id: String)
 
-const BUBBLE_FILL := Color("2A2430")
 const ACCENT := Color(0.78, 0.32, 0.30)
 const PORTRAIT_HEIGHT_FRAC := 0.60
 const PORTRAIT_FADE_IN_SEC := 0.4
@@ -27,8 +26,10 @@ const CHOICE_FADE_OUT_SEC := 0.25
 const CHOICE_ALPHA := 0.85  ## 影のようにうっすら（ただし読める濃さ）
 const CHOICE_HOVER_ALPHA := 1.0
 const OUTRO_FADE_SEC := 0.45
-const BUBBLE_MAX_W := 340.0
-const BUBBLE_PAD := 14.0
+## 吹き出しを置く頭の位置（立ち絵の矩形に対する割合）と、頭の中心からしっぽの先までの距離（立ち絵の幅に対する割合）
+const HEAD_Y_FRAC := 0.18
+const HEAD_GAP_FRAC := 0.14
+const BUBBLE_SCREEN_MARGIN := 16.0
 const CHOICE_GAP := 28.0
 const DIM_WITH_BACKGROUND := 0.55
 const DIM_WITHOUT_BACKGROUND := 0.9
@@ -36,8 +37,7 @@ const DIM_WITHOUT_BACKGROUND := 0.9
 var _config: Dictionary = {}
 var _root: Control
 var _portrait: TextureRect
-var _bubble: PanelContainer
-var _bubble_label: Label
+var _bubble: SpeechBubble
 var _choice_buttons: Array = []
 var _typing := false
 var _advance_requested := false
@@ -110,37 +110,10 @@ func _build() -> void:
 	_root.add_child(_portrait)
 	_layout_portrait()
 
-	_bubble = PanelContainer.new()
+	_bubble = SpeechBubble.new()
 	_bubble.name = "SpeechBubble"
 	_bubble.visible = false
-	_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bubble_sb := StyleBoxFlat.new()
-	bubble_sb.bg_color = BUBBLE_FILL
-	bubble_sb.set_corner_radius_all(0)
-	bubble_sb.set_border_width_all(0)
-	bubble_sb.content_margin_left = BUBBLE_PAD
-	bubble_sb.content_margin_right = BUBBLE_PAD
-	bubble_sb.content_margin_top = BUBBLE_PAD
-	bubble_sb.content_margin_bottom = BUBBLE_PAD + 4.0
-	_bubble.add_theme_stylebox_override("panel", bubble_sb)
-	var bubble_inner := VBoxContainer.new()
-	bubble_inner.add_theme_constant_override("separation", 6)
-	bubble_inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bubble.add_child(bubble_inner)
-	_bubble_label = Label.new()
-	_bubble_label.name = "BubbleText"
-	_bubble_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_bubble_label.custom_minimum_size = Vector2(BUBBLE_MAX_W - BUBBLE_PAD * 2.0, 0)
-	_bubble_label.add_theme_font_size_override("font_size", 20)
-	_bubble_label.add_theme_color_override("font_color", Color(0.95, 0.92, 0.98))
-	_bubble_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bubble_inner.add_child(_bubble_label)
-	var underline := ColorRect.new()
-	underline.custom_minimum_size = Vector2(0, 1)
-	underline.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	underline.color = ACCENT
-	underline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bubble_inner.add_child(underline)
+	_bubble.accent = ACCENT
 	_root.add_child(_bubble)
 
 	var choices: Array = _config.get("choices", [])
@@ -190,31 +163,16 @@ func _layout_portrait() -> void:
 	_portrait.offset_bottom = target_h * 0.5
 
 
-## OuterGiftModal._layout_bubble_beside_head と同じ規則：頭の右隣を優先、溢れたら左。
+## 吹き出しを立ち絵の頭の横に置き、しっぽを頭へ向ける（右隣を優先、溢れたら左）。
+## 頭の高さで横に置くので、胸の高さに出る選択肢とは重ならない。
 func _layout_bubble_beside_head() -> void:
-	await get_tree().process_frame
 	var portrait_rect: Rect2 = _portrait.get_rect()
 	var vp_size: Vector2 = _root.size
 	if vp_size.x <= 1.0 or vp_size.y <= 1.0:
 		vp_size = get_viewport().get_visible_rect().size
-	var head_y: float = portrait_rect.position.y + portrait_rect.size.y * 0.18
-	var bubble_w: float = minf(BUBBLE_MAX_W, vp_size.x * 0.42)
-	_bubble_label.custom_minimum_size = Vector2(bubble_w - BUBBLE_PAD * 2.0, 0)
-	_bubble.reset_size()
-	await get_tree().process_frame
-	var bubble_h: float = maxf(_bubble.get_combined_minimum_size().y, 72.0)
-	var gap := 12.0
-	var right_x: float = portrait_rect.position.x + portrait_rect.size.x * 0.62 + gap
-	var left_x: float = portrait_rect.position.x + portrait_rect.size.x * 0.38 - gap - bubble_w
-	var use_right: bool = right_x + bubble_w <= vp_size.x - 16.0
-	var bx: float = right_x if use_right else maxf(16.0, left_x)
-	var by: float = clampf(head_y - bubble_h * 0.35, 24.0, vp_size.y - bubble_h - 24.0)
-	_bubble.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	_bubble.offset_left = bx
-	_bubble.offset_top = by
-	_bubble.offset_right = bx + bubble_w
-	_bubble.offset_bottom = by + bubble_h
-	_bubble.custom_minimum_size = Vector2(bubble_w, bubble_h)
+	var head := Vector2(portrait_rect.get_center().x, portrait_rect.position.y + portrait_rect.size.y * HEAD_Y_FRAC)
+	var bounds := Rect2(Vector2.ONE * BUBBLE_SCREEN_MARGIN, vp_size - Vector2.ONE * BUBBLE_SCREEN_MARGIN * 2.0)
+	_bubble.place_beside(head, portrait_rect.size.x * HEAD_GAP_FRAC, bounds)
 
 
 ## 選択肢は立ち絵の左右、胸のあたりの高さに置く。先頭が左、2つ目が右。
@@ -248,9 +206,7 @@ func _run_intro() -> void:
 
 ## 台詞をタイプライター表示し、全文表示から LINE_HOLD_SEC 後に吹き出しを消す。
 func _say(text: String) -> void:
-	_bubble.modulate.a = 1.0
-	_bubble.visible = true
-	await _layout_bubble_beside_head()
+	_open_bubble(text)
 	await _typewriter_line(text)
 	if _finished:
 		return
@@ -263,24 +219,32 @@ func _say(text: String) -> void:
 	_bubble.visible = false
 
 
+## 全文で吹き出しの大きさを決めてから頭の横に置き、空の状態で表示する。
+func _open_bubble(full_text: String) -> void:
+	_bubble.fit_to_text(full_text)
+	_bubble.set_text("")
+	_layout_bubble_beside_head()
+	_bubble.modulate.a = 1.0
+	_bubble.visible = true
+
+
 func _typewriter_line(full_text: String) -> void:
 	_typing = true
 	_advance_requested = false
-	_bubble_label.text = ""
+	_bubble.set_text("")
 	var i := 0
 	var n: int = full_text.length()
 	while i < n and not _finished:
 		if _advance_requested:
 			break
 		i += 1
-		_bubble_label.text = full_text.substr(0, i)
+		_bubble.set_text(full_text.substr(0, i))
 		if AudioManager != null:
 			AudioManager.play_sfx("gift_type")
 		await get_tree().create_timer(float(TYPE_MS) / 1000.0).timeout
-	_bubble_label.text = full_text
+	_bubble.set_text(full_text)
 	_advance_requested = false
 	_typing = false
-	await _layout_bubble_beside_head()
 
 
 func _show_choices() -> void:
@@ -327,9 +291,7 @@ func _on_choice_pressed(choice: Dictionary) -> void:
 
 ## 返事用：全文表示から LINE_HOLD_SEC 待つ（吹き出しは全体フェードで一緒に消す）。
 func _say_then_keep(text: String) -> void:
-	_bubble.modulate.a = 1.0
-	_bubble.visible = true
-	await _layout_bubble_beside_head()
+	_open_bubble(text)
 	await _typewriter_line(text)
 	if _finished:
 		return
