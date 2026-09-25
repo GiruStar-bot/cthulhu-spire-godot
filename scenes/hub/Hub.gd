@@ -31,6 +31,7 @@ const EXPLORE_DESTINATIONS := [
 		"name": "ルルイエ",
 		"pos": Vector2(0.61, 0.77),
 		"art": "res://art/pixel/ui/map_obj_rlyeh.png",
+		"marker": Vector2(168, 182),
 		"map": "waking",
 		"unlock": "always",
 		"dive": "rlyeh",
@@ -646,11 +647,19 @@ func _place_map_canvas(zoom: float) -> void:
 		map_canvas.position = view * 0.5 - local * zoom
 
 
+func _focus_marker_size() -> Vector2:
+	var dest: Dictionary = _map_dest(_map_focus)
+	if dest.has("marker"):
+		return dest["marker"]
+	return MAP_MARKER_SIZE
+
+
 func _focus_local(fitted: Vector2) -> Vector2:
 	## ラベル分を除き、アイコンの中心を画面中央へ寄せる。
 	var ratio: Vector2 = _focus_ratio()
-	var icon_mid_y: float = (MAP_MARKER_SIZE.y - 28.0) * 0.5
-	var shift_y: float = icon_mid_y - MAP_MARKER_SIZE.y * 0.5
+	var marker_size: Vector2 = _focus_marker_size()
+	var icon_mid_y: float = (marker_size.y - 28.0) * 0.5
+	var shift_y: float = icon_mid_y - marker_size.y * 0.5
 	return Vector2(ratio.x * fitted.x, ratio.y * fitted.y + shift_y)
 
 
@@ -715,20 +724,23 @@ func _rebuild_map_markers(map_id: String) -> void:
 
 
 func _make_map_marker(dest: Dictionary) -> Button:
+	var marker_size: Vector2 = MAP_MARKER_SIZE
+	if dest.has("marker"):
+		marker_size = dest["marker"]
 	var marker := Button.new()
 	marker.name = "Marker_%s" % str(dest.get("id", "dest"))
 	marker.flat = true
 	marker.focus_mode = Control.FOCUS_NONE
-	marker.custom_minimum_size = MAP_MARKER_SIZE
-	marker.size = MAP_MARKER_SIZE
-	marker.pivot_offset = MAP_MARKER_SIZE * 0.5
+	marker.custom_minimum_size = marker_size
+	marker.size = marker_size
+	marker.pivot_offset = marker_size * 0.5
 	var empty := StyleBoxEmpty.new()
 	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
 		marker.add_theme_stylebox_override(state_name, empty)
 	var glow := ColorRect.new()
 	glow.name = "Glow"
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	glow.color = Color(0.95, 0.78, 0.35, 0.0)
+	glow.color = Color(0.45, 0.95, 0.72, 0.0)
 	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
 	glow.offset_left = -10
 	glow.offset_top = -10
@@ -769,6 +781,7 @@ func _make_map_marker(dest: Dictionary) -> Button:
 	caption.add_theme_constant_override("outline_size", 5)
 	marker.add_child(caption)
 	marker.set_meta("map_pos", dest.get("pos", Vector2(0.5, 0.5)))
+	marker.set_meta("marker_size", marker_size)
 	marker.mouse_entered.connect(_on_map_marker_hover.bind(marker, glow, true))
 	marker.mouse_exited.connect(_on_map_marker_hover.bind(marker, glow, false))
 	marker.pressed.connect(_on_map_marker_pressed.bind(dest))
@@ -785,9 +798,10 @@ func _layout_map_markers() -> void:
 		if not marker is Button:
 			continue
 		var pos: Vector2 = marker.get_meta("map_pos", Vector2(0.5, 0.5))
-		marker.size = MAP_MARKER_SIZE
-		marker.pivot_offset = MAP_MARKER_SIZE * 0.5
-		marker.position = Vector2(pos.x * fitted.x, pos.y * fitted.y) - MAP_MARKER_SIZE * 0.5
+		var marker_size: Vector2 = marker.get_meta("marker_size", MAP_MARKER_SIZE)
+		marker.size = marker_size
+		marker.pivot_offset = marker_size * 0.5
+		marker.position = Vector2(pos.x * fitted.x, pos.y * fitted.y) - marker_size * 0.5
 
 
 func _on_map_marker_hover(marker: Button, glow: ColorRect, hovering: bool) -> void:
@@ -908,10 +922,12 @@ func _place_map_float() -> void:
 	var w: float = maxf(240.0, need.x)
 	var h: float = maxf(need.y, 72.0)
 	map_float.size = Vector2(w, h)
-	var x: float = view.x * 0.5 + 84.0
+	var marker_size: Vector2 = _focus_marker_size()
+	var gap: float = marker_size.x * map_canvas.scale.x * 0.5 + 16.0
+	var x: float = view.x * 0.5 + gap
 	var y: float = view.y * 0.5 - h * 0.5
 	if x + w > view.x - 8.0:
-		x = view.x * 0.5 - 84.0 - w
+		x = view.x * 0.5 - gap - w
 	x = clampf(x, 8.0, maxf(8.0, view.x - w - 8.0))
 	y = clampf(y, 8.0, maxf(8.0, view.y - h - 8.0))
 	map_float.position = Vector2(x, y)
