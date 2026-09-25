@@ -29,6 +29,10 @@ const MUTED := Color("9a917f")
 const PARCHMENT := Color("ede4d0")
 const INK_TRACK := Color("161512")
 const BORDER := Color("5c5447")
+## 正気度ゲージのしきい値刻み（UIくん指定: #1A1020, 幅2px, ゲージの高さいっぱい）
+const SAN_TICK_COLOR := Color("1a1020")
+const SAN_TICK_W := 2.0
+const SAN_SHAKE_PX := 2.0
 
 var _header: HBoxContainer
 var _name_label: Label
@@ -37,6 +41,10 @@ var _hp_fill: ColorRect
 var _hp_value: Label
 var _san_fill: ColorRect
 var _san_value: Label
+var _san_track: ColorRect
+var _san_crack: TextureRect
+var _san_crack_tween: Tween
+var _san_shake_tween: Tween
 var _status_row: HFlowContainer
 var _content: VBoxContainer
 var _frame: NinePatchRect
@@ -134,6 +142,8 @@ func _make_bar_block(caption: String, fill_color: Color, is_hp: bool) -> VBoxCon
 	else:
 		_san_fill = fill
 		_san_value = value
+		_san_track = fill.get_parent() as ColorRect
+		_add_sanity_ticks(_san_track)
 	return block
 
 
@@ -148,6 +158,63 @@ func _make_bar(fill_color: Color) -> ColorRect:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	track.add_child(fill)
 	return fill
+
+
+## しきい値（SanityTiers.THRESHOLDS）の位置に刻みを描く。値を変えれば自動で追従する。
+func _add_sanity_ticks(track: ColorRect) -> void:
+	for frac in SanityTiers.threshold_fractions():
+		var tick := ColorRect.new()
+		tick.name = "SanTick"
+		tick.color = SAN_TICK_COLOR
+		tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tick.anchor_left = frac
+		tick.anchor_right = frac
+		tick.anchor_top = 0.0
+		tick.anchor_bottom = 1.0
+		tick.offset_left = -SAN_TICK_W * 0.5
+		tick.offset_right = SAN_TICK_W * 0.5
+		tick.offset_top = 0.0
+		tick.offset_bottom = 0.0
+		track.add_child(tick)
+
+
+## 正気度ゲージ（トラック）の画面上の矩形。雫の着地点に使う。
+func sanity_bar_global_rect() -> Rect2:
+	if _san_track == null:
+		return get_global_rect()
+	return _san_track.get_global_rect()
+
+
+## 「削られた」時：ゲージにヒビ（素材があれば）を出し、shake=true なら 1 回だけ 2px 震わせる。
+func flash_sanity_crack(crack_tex: Texture2D, shake: bool) -> void:
+	if _san_track == null:
+		return
+	if crack_tex != null:
+		if _san_crack == null or not is_instance_valid(_san_crack):
+			_san_crack = TextureRect.new()
+			_san_crack.name = "SanCrack"
+			_san_crack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_san_crack.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			_san_crack.stretch_mode = TextureRect.STRETCH_SCALE
+			_san_crack.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			_san_crack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_san_track.add_child(_san_crack)
+		_san_crack.texture = crack_tex
+		_san_crack.modulate.a = 1.0
+		if _san_crack_tween != null and _san_crack_tween.is_valid():
+			_san_crack_tween.kill()
+		_san_crack_tween = create_tween()
+		_san_crack_tween.tween_interval(0.45)
+		_san_crack_tween.tween_property(_san_crack, "modulate:a", 0.0, 0.35)
+	if shake:
+		if _san_shake_tween != null and _san_shake_tween.is_valid():
+			_san_shake_tween.kill()
+		## VBox の子なので定位置は x=0（途中で kill されても基準がずれないよう固定値）
+		var base_x: float = 0.0
+		_san_shake_tween = create_tween()
+		_san_shake_tween.tween_property(_san_track, "position:x", base_x + SAN_SHAKE_PX, 0.04)
+		_san_shake_tween.tween_property(_san_track, "position:x", base_x - SAN_SHAKE_PX, 0.06)
+		_san_shake_tween.tween_property(_san_track, "position:x", base_x, 0.04)
 
 
 func _rebuild_status(data: Dictionary) -> void:

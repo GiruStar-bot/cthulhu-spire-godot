@@ -397,3 +397,122 @@ func _save_settings() -> void:
 	config.set_value("audio", "music", music_volume)
 	config.set_value("audio", "sfx", sfx_volume)
 	config.save(SETTINGS_PATH)
+
+
+# ---------------------------------------------------------------------------
+# 正気度の音（feat/sanity-fx）
+# パック開封用の SfxLoopPlayer とは別に、専用のプレイヤーを持つ。
+#  - 持続音 sanity_low_1〜3: 2 本の AudioStreamPlayer を交互に使ってクロスフェード。
+#  - 一発音 sanity_pay / sanity_hit: 専用 1 本を stop → play で鳴らし直す（重ねない）。
+# キーが SFX_PATHS に無い、またはファイルが読めない場合は何もしない。
+# ---------------------------------------------------------------------------
+
+const SANITY_DRONE_FADE := 0.8
+const SANITY_DRONE_SILENT_DB := -40.0
+
+var _sanity_drone_players: Array[AudioStreamPlayer] = []
+var _sanity_drone_active: int = 0
+var _sanity_drone_tier: int = 0
+var _sanity_drone_tweens: Array[Tween] = [null, null]
+var _sanity_sfx_player: AudioStreamPlayer
+
+
+## 正気度の一発音を専用プレイヤーで鳴らす。連続で呼ばれても重ねず、頭から鳴らし直す。
+## 鳴らせた場合 true。
+func play_sanity_sfx(cue: String) -> bool:
+	var stream: AudioStream = _sanity_stream(cue)
+	if stream == null:
+		return false
+	if _sanity_sfx_player == null:
+		_sanity_sfx_player = AudioStreamPlayer.new()
+		_sanity_sfx_player.name = "SanitySfxPlayer"
+		_sanity_sfx_player.bus = SFX_BUS
+		add_child(_sanity_sfx_player)
+	_sanity_sfx_player.stop()
+	_sanity_sfx_player.stream = stream
+	_sanity_sfx_player.play()
+	return true
+
+
+## 低い状態の持続音を段階 tier（1〜3）に切り替える。0 以下なら止める。
+## 段階が変わるたびに SANITY_DRONE_FADE 秒でクロスフェード（上がる時も下がる時も）。
+func play_sanity_drone(tier: int) -> void:
+	if tier <= 0:
+		stop_sanity_drone()
+		return
+	if tier == _sanity_drone_tier and _sanity_drone_is_playing():
+		return
+	var stream: AudioStream = _sanity_stream("sanity_low_%d" % tier)
+	if stream == null:
+		stop_sanity_drone()
+		return
+	_ensure_sanity_drone_players()
+	_sanity_drone_tier = tier
+	var old_index: int = _sanity_drone_active
+	var new_index: int = 1 - old_index
+	var new_p: AudioStreamPlayer = _sanity_drone_players[new_index]
+	_fade_sanity_drone(old_index, SANITY_DRONE_SILENT_DB, SANITY_DRONE_FADE, true)
+	new_p.stop()
+	new_p.stream = _make_looping(stream)
+	new_p.volume_db = SANITY_DRONE_SILENT_DB
+	new_p.play()
+	_fade_sanity_drone(new_index, 0.0, SANITY_DRONE_FADE, false)
+	_sanity_drone_active = new_index
+
+
+## 持続音を止める（戦闘の外・敗北演出・勝利時）。
+func stop_sanity_drone(fade_out_s: float = 0.4) -> void:
+	_sanity_drone_tier = 0
+	if _sanity_drone_players.is_empty():
+		return
+	for index in range(_sanity_drone_players.size()):
+		var p: AudioStreamPlayer = _sanity_drone_players[index]
+		if p.playing:
+			_fade_sanity_drone(index, SANITY_DRONE_SILENT_DB, fade_out_s, true)
+
+
+## テスト・デバッグ用：今鳴っている持続音の段階（0 = 無音）。
+func get_sanity_drone_tier() -> int:
+	return _sanity_drone_tier if _sanity_drone_is_playing() else 0
+
+
+func _sanity_drone_is_playing() -> bool:
+	if _sanity_drone_players.is_empty():
+		return false
+	return _sanity_drone_players[_sanity_drone_active].playing
+
+
+func _ensure_sanity_drone_players() -> void:
+	if not _sanity_drone_players.is_empty():
+		return
+	for index in range(2):
+		var p := AudioStreamPlayer.new()
+		p.name = "SanityDrone%d" % index
+		p.bus = SFX_BUS
+		p.volume_db = SANITY_DRONE_SILENT_DB
+		add_child(p)
+		_sanity_drone_players.append(p)
+
+
+func _fade_sanity_drone(index: int, target_db: float, fade_s: float, stop_after: bool) -> void:
+	var old_tween: Tween = _sanity_drone_tweens[index]
+	if old_tween != null and old_tween.is_valid():
+		old_tween.kill()
+	var p: AudioStreamPlayer = _sanity_drone_players[index]
+	if fade_s <= 0.0:
+		p.volume_db = target_db
+		if stop_after:
+			p.stop()
+		_sanity_drone_tweens[index] = null
+		return
+	var tw: Tween = create_tween()
+	tw.tween_property(p, "volume_db", target_db, fade_s)
+	if stop_after:
+		tw.tween_callback(p.stop)
+	_sanity_drone_tweens[index] = tw
+
+
+func _sanity_stream(cue: String) -> AudioStream:
+	if not SFX_PATHS.has(cue):
+		return null
+	return _load_stream(str(SFX_PATHS[cue]))

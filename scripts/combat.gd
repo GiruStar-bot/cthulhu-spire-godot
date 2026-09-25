@@ -6,6 +6,21 @@ extends RefCounted
 ## PlayerHook / CombatState / CombatEnemy は Dictionary。
 
 
+## 正気度が減った理由。カード効果のマイナス sanity（プレイしたカード自身）だけが「払った」。
+const SANITY_CAUSE_PAID := "paid"
+const SANITY_CAUSE_HIT := "hit"
+## play_card の効果解決中だけ立てる一時キー（解決後に erase）。
+const SANITY_PAY_CTX := "_sanityPayCtx"
+
+
+## 正気度の減少量を理由別に累計する。表示側（Combat.gd）が読んだら 0 に戻す。
+static func _note_sanity_loss(c: Dictionary, amount: int, cause: String) -> void:
+	if amount <= 0:
+		return
+	var key: String = "sanityLossPaid" if cause == SANITY_CAUSE_PAID else "sanityLossHit"
+	c[key] = int(c.get(key, 0)) + amount
+
+
 static func _floater(text: String, kind: String, who: String) -> Dictionary:
 	return {"id": Mulberry32.uid("f"), "text": text, "kind": kind, "who": who}
 
@@ -236,7 +251,12 @@ static func draw_cards(c: Dictionary, n: int, rand: Callable, player = null) -> 
 			break
 		var d := Cards.get_card(str(card.defId))
 		if d.get("onDraw") and player != null:
+			## 引いた時の効果はプレイ中のカードの「代償」ではない（被害として扱う）
+			var had_pay_ctx: bool = c.get(SANITY_PAY_CTX, false) == true
+			c.erase(SANITY_PAY_CTX)
 			_run_effects(d.onDraw, c, player, null, rand, card)
+			if had_pay_ctx:
+				c[SANITY_PAY_CTX] = true
 			c.floaters.append(_floater(str(d.name), "info", "player"))
 			c.log.append("%sを引いた。" % d.name)
 			## onDraw で正気／HPが0になったら即打ち切り（全ドロー完了まで待たない）
@@ -621,6 +641,9 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		"retainHand": 0,
 		"thornsVulnerable": 0,
 		"xSpent": 0,
+		## 正気度の減少量（理由別の累計）。Combat.gd が演出に使ったら 0 に戻す。
+		"sanityLossPaid": 0,
+		"sanityLossHit": 0,
 		"forceEnd": false,
 		"bastBlessing": 0,
 		"bastBlock": 0,
@@ -786,10 +809,12 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				if missing_san > 0:
 					change_sanity(player, c, missing_san)
 			"sanity":
-				change_sanity(player, c, int(e.n))
+				## プレイしたカード自身の効果で減らす分だけが「払った」。onDraw やターン開始フックは「削られた」。
+				var pay_ctx: bool = c.get(SANITY_PAY_CTX, false) == true
+				change_sanity(player, c, int(e.n), SANITY_CAUSE_PAID if pay_ctx else SANITY_CAUSE_HIT)
 			"sanityDamage":
 				var reduced := Equipment.apply_flat_resist(int(e.n), float(c.equipmentStats.get("sanResist", 0)))
-				change_sanity(player, c, -reduced)
+				change_sanity(player, c, -reduced, SANITY_CAUSE_HIT)
 				c.log.append("恐怖に苛まれ、正気を%d失った。" % reduced)
 			"hpCost":
 				player.hp = maxi(1, int(player.hp) - int(e.n))
@@ -1089,11 +1114,17 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 
 
 ## combat.ts changeSanity()
-static func change_sanity(player: Dictionary, c: Dictionary, delta: int) -> void:
+## cause は減少時の理由（SANITY_CAUSE_PAID / SANITY_CAUSE_HIT）。演出側が見分けるために
+## floater の "cause" キーと c.sanityLossPaid / c.sanityLossHit（実際に減った量の累計）に残す。
+static func change_sanity(player: Dictionary, c: Dictionary, delta: int, cause: String = SANITY_CAUSE_HIT) -> void:
 	var before: int = int(player.sanity)
 	player.sanity = maxi(0, mini(int(player.maxSanity), int(player.sanity) + delta))
 	if delta != 0:
-		c.floaters.append(_floater("%s%d" % ["+" if delta > 0 else "", delta], "sanity", "player"))
+		var fl: Dictionary = _floater("%s%d" % ["+" if delta > 0 else "", delta], "sanity", "player")
+		if delta < 0:
+			fl["cause"] = cause
+			_note_sanity_loss(c, before - int(player.sanity), cause)
+		c.floaters.append(fl)
 		c.log.append("正気が%s%dした。" % ["+" if delta > 0 else "", delta])
 	if delta < 0:
 		if "bloodOath" in c.powers:
@@ -1208,7 +1239,9 @@ static func play_card(c: Dictionary, player: Dictionary, card_uid: String, targe
 		var used_now: Dictionary = c.get("playedThisTurn", {})
 		used_now[str(card.defId)] = true
 		c.playedThisTurn = used_now
+	c[SANITY_PAY_CTX] = true
 	_run_effects(evaled.effects, c, player, target_id, rand, card)
+	c.erase(SANITY_PAY_CTX)
 	if d.get("type") == "attack" and "resolve" in c.powers:
 		c.block = int(c.block) + 3
 	if int(c.get("bastBlessing", 0)) > 0 and Cards.has_tag(d, "cat"):
@@ -1320,8 +1353,12 @@ static func _apply_enemy_intent(intent: Dictionary, e: Dictionary, c: Dictionary
 		c.log.append("%sに毒%dを付与された。" % [Enemies.get_enemy(str(e.defId)).name, int(intent.poison)])
 	if intent.get("sanityDrain"):
 		var reduced := Equipment.apply_flat_resist(int(intent.sanityDrain), float(c.equipmentStats.get("sanResist", 0)))
+		var san_before: int = int(player.sanity)
 		player.sanity = maxi(0, int(player.sanity) - reduced)
-		c.floaters.append(_floater("-%d" % reduced, "sanity", "player"))
+		_note_sanity_loss(c, san_before - int(player.sanity), SANITY_CAUSE_HIT)
+		var drain_fl: Dictionary = _floater("-%d" % reduced, "sanity", "player")
+		drain_fl["cause"] = SANITY_CAUSE_HIT
+		c.floaters.append(drain_fl)
 		c.log.append("%sに正気を%d奪われた。" % [Enemies.get_enemy(str(e.defId)).name, reduced])
 	if intent.get("dread"):
 		for i in int(intent.dread):

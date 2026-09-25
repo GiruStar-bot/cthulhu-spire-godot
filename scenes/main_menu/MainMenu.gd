@@ -16,6 +16,7 @@ extends Control
 @onready var sfx_value_label: Label = $SettingsPanel/Margin/Content/SfxRow/Header/SfxValue
 @onready var fullscreen_check: CheckButton = $SettingsPanel/Margin/Content/FullscreenCheck
 @onready var close_settings_button: Button = $SettingsPanel/Margin/Content/CloseButton
+@onready var reduce_motion_check: CheckButton = get_node_or_null("SettingsPanel/Margin/Content/MotionRow/ReduceMotionCheck") as CheckButton
 @onready var credits_panel: PanelContainer = $CreditsPanel
 @onready var close_credits_button: Button = $CreditsPanel/Margin/Content/CloseButton
 
@@ -36,6 +37,10 @@ func _ready() -> void:
 	music_slider.set_value_no_signal(AudioManager.get_music_volume())
 	sfx_slider.set_value_no_signal(AudioManager.get_sfx_volume())
 	fullscreen_check.set_pressed_no_signal(DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN)
+	## 「画面の揺れ・歪みを減らす」（ON で演出を控えめに。既定 OFF = 従来の見た目）
+	if reduce_motion_check:
+		reduce_motion_check.set_pressed_no_signal(VideoSettings.is_reduce_motion())
+		reduce_motion_check.toggled.connect(_on_reduce_motion_toggled)
 	_refresh_volume_labels()
 	_apply_logo_tracking()
 	_start_drift()
@@ -124,6 +129,10 @@ func _on_close_credits_pressed() -> void:
 
 func _on_fullscreen_toggled(enabled: bool) -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if enabled else DisplayServer.WINDOW_MODE_WINDOWED)
+
+
+func _on_reduce_motion_toggled(enabled: bool) -> void:
+	VideoSettings.set_reduce_motion(enabled)
 
 
 func _refresh_volume_labels() -> void:
