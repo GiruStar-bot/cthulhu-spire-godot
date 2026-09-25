@@ -47,7 +47,8 @@ static func stat_sum(stats: Dictionary) -> int:
 	return total
 
 
-## profile.ts の totalPoints(): 10層ごとに1ポイント
+## 旧仕様の到達階層換算（10層ごとに1）。現在の総ポイントは earned_points。
+## この式は既存セーブを読み込むときの下限にだけ使う。
 static func total_points(best_floor: int) -> int:
 	return max(0, int(best_floor / 10.0))
 
@@ -154,7 +155,13 @@ static func load_profile() -> Dictionary:
 
 	var stats: Dictionary = clamp_stats(parsed.get("stats", empty_stats()))
 	var best_floor: int = max(0, int(parsed.get("best_floor", 0)))
-	var budget: int = total_points(best_floor)
+	## 既存セーブは earned_points が階層÷10 と同じか、キーが無い。
+	## ボス撃破でそれより多く貯めた値は減らさない。
+	var saved_raw = parsed.get("earned_points", 0)
+	var saved_points: int = 0
+	if typeof(saved_raw) == TYPE_INT or typeof(saved_raw) == TYPE_FLOAT:
+		saved_points = max(0, int(saved_raw))
+	var budget: int = max(saved_points, total_points(best_floor))
 	var fitted: Dictionary = empty_stats() if stat_sum(stats) > budget else stats
 
 	var sanity_raw = parsed.get("sanity")

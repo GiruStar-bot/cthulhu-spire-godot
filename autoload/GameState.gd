@@ -256,22 +256,24 @@ func madness_penalty() -> int:
 	return Profile.madness_penalty(madness)
 
 
-## profile.ts の totalPoints()
+## 総ポイント。ボス撃破の累積（earned_points）そのもの。到達階層÷10では再計算しない。
 func total_points() -> int:
-	return Profile.total_points(best_floor)
+	return earned_points
 
 
-## store.ts の setStat(key, value)。予算(totalPoints)を超える配分は無視する。
+func _sync_unspent_points() -> void:
+	unspent_points = max(0, earned_points - Profile.stat_sum(stats))
+
+
+## store.ts の setStat(key, value)。総ポイントを超える配分は無視する。
 func set_stat(key: String, value: int) -> void:
 	var next: int = max(Profile.STAT_MIN, value)
 	var others: int = Profile.stat_sum(stats) - int(stats.get(key, 0))
-	var budget := total_points()
-	if others + next > budget:
+	if others + next > earned_points:
 		return
 	stats[key] = next
 	stats = Profile.clamp_stats(stats)
-	earned_points = budget
-	unspent_points = max(0, budget - Profile.stat_sum(stats))
+	_sync_unspent_points()
 	_persist_profile()
 
 
@@ -374,9 +376,7 @@ func _shatter(tree: SceneTree) -> void:
 func enter_floor(tree: SceneTree, next_floor: int) -> void:
 	if next_floor > Floors.DEMO_MAX_FLOOR:
 		best_floor = max(best_floor, floor)
-		var budget := Profile.total_points(best_floor)
-		earned_points = budget
-		unspent_points = max(0, budget - Profile.stat_sum(stats))
+		_sync_unspent_points()
 		wins += 1
 		profile_sanity = null  ## HUB に戻ったら正気は全回復
 		_persist_profile()
@@ -583,9 +583,7 @@ func finish_blessing(tree: SceneTree) -> void:
 func _advance_after_blessing(tree: SceneTree) -> void:
 	if floor_kind == "boss" and floor % 10 == 0 and floor < Floors.DEMO_MAX_FLOOR:
 		best_floor = max(best_floor, floor)
-		var budget := Profile.total_points(best_floor)
-		earned_points = budget
-		unspent_points = max(0, budget - Profile.stat_sum(stats))
+		_sync_unspent_points()
 		profile_sanity = null  ## HUB に戻ったら正気は全回復
 		_persist_profile()
 		toast = "%sを越えた" % Floors.layer_label(floor)
@@ -708,9 +706,7 @@ func resume_descent(tree: SceneTree) -> void:
 func extract_to_hub(tree: SceneTree) -> void:
 	var left_floor := floor
 	best_floor = max(best_floor, floor)
-	var budget := Profile.total_points(best_floor)
-	earned_points = budget
-	unspent_points = max(0, budget - Profile.stat_sum(stats))
+	_sync_unspent_points()
 	profile_sanity = null  ## HUB に戻ったら正気は全回復
 	_persist_profile()
 	reset_run()
@@ -740,7 +736,50 @@ func accept_shatter(tree: SceneTree) -> void:
 	goto_scene(tree, "dream_gate")
 
 
+const BOSS_POINT_TEXT := "ステータスポイント +1"
+
+
+## ボス撃破か。10階ボス・100階の全なる者・銀の鍵の全なる者は floor_kind が boss。
+## 戯神「神様に会いたい」は通常戦闘のまま敵IDだけ Enemies.BOSS_IDS になる。両方をここで見る。
+func _encounter_is_boss(combat_state: Dictionary) -> bool:
+	if floor_kind == "boss":
+		return true
+	for e in combat_state.get("enemies", []):
+		if typeof(e) != TYPE_DICTIONARY:
+			continue
+		var enemy_id: String = str(e.get("defId", ""))
+		if Enemies.BOSS_IDS.has(enemy_id):
+			return true
+	return false
+
+
+## 撃破の瞬間に+1して保存する。報酬画面へ進む処理は呼ばない。
+## 1戦闘につき1回（唱者が分裂しても、同じボスを別ランで倒したときだけまた+1）。
+func note_boss_status_point(combat_state: Dictionary) -> bool:
+	if combat_state.get("bossPointGranted", false):
+		return false
+	if not _encounter_is_boss(combat_state):
+		return false
+	combat_state["bossPointGranted"] = true
+	earned_points += 1
+	_sync_unspent_points()
+	_persist_profile()
+	var log_lines: Array = combat_state.get("log", [])
+	log_lines.append(BOSS_POINT_TEXT)
+	combat_state["log"] = log_lines
+	var floaters: Array = combat_state.get("floaters", [])
+	floaters.append({
+		"id": Mulberry32.uid("f"),
+		"text": BOSS_POINT_TEXT,
+		"kind": "info",
+		"who": "player",
+	})
+	combat_state["floaters"] = floaters
+	return true
+
+
 ## 戦闘勝利。store.ts presentCombat win 分岐：貝殻加算のあと makeRewards() で報酬画面へ。
+## ボスのステータスポイントは撃破時点（Combat が報酬へ進む前）に加算済み。
 func win_combat(tree: SceneTree) -> void:
 	var treasure: bool = _had_treasure_wanderer()
 	var gained: int = _roll_shells()
@@ -755,12 +794,10 @@ func win_combat(tree: SceneTree) -> void:
 	goto_scene(tree, "reward")
 
 
-## store.ts の markDefeat() 相当：最深階層・獲得ポイント・正気を更新して永続化する。
+## 最深階層だけ更新する。獲得ポイントはボス撃破時の累積のまま（ここで÷10し直さない）。
 func _mark_defeat() -> void:
 	best_floor = max(best_floor, floor)
-	var budget := Profile.total_points(best_floor)
-	earned_points = budget
-	unspent_points = max(0, budget - Profile.stat_sum(stats))
+	_sync_unspent_points()
 	profile_sanity = null  ## HUB に戻ったら正気は全回復
 	_persist_profile()
 
