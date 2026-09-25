@@ -17,7 +17,7 @@ const HOSTS := {
 		"dev_name": "ヴァルちゃん",  ## 開発用の呼び名。画面には出さない
 		"name": VAL_DISPLAY_NAME,
 		"portrait": "res://art/pixel/ui/host_val.png",
-		"line": "加護だよ！頑張れー",
+		"line": "加護よ",
 	},
 	HOST_TRICKSTER: {
 		"dev_name": "戯神",
