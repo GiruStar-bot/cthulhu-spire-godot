@@ -21,6 +21,61 @@ const POOL_CARD_GAP_MAX := 40
 const POOL_BAR_GAP := 6  ## 右端カードとスクロールバーの間。グロー（外側22px）は下のZ順でバーの下に回す
 const PACK_ART_SIZE := Vector2(160, 240)
 
+## 探索タブの地図。追加するときはこの配列に1件足す。
+## pos は地図矩形に対する割合（左上 0,0 / 右下 1,1）。Point Nemo は赤道図の太平洋。
+## unlock が "always" 以外の行き先は、クリア条件を足すまで表示しない。
+## dive は潜航先の識別。開始処理は現行の start_run のまま（ここは行き先を覚えておくだけ）。
+const EXPLORE_DESTINATIONS := [
+	{
+		"id": "rlyeh",
+		"name": "ルルイエ",
+		"pos": Vector2(0.157, 0.772),
+		"art": "res://art/pixel/ui/map_obj_rlyeh.png",
+		"map": "waking",
+		"unlock": "always",
+		"dive": "rlyeh",
+		"sealed": false,
+	},
+	{
+		"id": "mountains",
+		"name": "狂気山脈",
+		"pos": Vector2(0.74, 0.93),
+		"art": "res://art/pixel/ui/map_obj_mountains.png",
+		"map": "waking",
+		"unlock": "clear:rlyeh",
+		"dive": "mountains",
+		"sealed": false,
+	},
+	{
+		"id": "miskatonic",
+		"name": "ミスカトニック大学",
+		"pos": Vector2(0.303, 0.264),
+		"art": "res://art/pixel/ui/map_obj_miskatonic.png",
+		"map": "waking",
+		"unlock": "clear:rlyeh",
+		"dive": "miskatonic",
+		"sealed": false,
+	},
+	{
+		"id": "dreamland",
+		"name": "夢幻郷",
+		"pos": Vector2(0.48, 0.56),
+		"art": "res://art/pixel/ui/map_obj_dreamland.png",
+		"map": "dream",
+		"unlock": "always",
+		"dive": "dreamland",
+		"sealed": true,
+	},
+]
+const EXPLORE_MAP_ART := {
+	"waking": "res://art/pixel/ui/map_world.png",
+	"dream": "res://art/pixel/ui/map_dream.png",
+}
+const MAP_MARKER_SIZE := Vector2(96, 124)
+const MAP_HOVER_SCALE := Vector2(1.08, 1.08)
+const MAP_HOVER_DUR := 0.16
+const DREAM_SEALED_TOAST := "夢の島の探索はまだ開けない。"
+
 @onready var background_art: TextureRect = $BackgroundArt
 @onready var player_name_label: Label = $Root/Header/PlayerNameLabel
 @onready var info_label: Label = $Root/Header/InfoLabel
@@ -33,6 +88,11 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var prepare_deck_select_panel: PanelContainer = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel
 @onready var prepare_deck_list: VBoxContainer = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content/DeckList
 @onready var prepare_selected_deck_label: Label = $Root/Body/Content/DescendPanel/PrepareDeckSelectPanel/Margin/Content/SelectedDeckLabel
+@onready var map_back_button: Button = $Root/Body/Content/DescendPanel/DescendLeftColumn/MapBackButton
+@onready var explore_map: Control = $Root/Body/Content/ExploreMap
+@onready var map_art: TextureRect = $Root/Body/Content/ExploreMap/MapArt
+@onready var map_markers: Control = $Root/Body/Content/ExploreMap/MapMarkers
+@onready var map_toast: Label = $Root/Body/Content/ExploreMap/MapToast
 
 @onready var placeholder_panel: Label = $Root/Body/Content/PlaceholderPanel
 @onready var compass_panel: Control = $Root/Body/Content/CompassPanel
@@ -165,6 +225,9 @@ var _inspector_count: Label = null
 var _inspector_busy_close: bool = false
 var _inspector_card_tween: Tween = null
 var _deck_contents_dirty: bool = false
+## 空なら地図。行き先 id なら、その探索準備（デッキ選択と潜航開始）。
+var _map_destination: String = ""
+var _map_built_for: String = ""
 
 
 
@@ -194,6 +257,8 @@ func _ready() -> void:
 	nav_buttons["transcend"].visible = GameState.transcend_unlocked
 	_setup_deck_filters()
 	prepare_deck_select_panel.visible = false
+	map_back_button.pressed.connect(_on_map_back_pressed)
+	explore_map.resized.connect(_layout_map_markers)
 	_ensure_deck_save_dialog()
 	body_nav.size_flags_vertical = 0
 	_apply_dream_hub_look()
@@ -335,6 +400,7 @@ func _hide_all_content_panels() -> void:
 	compass_panel.visible = false
 	transcend_panel.visible = false
 	placeholder_panel.visible = false
+	explore_map.visible = false
 
 
 func _select_tab(tab_name: String) -> void:
@@ -358,7 +424,8 @@ func _select_tab(tab_name: String) -> void:
 			call_deferred("_fit_nav_chrome")
 	match tab_name:
 		"descend":
-			descend_panel.visible = true
+			_map_destination = ""
+			_map_built_for = ""
 		"deck":
 			deck_panel.visible = true
 		"sell":
@@ -461,6 +528,167 @@ func _update_descend_panel() -> void:
 		prepare_deck_select_panel.visible = show_deck_select
 		if show_deck_select:
 			_rebuild_prepare_deck_list()
+	_apply_explore_map_visibility()
+
+
+## 探索準備（floor == 0）は先に地図。行き先を開いてから従来のデッキ選択へ入る。
+## 中継点（floor > 0）は地図を出さない。
+func _apply_explore_map_visibility() -> void:
+	var show_map: bool = GameState.floor <= 0 and _map_destination == ""
+	explore_map.visible = show_map
+	descend_panel.visible = not show_map
+	map_back_button.visible = GameState.floor <= 0 and _map_destination != ""
+	if show_map:
+		_refresh_explore_map()
+
+
+func _explore_map_id() -> String:
+	if str(GameState.realm) == "dream":
+		return "dream"
+	return "waking"
+
+
+func _destination_unlocked(dest: Dictionary) -> bool:
+	var cond: String = str(dest.get("unlock", "always"))
+	if cond == "" or cond == "always":
+		return true
+	## clear:rlyeh などはステージクリア実装まで出さない。
+	return false
+
+
+func _refresh_explore_map() -> void:
+	var map_id: String = _explore_map_id()
+	var art_path: String = str(EXPLORE_MAP_ART.get(map_id, ""))
+	if art_path != "" and ResourceLoader.exists(art_path):
+		map_art.texture = load(art_path) as Texture2D
+		map_art.visible = true
+	else:
+		map_art.texture = null
+		map_art.visible = false
+	if _map_built_for != map_id:
+		map_toast.visible = false
+		map_toast.text = ""
+		_rebuild_map_markers(map_id)
+		_map_built_for = map_id
+	call_deferred("_layout_map_markers")
+
+
+func _rebuild_map_markers(map_id: String) -> void:
+	while map_markers.get_child_count() > 0:
+		var old: Node = map_markers.get_child(0)
+		map_markers.remove_child(old)
+		old.free()
+	for dest in EXPLORE_DESTINATIONS:
+		if str(dest.get("map", "")) != map_id:
+			continue
+		if not _destination_unlocked(dest):
+			continue
+		map_markers.add_child(_make_map_marker(dest))
+
+
+func _make_map_marker(dest: Dictionary) -> Button:
+	var marker := Button.new()
+	marker.name = "Marker_%s" % str(dest.get("id", "dest"))
+	marker.flat = true
+	marker.focus_mode = Control.FOCUS_NONE
+	marker.custom_minimum_size = MAP_MARKER_SIZE
+	marker.size = MAP_MARKER_SIZE
+	marker.pivot_offset = MAP_MARKER_SIZE * 0.5
+	var empty := StyleBoxEmpty.new()
+	for state_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		marker.add_theme_stylebox_override(state_name, empty)
+	var glow := ColorRect.new()
+	glow.name = "Glow"
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.color = Color(0.95, 0.78, 0.35, 0.0)
+	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	glow.offset_left = -10
+	glow.offset_top = -10
+	glow.offset_right = 10
+	glow.offset_bottom = -28
+	marker.add_child(glow)
+	var art_path: String = str(dest.get("art", ""))
+	if art_path != "" and ResourceLoader.exists(art_path):
+		var art := TextureRect.new()
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.offset_bottom = -28
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.texture = load(art_path) as Texture2D
+		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		marker.add_child(art)
+	else:
+		var icon := ColorRect.new()
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.color = Color(0.15, 0.45, 0.5, 1)
+		icon.offset_left = 18
+		icon.offset_top = 8
+		icon.offset_right = -18
+		icon.offset_bottom = -36
+		icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+		marker.add_child(icon)
+	var caption := Label.new()
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caption.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	caption.offset_top = -28
+	caption.text = str(dest.get("name", ""))
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.add_theme_font_size_override("font_size", 14)
+	caption.add_theme_color_override("font_color", Color(0.96, 0.92, 0.82))
+	caption.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.04, 0.95))
+	caption.add_theme_constant_override("outline_size", 5)
+	marker.add_child(caption)
+	marker.set_meta("map_pos", dest.get("pos", Vector2(0.5, 0.5)))
+	marker.set_meta("map_dest", dest)
+	marker.mouse_entered.connect(_on_map_marker_hover.bind(marker, glow, true))
+	marker.mouse_exited.connect(_on_map_marker_hover.bind(marker, glow, false))
+	marker.pressed.connect(_on_map_marker_pressed.bind(dest))
+	return marker
+
+
+func _layout_map_markers() -> void:
+	if map_markers == null:
+		return
+	var view: Vector2 = explore_map.size
+	if view.x < 8.0 or view.y < 8.0:
+		return
+	for marker in map_markers.get_children():
+		if not marker is Button:
+			continue
+		var pos: Vector2 = marker.get_meta("map_pos", Vector2(0.5, 0.5))
+		marker.size = MAP_MARKER_SIZE
+		marker.pivot_offset = MAP_MARKER_SIZE * 0.5
+		marker.position = Vector2(pos.x * view.x, pos.y * view.y) - MAP_MARKER_SIZE * 0.5
+
+
+func _on_map_marker_hover(marker: Button, glow: ColorRect, hovering: bool) -> void:
+	var prev: Variant = marker.get_meta("hover_tween", null)
+	if prev is Tween and (prev as Tween).is_valid():
+		(prev as Tween).kill()
+	var tw := marker.create_tween()
+	marker.set_meta("hover_tween", tw)
+	var target := MAP_HOVER_SCALE if hovering else Vector2.ONE
+	tw.tween_property(marker, "scale", target, MAP_HOVER_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var glow_a := 0.55 if hovering else 0.0
+	tw.parallel().tween_property(glow, "color:a", glow_a, MAP_HOVER_DUR)
+
+
+func _on_map_marker_pressed(dest: Dictionary) -> void:
+	if dest.get("sealed", false):
+		GameState.toast = DREAM_SEALED_TOAST
+		map_toast.text = DREAM_SEALED_TOAST
+		map_toast.visible = true
+		return
+	_map_destination = str(dest.get("id", ""))
+	map_toast.visible = false
+	_update_descend_panel()
+
+
+func _on_map_back_pressed() -> void:
+	_map_destination = ""
+	_update_descend_panel()
 
 
 func _rebuild_prepare_deck_list() -> void:
@@ -498,7 +726,7 @@ func _on_primary_action_pressed() -> void:
 		return
 	if GameState.floor <= 0:
 		if str(GameState.realm) == "dream":
-			GameState.toast = "夢の島の探索はまだ開けない。"
+			GameState.toast = DREAM_SEALED_TOAST
 			return
 		GameState.start_run(get_tree())
 	else:

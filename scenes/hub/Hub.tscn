@@ -361,6 +361,12 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 12
 
+[node name="MapBackButton" type="Button" parent="Root/Body/Content/DescendPanel/DescendLeftColumn"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(0, 36)
+text = "地図へ戻る"
+
 [node name="DescendStatusLabel" type="Label" parent="Root/Body/Content/DescendPanel/DescendLeftColumn"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.84, 0.78, 0.67, 1)
@@ -445,6 +451,61 @@ theme_override_constants/separation = 4
 layout_mode = 2
 autowrap_mode = 2
 text = "選択中: デッキ1（0/10〜20）"
+
+[node name="ExploreMap" type="Control" parent="Root/Body/Content"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 8.0
+offset_right = -12.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 2
+clip_contents = true
+
+[node name="MapArt" type="TextureRect" parent="Root/Body/Content/ExploreMap"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 1
+mouse_filter = 2
+
+[node name="MapMarkers" type="Control" parent="Root/Body/Content/ExploreMap"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MapToast" type="Label" parent="Root/Body/Content/ExploreMap"]
+visible = false
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -48.0
+offset_right = -24.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.95, 0.86, 0.62, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.04, 0.95)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+vertical_alignment = 1
+text = ""
 
 [node name="CompassPanel" parent="Root/Body/Content" instance=ExtResource("3")]
 visible = false
