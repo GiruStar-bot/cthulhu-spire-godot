@@ -501,7 +501,8 @@ func resolve_flee(tree: SceneTree) -> void:
 	finish_advance(tree)
 
 
-## store.ts の resolveEvent(choiceId)。数値は events.ts / store.ts の分岐を忠実移植。
+## store.ts の resolveEvent(choiceId)。
+## 旧テキストイベント（tome / well / cult / mirror）の数値分岐はイベントごと削除した。
 func resolve_event(tree: SceneTree, choice_id: String) -> void:
 	var ev: Dictionary = event if event is Dictionary else {}
 	var event_id: String = str(ev.get("id", ""))
@@ -514,44 +515,6 @@ func resolve_event(tree: SceneTree, choice_id: String) -> void:
 		return
 	if event_id == "eihort":
 		apply_eihort_curse()  ## 返事の台詞は会話モーダル側で見せ済み
-	elif event_id == "tome":
-		if choice_id == "read":
-			sanity = max(0, sanity - 8)
-			for card in deck:
-				if not card.get("upgraded", false):
-					card.upgraded = true
-					break
-			CollectionData.add_loot_card("tome")
-			toast = "頁が、瞳の裏に残る。正気-8。禁断の書を戦利品として持ち帰った。"
-		else:
-			toast = "本は、本の文法に任せる。"
-	elif event_id == "well":
-		if choice_id == "drink":
-			hp = mini(max_hp, hp + 18)
-			sanity = max(0, sanity - 7)
-			toast = "水ではなかった。体力+18、正気-7。"
-		else:
-			hp = mini(max_hp, hp + 8)
-			sanity = mini(max_sanity, sanity + 4)
-			toast = "手が、きれいになる。体力+8、正気+4。"
-	elif event_id == "cult":
-		if choice_id == "kneel":
-			sanity = max(0, sanity - 10)
-			var ticket: String = _reward_ticket_archetype()
-			CollectionData.add_pack_ticket(ticket)
-			toast = "%sのパックチケットを渡された。正気-10。" % str(CollectionData.PACK_TICKET_LABELS.get(ticket, ticket))
-		else:
-			hp = max(1, hp - 8)
-			sanity = mini(max_sanity, sanity + 6)
-			toast = "名を口にしなかった。体力-8、正気+6。"
-	elif event_id == "mirror":
-		if choice_id == "follow":
-			extra_energy_next = 2
-			toast = "もう一人の自分が、最初のターンを払う。"
-		else:
-			hp = max(1, hp - 10)
-			run_strength += 2
-			toast = "肺にガラス。体力-10。沈降中、筋力+2。"
 	_persist_profile()
 	event = null
 	finish_advance(tree)
