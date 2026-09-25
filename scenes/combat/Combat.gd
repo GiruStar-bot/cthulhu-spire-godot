@@ -278,6 +278,8 @@ func _check_result() -> void:
 	end_turn_button.disabled = true
 	GameState.prune_run_deck()
 	if result == "win":
+		if GameState.note_boss_status_point(state):
+			_refresh()
 		AudioManager.play_sfx("win")
 		message_label.text = "回廊は、しばらく静かだ。"
 		get_tree().create_timer(RESULT_WIN_DELAY).timeout.connect(func(): GameState.win_combat(get_tree()))
@@ -697,11 +699,12 @@ func _show_new_floaters() -> void:
 func _spawn_floater(floater: Dictionary) -> void:
 	var label := Label.new()
 	var kind: String = str(floater.get("kind", "info"))
-	label.text = str(floater.get("text", ""))
-	label.size = Vector2(110, 34)
+	var text: String = str(floater.get("text", ""))
+	label.text = text
+	label.add_theme_font_size_override("font_size", 22)
+	label.size = Vector2(maxf(110.0, 22.0 * float(text.length()) + 16.0), 34)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 22)
 	label.add_theme_color_override("font_outline_color", Color(0.03, 0.02, 0.02, 0.95))
 	label.add_theme_constant_override("outline_size", 5)
 	label.add_theme_color_override("font_color", _floater_color(kind))
