@@ -393,9 +393,10 @@ func _update_descend_panel() -> void:
 		var blessing_line: String = "加護 なし"
 		if GameState.run_blessings.size() > 0:
 			var names: Array = []
-			for blessing_id in GameState.run_blessings:
-				var def: Dictionary = Blessings.get_def(str(blessing_id))
-				names.append(str(def.get("name", blessing_id)))
+			for entry in GameState.run_blessings:
+				var label: String = Blessings.label_of(entry)
+				if label != "":
+					names.append(label)
 			blessing_line = "加護 %s" % " · ".join(PackedStringArray(names))
 		descend_status_label.text = "中継点\n%sを越えた\nHP %d/%d · SAN %d/%d · 貝殻 %d\n%s" % [
 			Floors.layer_label(GameState.floor),

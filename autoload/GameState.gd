@@ -82,9 +82,19 @@ var rest_mode: String = ""  ## visitVillage() の room 相当："", "hub", "inn"
 var village = null
 var toast: String = ""
 var floor_kind: String = ""
+## 主催者つきバフイベントで得たバフ。各要素 {stat, n, title}（Blessings.compute_stats が集計）。
 var run_blessings: Array = []
-var encounter_bias: Array = []
-var blessing_choices: Array = []
+var encounter_bias: Array = []  ## 旧バフ（潮流）の名残。いまは常に空
+## 開いているバフイベント：主催者ID・パネル3枚・背景（直前の画面のもの）
+var blessing_host: String = ""
+var blessing_offers: Array = []
+var blessing_backdrop: Texture2D = null
+## ラン単位のフラグ（ラン開始時に空へ戻す）：no_val / no_trickster / trickster_always / wish_gods / took_energy_for_draw
+var run_host_flags: Dictionary = {}
+## 白金の守り子「パック排出率アップ」：パックID -> 倍率（1.5 の累乗）
+var pack_boosts: Dictionary = {}
+## 戯神「銀の鍵」：次の階が全なる者との戦闘になる
+var silver_key_pending: bool = false
 var _force_first_drowned: bool = false
 ## アイホートくんの呪い。-1=なし。値があれば、その階層以降で最初の戦闘のデッキが「百目の子」になる。
 var eihort_curse_floor: int = -1
@@ -323,10 +333,8 @@ func start_run(tree: SceneTree) -> void:
 	if max_sanity <= 0:
 		_shatter(tree)
 		return
-	sanity = max_sanity if profile_sanity == null else min(int(profile_sanity), max_sanity)
-	if sanity <= 0:
-		_shatter(tree)
-		return
+	## HUB に戻ったら体力・正気度は全回復（旧仕様の正気持ち越しは廃止）
+	sanity = max_sanity
 
 	run_strength = int(vitals.strength)
 	extra_energy_next = 0
@@ -335,7 +343,7 @@ func start_run(tree: SceneTree) -> void:
 	run_floors = []
 	run_blessings = []
 	encounter_bias = []
-	blessing_choices = []
+	_clear_blessing_run_state()
 	floor_kind = ""
 	_force_first_drowned = false
 	eihort_curse_floor = -1
@@ -370,7 +378,7 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		earned_points = budget
 		unspent_points = max(0, budget - Profile.stat_sum(stats))
 		wins += 1
-		profile_sanity = sanity
+		profile_sanity = null  ## HUB に戻ったら正気は全回復
 		_persist_profile()
 		combat = null
 		reward = null
@@ -386,7 +394,7 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 	reward_shells = 0
 	event = null
 	rest_mode = ""
-	blessing_choices = []
+	blessing_offers = []
 
 	var kind: String = Floors.type_for(floor, rng)
 	var enemy_ids: Array = []
@@ -394,11 +402,19 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		_force_first_drowned = false
 		kind = "combat"
 		enemy_ids = ["drowned"]
+	## 戯神「銀の鍵」：階層に関係なく全なる者との戦闘
+	if silver_key_pending:
+		silver_key_pending = false
+		kind = "boss"
+		enemy_ids = ["yog_sothoth"]
 	floor_kind = kind
 
 	if kind == "combat" or kind == "elite" or kind == "boss":
 		if enemy_ids.is_empty():
 			enemy_ids = CombatLogic.encounter_ids(kind, floor, Callable(self, "_rand"), encounter_bias)
+		## 戯神「神様に会いたい。」：通常戦闘の30%がボス（全なる者を含む）になる
+		if kind == "combat" and run_host_flags.get("wish_gods", false) and rng.next_float() < Blessings.GOD_WISH_CHANCE:
+			enemy_ids = [str(Mulberry32.pick(Enemies.BOSS_IDS, rng))]
 		combat = {"floor": floor, "kind": kind, "enemy_ids": enemy_ids}
 		goto_scene(tree, "combat")
 	elif kind == "rest":
@@ -424,22 +440,140 @@ func _should_offer_blessing() -> bool:
 
 
 func _open_blessing(tree: SceneTree) -> void:
-	blessing_choices = Blessings.roll_choices(run_blessings, rng)
+	var host: String = Blessings.pick_host(run_host_flags, Callable(self, "_rand"))
+	if host == "":
+		_advance_after_blessing(tree)  ## 両方に「会いたくない」を選んだ：イベントなしで次へ
+		return
+	blessing_host = host
+	blessing_offers = Blessings.roll_offers(host, run_host_flags, floor, Callable(self, "_rand"))
+	blessing_backdrop = _current_backdrop(tree)
 	goto_scene(tree, "blessing")
 
 
-func choose_blessing(tree: SceneTree, blessing_id: String) -> void:
-	var def: Dictionary = Blessings.get_def(blessing_id)
-	if def.is_empty():
-		_advance_after_blessing(tree)
-		return
-	run_blessings.append(blessing_id)
-	var bias: String = str(def.get("bias", ""))
-	if bias != "":
-		encounter_bias.append(bias)
-	toast = "%sを得た。" % str(def.get("name", blessing_id))
-	blessing_choices = []
+## 直前の画面の背景をそのまま使う（UI だけ消して重ねる）。見つからなければその階層の背景。
+func _current_backdrop(tree: SceneTree) -> Texture2D:
+	var cur: Node = tree.current_scene
+	if cur != null:
+		for path in ["BackgroundArt", "HubLayer/HubBg"]:
+			var node: Node = cur.get_node_or_null(path)
+			if node is TextureRect and (node as TextureRect).texture != null:
+				return (node as TextureRect).texture
+	var fallback: String = Biomes.biome_art(Biomes.biome_for_floor(floor))
+	if ResourceLoader.exists(fallback, "Texture2D"):
+		return load(fallback) as Texture2D
+	return null
+
+
+func _clear_blessing_run_state() -> void:
+	blessing_host = ""
+	blessing_offers = []
+	blessing_backdrop = null
+	run_host_flags = {}
+	pack_boosts = {}
+	silver_key_pending = false
+
+
+## パネルを選んだときの効果を反映する。戻り値は画面側の演出用（魔導書で得たカードIDなど）。
+func apply_blessing_offer(offer: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	var kind: String = str(offer.get("kind", ""))
+	var title: String = str(offer.get("title", ""))
+	if kind == "val_pack":
+		var pack: String = str(offer.get("pack", ""))
+		pack_boosts[pack] = float(pack_boosts.get(pack, 1.0)) * Blessings.PACK_BOOST_MUL
+		run_blessings.append({"title": title})
+	elif kind == "val_stat":
+		run_blessings.append({"stat": str(offer.get("stat", "")), "n": int(offer.get("n", 0)), "title": title})
+	elif kind == "trickster":
+		result = _apply_trickster_deal(str(offer.get("deal", "")), title)
+	toast = "%sを得た。" % title if title != "" else ""
+	blessing_offers = []
+	return result
+
+
+func _apply_trickster_deal(deal: String, title: String) -> Dictionary:
+	match deal:
+		"hp_one_all_pack":
+			max_hp = 1
+			hp = 1
+			CollectionData.add_pack_ticket("all")
+			_persist_profile()
+		"heal_hp_lose_san":
+			hp = max_hp
+			sanity = maxi(1, sanity - 6)  ## 戦闘外で正気0（崩壊）にはしない
+		"heal_san_lose_hp":
+			sanity = mini(max_sanity, sanity + 6)
+			hp = maxi(1, hp - 6)
+		"hp999_san5":
+			max_hp = 999
+			max_sanity = 5
+			sanity = mini(sanity, max_sanity)
+		"energy_for_draw":
+			run_host_flags["took_energy_for_draw"] = true
+			run_blessings.append({"stat": "energyPerTurn", "n": 2, "title": title})
+			run_blessings.append({"stat": "drawBonus", "n": -2, "title": ""})
+		"strength_rush":
+			var r: Vector2i = Blessings.strength_rush_range(floor)
+			var gain: int = r.x + int(rng.next_float() * float(r.y - r.x + 1))
+			run_strength += mini(gain, r.y)
+			return {"strength": mini(gain, r.y)}
+		"meet_gods":
+			run_host_flags["wish_gods"] = true
+		"silver_key":
+			silver_key_pending = true
+		"trickster_again":
+			run_host_flags["trickster_always"] = true
+		"trickster_never":
+			run_host_flags["no_trickster"] = true
+			run_host_flags.erase("trickster_always")
+		"trickster_card":
+			_add_run_gift_card(Blessings.TRICKSTER_CARD_ID)
+			return {"card_id": Blessings.TRICKSTER_CARD_ID}
+		"grimoire":
+			var card_id: String = _roll_grimoire_card()
+			if card_id != "":
+				_add_run_gift_card(card_id)
+			return {"card_id": card_id}
+	return {}
+
+
+## デッキ上限を無視して、このランのデッキにだけ加える（コレクションには入れない）。
+## prune_run_deck で消されないよう runGift を付ける。
+func _add_run_gift_card(card_id: String) -> void:
+	var card: Dictionary = Cards.make_card(card_id)
+	card["runGift"] = true
+	deck.append(card)
+
+
+func _roll_grimoire_card() -> String:
+	var pool: Array = []
+	for card_id in Cards.CARDS.keys():
+		var d: Dictionary = Cards.CARDS[card_id]
+		if not d.get("grimoire", false):
+			continue
+		if d.get("unobtainable", false) or d.get("enemyOnly", false) or str(d.get("type", "")) == "status":
+			continue
+		pool.append(str(card_id))
+	if pool.is_empty():
+		return ""
+	return str(Mulberry32.pick(pool, rng))
+
+
+## バフイベントを閉じて次へ進む（パネル選択・「会いたくない」の後）。
+func finish_blessing(tree: SceneTree) -> void:
+	blessing_host = ""
+	blessing_offers = []
+	blessing_backdrop = null
 	_advance_after_blessing(tree)
+
+
+## 「白金の守り子に会いたくない」
+func decline_blessing_host(tree: SceneTree) -> void:
+	if blessing_host == Blessings.HOST_VAL:
+		run_host_flags["no_val"] = true
+	elif blessing_host == Blessings.HOST_TRICKSTER:
+		run_host_flags["no_trickster"] = true
+	finish_blessing(tree)
 
 
 func _advance_after_blessing(tree: SceneTree) -> void:
@@ -448,7 +582,7 @@ func _advance_after_blessing(tree: SceneTree) -> void:
 		var budget := Profile.total_points(best_floor)
 		earned_points = budget
 		unspent_points = max(0, budget - Profile.stat_sum(stats))
-		profile_sanity = sanity
+		profile_sanity = null  ## HUB に戻ったら正気は全回復
 		_persist_profile()
 		toast = "%sを越えた" % Floors.layer_label(floor)
 		combat = null
@@ -460,7 +594,7 @@ func _advance_after_blessing(tree: SceneTree) -> void:
 	if floor >= Floors.DEMO_MAX_FLOOR:
 		best_floor = max(best_floor, floor)
 		wins += 1
-		profile_sanity = sanity
+		profile_sanity = null  ## HUB に戻ったら正気は全回復
 		_persist_profile()
 		combat = null
 		reward = null
@@ -573,7 +707,7 @@ func extract_to_hub(tree: SceneTree) -> void:
 	var budget := Profile.total_points(best_floor)
 	earned_points = budget
 	unspent_points = max(0, budget - Profile.stat_sum(stats))
-	profile_sanity = sanity
+	profile_sanity = null  ## HUB に戻ったら正気は全回復
 	_persist_profile()
 	reset_run()
 	toast = "%sから帰還した" % Floors.layer_label(left_floor)
@@ -585,7 +719,7 @@ func extract_to_hub(tree: SceneTree) -> void:
 ## "hub" にする食い違いがあるが、これは実装ミスと判断し、Godot版ではボタン表記を
 ## 「帰還」に修正した（End.gd参照）。give_up()自体の動作（hubへ戻る）は変更していない。
 func give_up(tree: SceneTree) -> void:
-	profile_sanity = sanity
+	profile_sanity = null  ## HUB に戻ったら正気は全回復
 	_persist_profile()
 	reset_run()
 	goto_scene(tree, "hub")
@@ -623,7 +757,7 @@ func _mark_defeat() -> void:
 	var budget := Profile.total_points(best_floor)
 	earned_points = budget
 	unspent_points = max(0, budget - Profile.stat_sum(stats))
-	profile_sanity = sanity
+	profile_sanity = null  ## HUB に戻ったら正気は全回復
 	_persist_profile()
 
 
@@ -690,10 +824,14 @@ func prune_run_deck() -> void:
 		var def_id: String = str(card.get("defId", ""))
 		caps[def_id] = int(caps.get(def_id, 0)) + 1
 	var grouped: Dictionary = {}
+	var kept_gifts: Array = []
 	for card in deck:
 		if typeof(card) != TYPE_DICTIONARY:
 			continue
 		if card.get("combatSpawn", false):
+			continue
+		if card.get("runGift", false):
+			kept_gifts.append(card)  ## 戯神の取引で得たカードは上限・編成に関係なく残す
 			continue
 		var def_id: String = str(card.get("defId", ""))
 		var def: Dictionary = Cards.get_card(def_id)
@@ -712,6 +850,7 @@ func prune_run_deck() -> void:
 		var n: int = mini(copies.size(), cap)
 		for i in n:
 			kept.append(copies[i])
+	kept.append_array(kept_gifts)
 	deck = kept
 
 
@@ -801,6 +940,34 @@ func _encounter_archetype() -> String:
 ## store.ts rewardTicketArchetype()
 ## 削除したパック（毒・狂信・供物・影）のチケットは出さない。偏りや敵属性がそれなら有効なパックへ逃がす。
 func _reward_ticket_archetype() -> String:
+	var base: String = _reward_ticket_archetype_base()
+	return _apply_pack_boost(base)
+
+
+## 白金の守り子の「排出率アップ」。重み 1 のパックを 1.5^k に上げたのと同じ確率になるよう、
+## 増えた重みの分だけ、ブーストしたパックへ引き直す（ブーストが無ければ base のまま）。
+func _apply_pack_boost(base: String) -> String:
+	if pack_boosts.is_empty():
+		return base
+	var pool_size: int = 0
+	for a in CollectionData.PACK_TICKET_ARCHETYPES:
+		if str(a) != "all":
+			pool_size += 1
+	var extra: Dictionary = {}
+	var extra_total: float = 0.0
+	for pack in pack_boosts.keys():
+		var w: float = float(pack_boosts[pack]) - 1.0
+		if w > 0.0:
+			extra[pack] = w
+			extra_total += w
+	if extra_total <= 0.0:
+		return base
+	if rng.next_float() >= extra_total / (extra_total + float(pool_size)):
+		return base
+	return str(Mulberry32.weighted_pick(extra, Callable(self, "_rand")))
+
+
+func _reward_ticket_archetype_base() -> String:
 	var pool: Array = []
 	for a in CollectionData.PACK_TICKET_ARCHETYPES:
 		if str(a) != "all":
@@ -860,7 +1027,7 @@ func reset_run() -> void:
 	floor_kind = ""
 	run_blessings = []
 	encounter_bias = []
-	blessing_choices = []
+	_clear_blessing_run_state()
 	_force_first_drowned = false
 	eihort_curse_floor = -1
 	combat = null
