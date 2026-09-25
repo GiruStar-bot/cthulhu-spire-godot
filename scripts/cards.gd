@@ -20,6 +20,7 @@ const ARCHETYPE_LABELS := {
 	"fire": "火",
 	"magic": "魔導",
 	"bastet": "猫",
+	"chaos": "混沌",  ## 戯神ちゃん専用。専用フレームは未作成（汎用枠）
 }
 
 const ART_FALLBACK := {
@@ -1839,6 +1840,18 @@ const CARDS := {
 		"effects": [], "upgradedEffects": [],
 	},
 	## ---- 旧支配者・火／クトゥグァ ----
+	## 戯神の取引「戯神ちゃんをデッキに加える。」でだけ、そのランのデッキに入る（報酬・パック・HUBには出さない）。
+	"trickster_chan": {
+		"id": "trickster_chan", "name": "戯神ちゃん", "type": "attack", "aiTag": "attack", "vfx": "impact",
+		"archetype": "chaos",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "owner": "shared",
+		"unobtainable": true,
+		"text": "敵単体に30ダメージ。",
+		"upgradedText": "敵単体に30ダメージ。",
+		"flavor": "ふふ、使ってくれるんだ？", "art": "res://art/pixel/cards/trickster_chan.jpg", "target": "enemy",
+		"effects": [{"t": "damage", "n": 30}],
+		"upgradedEffects": [{"t": "damage", "n": 30}],
+	},
 	"fireball": {
 		"id": "fireball", "name": "火球", "type": "attack", "aiTag": "attack", "vfx": "impact",
 		"archetype": "fire", "subArchetypes": ["fire", "arcane"],

@@ -1,136 +1,170 @@
 class_name Blessings
 extends RefCounted
 
-## 装備／ルーンの効果を、5階層ごとの3択バフへ変換する。
-## 数値は Runes.RUNE_CATALOG と Equipment.compute_equipment_stats の
-## ルーン副作用・セットボーナスをそのまま使う。発明しない。
+## 5階層ごとの「主催者つきバフイベント」。
+## 主催者は女神ちゃん（正統派の加護。開発用の呼び名はヴァルちゃん）と戯神（悪魔の取引）の2人。
+## ここは抽選と集計だけを持つ純粋ロジック。GameState への反映は GameState.apply_blessing_offer。
 
-const CATALOG := {
-	"rune_blk": {
-		"name": "防護の刻印",
-		"text": "防御+2。筋力+1。",
-		"rune": "BLK+",
+## 主催者ID。画面に出す名前は HOSTS の name（固有名は出さない方針）。
+const HOST_VAL := "val"
+const HOST_TRICKSTER := "trickster"
+
+## ヴァルちゃんの表示名。変えるときはここ1か所だけ直す。
+const VAL_DISPLAY_NAME := "女神ちゃん"
+
+const HOSTS := {
+	HOST_VAL: {
+		"dev_name": "ヴァルちゃん",  ## 開発用の呼び名。画面には出さない
+		"name": VAL_DISPLAY_NAME,
+		"portrait": "res://art/pixel/ui/host_val.png",
+		"line": "加護よ",
 	},
-	"rune_draw": {
-		"name": "予兆の刻印",
-		"text": "基本ドロー+1。戦闘開始時、敵に弱体1。",
-		"rune": "DRAW",
-	},
-	"rune_san": {
-		"name": "正気の刻印",
-		"text": "正気耐性+3。戦闘開始時、正気+2。",
-		"rune": "SAN+",
-	},
-	"rune_str": {
-		"name": "剛力の刻印",
-		"text": "筋力+1。防御+1。",
-		"rune": "STR+",
-	},
-	"rune_poison": {
-		"name": "抗毒の刻印",
-		"text": "毒耐性+2。ターン開始時、体力+1。",
-		"rune": "POISON",
-	},
-	"rune_heal": {
-		"name": "再生の刻印",
-		"text": "ターン開始時、体力+4。毒耐性+1。",
-		"rune": "HEAL",
-	},
-	"rune_vuln": {
-		"name": "弱点の刻印",
-		"text": "戦闘開始時、敵に弱体1。筋力+1。",
-		"rune": "VULN+",
-	},
-	"rune_energy": {
-		"name": "気力の刻印",
-		"text": "毎ターンエネルギー+1。基本ドロー+1。",
-		"rune": "ENERGY+",
-	},
-	"rune_thorn": {
-		"name": "棘の刻印",
-		"text": "棘+2。防御+1。",
-		"rune": "THORN",
-	},
-	"set_knight": {
-		"name": "巡礼の構え",
-		"text": "ブロックがターンをまたいで残る。",
-		"unique": true,
-		"flag": "blockRetain",
-	},
-	"set_poison": {
-		"name": "猛毒の血",
-		"text": "毒を受けない。回復量+50%。",
-		"unique": true,
-		"flag": "poisonImmune",
-	},
-	"set_outer": {
-		"name": "虚空の呼吸",
-		"text": "戦闘開始時、正気を全回復する。",
-		"unique": true,
-		"flag": "sanFullRestoreOnStart",
-	},
-	"set_elder": {
-		"name": "太古の手",
-		"text": "手札の上限が広がる。",
-		"unique": true,
-		"flag": "expandedHand",
-	},
-	"set_deep": {
-		"name": "深海の息",
-		"text": "戦闘開始時、最大体力の10%を回復する。",
-		"unique": true,
-		"flag": "hpPercentHealOnStart",
-	},
-	"set_offering": {
-		"name": "供物の契約",
-		"text": "戦闘開始時、最大体力の10%を失い、エネルギー+1。",
-		"unique": true,
-		"flag": "sacrificeEnergyOnStart",
-	},
-	"set_shadow": {
-		"name": "影の歩み",
-		"text": "被弾時、一度だけ不可視になる。",
-		"unique": true,
-		"flag": "intangibleOnHit",
-	},
-	"bias_knight": {
-		"name": "騎士の潮流",
-		"text": "騎士の敵と遭遇しやすくなる。その属性のチケットが落ちやすい。",
-		"bias": "knight",
-	},
-	"bias_poison": {
-		"name": "毒の潮流",
-		"text": "毒の敵と遭遇しやすくなる。その属性のチケットが落ちやすい。",
-		"bias": "poison",
-	},
-	"bias_outer": {
-		"name": "外宇宙の潮流",
-		"text": "外宇宙の敵と遭遇しやすくなる。その属性のチケットが落ちやすい。",
-		"bias": "outer",
-	},
-	"bias_elder": {
-		"name": "旧神の潮流",
-		"text": "旧神のチケットが落ちやすい。",
-		"bias": "elder",
-	},
-	"bias_deep": {
-		"name": "深き者の潮流",
-		"text": "深き者の敵と遭遇しやすくなる。その属性のチケットが落ちやすい。",
-		"bias": "water",
-	},
-	"bias_offering": {
-		"name": "供物の潮流",
-		"text": "供物のチケットが落ちやすい。",
-		"bias": "offering",
-	},
-	"bias_greatold": {
-		"name": "旧支配者の潮流",
-		"text": "旧支配者のチケットが落ちやすい。",
-		"bias": "greatold",
+	HOST_TRICKSTER: {
+		"dev_name": "戯神",
+		"name": "戯神",
+		"portrait": "res://art/pixel/ui/host_trickster.png",
+		"line": "ふふ、どれにする？",
 	},
 }
 
+## ヴァルちゃんのパネルの種類。4種類を等確率で抽選する（叩き台）。
+## 「会いたくない」「撤退する」は、それぞれ同じ回に2枚以上出さない。
+const VAL_KINDS := ["val_pack", "val_stat", "val_decline", "val_retreat"]
+const VAL_ONCE_PER_EVENT := ["val_decline", "val_retreat"]
 
+## ヴァルちゃん：パック排出率アップの倍率（重ねがけで掛け算）
+const PACK_BOOST_MUL := 1.5
+
+## ヴァルちゃん：ステータス上昇。n は倍率 1 + floor(階層/30) を掛ける前の値。scaled=false は倍率なし。
+const VAL_STATS := [
+	{"stat": "strength", "n": 1, "scaled": true, "label": "筋力+%d"},
+	{"stat": "drawBonus", "n": 1, "scaled": false, "label": "ドロー数+%d"},
+	{"stat": "energyPerTurn", "n": 1, "scaled": false, "label": "エネルギー最大値+%d"},
+	{"stat": "poisonResist", "n": 2, "scaled": true, "label": "毒耐性+%d"},
+	{"stat": "baseBlockPerTurn", "n": 3, "scaled": true, "label": "基本防御+%d"},
+]
+
+## 戯神の取引（12種）。once_flag を持つものは、そのフラグが立ったランでは二度と出ない。
+## パネルに出すのは title の1つだけ。仕様で「」付きの文言があるものはその文言だけ（説明文は出さない＝
+## 銀の鍵の行き先などを先に見せない）。「」が無いものは仕様の効果文をそのまま使う。
+const TRICKSTER_DEALS := {
+	"hp_one_all_pack": {"title": "体力の最大値が1になり、「全」パックを1枚得る。"},
+	"heal_hp_lose_san": {"title": "体力が全回復し、正気度を6失う。"},
+	"heal_san_lose_hp": {"title": "正気度を6回復し、体力を6失う。"},
+	"hp999_san5": {"title": "体力の最大値が999になり、正気度の最大値が5になる。"},
+	"energy_for_draw": {"title": "エナジー+2、ドロー数-2。", "once_flag": "took_energy_for_draw"},
+	"strength_rush": {"title": "筋力をいっぱいゲット！"},
+	"meet_gods": {"title": "神様に会いたい。", "once_flag": "wish_gods"},
+	"silver_key": {"title": "銀の鍵を受け取る。"},
+	"trickster_again": {"title": "戯神ちゃんにまた会いたい。", "once_flag": "trickster_always"},
+	"trickster_never": {"title": "戯神ちゃんに会いたくない。"},
+	"trickster_card": {"title": "戯神ちゃんをデッキに加える。"},
+	"grimoire": {"title": "「魔導書」を一冊得る。"},
+}
+
+const TRICKSTER_CARD_ID := "trickster_chan"
+const GOD_WISH_CHANCE := 0.3
+
+
+## 主催者の抽選。どちらにも会えないときは "" を返す（イベントなしで次へ進む）。
+static func pick_host(flags: Dictionary, rand: Callable) -> String:
+	var val_ok: bool = not flags.get("no_val", false)
+	var trickster_ok: bool = not flags.get("no_trickster", false)
+	if trickster_ok and flags.get("trickster_always", false):
+		return HOST_TRICKSTER
+	if val_ok and trickster_ok:
+		return HOST_VAL if float(rand.call()) < 0.5 else HOST_TRICKSTER
+	if val_ok:
+		return HOST_VAL
+	if trickster_ok:
+		return HOST_TRICKSTER
+	return ""
+
+
+static func scale_for_floor(current_floor: int) -> int:
+	return 1 + int(floor(float(current_floor) / 30.0))
+
+
+## 戯神「筋力をいっぱいゲット！」の幅。30階まで 3〜6、以降10階ごとに両端+3。
+static func strength_rush_range(current_floor: int) -> Vector2i:
+	var step: int = maxi(0, int(floor(float(current_floor) / 10.0)) - 2)
+	return Vector2i(3 + step * 3, 6 + step * 3)
+
+
+## パネル3枚ぶんの提示内容を作る。各要素は {kind, title, ...}（画面には title だけを出す）。
+static func roll_offers(host: String, flags: Dictionary, current_floor: int, rand: Callable, count: int = 3) -> Array:
+	if host == HOST_VAL:
+		return _roll_val_offers(current_floor, rand, count)
+	if host == HOST_TRICKSTER:
+		return _roll_trickster_offers(flags, current_floor, rand, count)
+	return []
+
+
+static func _roll_val_offers(current_floor: int, rand: Callable, count: int) -> Array:
+	var packs: Array = []
+	for a in CollectionData.PACK_TICKET_ARCHETYPES:
+		if str(a) != "all":
+			packs.append(str(a))
+	var mul: int = scale_for_floor(current_floor)
+	var out: Array = []
+	var used_once: Dictionary = {}
+	for i in count:
+		var kinds: Array = []
+		for k in VAL_KINDS:
+			if VAL_ONCE_PER_EVENT.has(k) and used_once.has(k):
+				continue
+			if k == "val_pack" and packs.is_empty():
+				continue
+			kinds.append(k)
+		var kind: String = str(kinds[clampi(int(floor(float(rand.call()) * kinds.size())), 0, kinds.size() - 1)])
+		if VAL_ONCE_PER_EVENT.has(kind):
+			used_once[kind] = true
+		if kind == "val_decline":
+			out.append({
+				"kind": "val_decline",
+				"title": "%sに会いたくない" % VAL_DISPLAY_NAME,
+			})
+		elif kind == "val_retreat":
+			out.append({
+				"kind": "val_retreat",
+				"title": "撤退する",
+			})
+		elif kind == "val_pack":
+			var pack: String = str(Mulberry32.pick_rand(packs, rand))
+			var label: String = str(CollectionData.PACK_TICKET_LABELS.get(pack, pack))
+			out.append({
+				"kind": "val_pack", "pack": pack,
+				"title": "%sパックの排出率アップ" % label,
+			})
+		else:
+			var spec: Dictionary = VAL_STATS[int(floor(float(rand.call()) * VAL_STATS.size())) % VAL_STATS.size()]
+			var n: int = int(spec.n) * (mul if spec.scaled else 1)
+			out.append({
+				"kind": "val_stat", "stat": str(spec.stat), "n": n,
+				"title": str(spec.label) % n,
+			})
+	return out
+
+
+static func _roll_trickster_offers(flags: Dictionary, current_floor: int, rand: Callable, count: int) -> Array:
+	var pool: Array = []
+	for deal_id in TRICKSTER_DEALS.keys():
+		var once: String = str(TRICKSTER_DEALS[deal_id].get("once_flag", ""))
+		if once != "" and flags.get(once, false):
+			continue
+		pool.append(str(deal_id))
+	var out: Array = []
+	for i in mini(count, pool.size()):
+		var idx: int = clampi(int(floor(float(rand.call()) * pool.size())), 0, pool.size() - 1)
+		var deal_id: String = str(pool[idx])
+		pool.remove_at(idx)
+		var def: Dictionary = TRICKSTER_DEALS[deal_id]
+		out.append({"kind": "trickster", "deal": deal_id, "title": str(def.title)})
+	return out
+
+
+## 戦闘用の集計。run_blessings の各要素 {stat, n} を足し上げる。
+## 旧バフのID（文字列）が残っていても無視する。
 static func empty_stats() -> Dictionary:
 	return {
 		"defense": 0.0, "sanResist": 0.0, "poisonResist": 0.0,
@@ -138,94 +172,24 @@ static func empty_stats() -> Dictionary:
 		"expandedHand": false, "hpPercentHealOnStart": false, "sacrificeEnergyOnStart": false,
 		"intangibleOnHit": false, "strength": 0.0, "drawBonus": 0.0, "healPerTurn": 0.0,
 		"healBonusPct": 0, "sanHealOnStart": 0.0, "vulnOnStart": 0.0, "energyPerTurn": 0.0,
-		"thornDamage": 0.0,
+		"thornDamage": 0.0, "baseBlockPerTurn": 0.0,
 	}
-
-
-static func get_def(blessing_id: String) -> Dictionary:
-	return CATALOG.get(blessing_id, {})
-
-
-static func _apply_rune(stats: Dictionary, effect: String) -> void:
-	var value: int = int(Runes.RUNE_CATALOG.get(effect, 1))
-	match effect:
-		"BLK+":
-			stats.defense += value
-			stats.strength += 1
-		"SAN+":
-			stats.sanResist += value
-			stats.sanHealOnStart += 2
-		"POISON":
-			stats.poisonResist += value
-			stats.healPerTurn += 1
-		"STR+":
-			stats.strength += value
-			stats.defense += 1
-		"DRAW":
-			stats.drawBonus += value
-			stats.vulnOnStart += 1
-		"HEAL":
-			stats.healPerTurn += value
-			stats.poisonResist += 1
-		"VULN+":
-			stats.vulnOnStart += value
-			stats.strength += 1
-		"ENERGY+":
-			stats.energyPerTurn += value
-			stats.drawBonus += 1
-		"THORN":
-			stats.thornDamage += value
-			stats.defense += 1
 
 
 static func compute_stats(owned: Array) -> Dictionary:
 	var stats: Dictionary = empty_stats()
-	for raw_id in owned:
-		var blessing_id: String = str(raw_id)
-		var def: Dictionary = CATALOG.get(blessing_id, {})
-		if def.is_empty():
+	for entry in owned:
+		if typeof(entry) != TYPE_DICTIONARY:
 			continue
-		var rune_effect: String = str(def.get("rune", ""))
-		if rune_effect != "":
-			_apply_rune(stats, rune_effect)
-		var flag: String = str(def.get("flag", ""))
-		if flag != "":
-			stats[flag] = true
-			if flag == "poisonImmune":
-				stats.healBonusPct = 50
-	stats.defense = round(stats.defense)
-	stats.sanResist = round(stats.sanResist)
-	stats.poisonResist = round(stats.poisonResist)
-	stats.strength = round(stats.strength)
-	stats.drawBonus = round(stats.drawBonus)
-	stats.healPerTurn = round(stats.healPerTurn)
-	stats.sanHealOnStart = round(stats.sanHealOnStart)
-	stats.vulnOnStart = round(stats.vulnOnStart)
-	stats.energyPerTurn = round(stats.energyPerTurn)
-	stats.thornDamage = round(stats.thornDamage)
+		var stat: String = str(entry.get("stat", ""))
+		if stat == "" or not stats.has(stat):
+			continue
+		stats[stat] = float(stats[stat]) + float(entry.get("n", 0))
 	return stats
 
 
-static func available_ids(owned: Array) -> Array:
-	var taken: Dictionary = {}
-	for raw_id in owned:
-		taken[str(raw_id)] = true
-	var out: Array = []
-	for blessing_id in CATALOG.keys():
-		var def: Dictionary = CATALOG[blessing_id]
-		if def.get("unique", false) and taken.has(blessing_id):
-			continue
-		out.append(blessing_id)
-	return out
-
-
-static func roll_choices(owned: Array, rng: Mulberry32, count: int = 3) -> Array:
-	var pool: Array = available_ids(owned)
-	var out: Array = []
-	var n: int = mini(count, pool.size())
-	for i in n:
-		var idx: int = int(rng.next_float() * pool.size())
-		idx = clampi(idx, 0, pool.size() - 1)
-		out.append(str(pool[idx]))
-		pool.remove_at(idx)
-	return out
+## 中継点などで見せる短い名前。
+static func label_of(entry) -> String:
+	if typeof(entry) == TYPE_DICTIONARY:
+		return str(entry.get("title", ""))
+	return ""

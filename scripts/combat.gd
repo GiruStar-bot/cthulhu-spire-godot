@@ -188,6 +188,15 @@ static func _resolve_snatch(c: Dictionary, rand: Callable) -> void:
 	_recalc_hand_presence(c)
 
 
+## ヴァルちゃん「基本防御」：毎ターン開始時（戦闘開始時を含む）にブロックを得る。
+static func _gain_base_block(c: Dictionary) -> void:
+	var n: int = int(round(float(c.equipmentStats.get("baseBlockPerTurn", 0))))
+	if n <= 0:
+		return
+	c.block = int(c.block) + n
+	c.floaters.append(_floater("+%d" % n, "block", "player"))
+
+
 static func _incoming(raw: int, c: Dictionary) -> int:
 	return mini(1, maxi(0, raw)) if int(c.intangible) > 0 else raw
 
@@ -654,6 +663,7 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		var cost: int = maxi(1, int(floor(float(player.maxHp) * 0.1)))
 		player.hp = maxi(1, int(player.hp) - cost)
 		c.energy = int(c.energy) + 1
+	_gain_base_block(c)
 	var outer_bonus: int = int(c.synergy.tier) if c.synergy and str(c.synergy.archetype) == "outer" else 0
 	draw_cards(c, _base_draw_count(c) + outer_bonus, rand, player)
 	if int(player.sanity) <= 0:
@@ -1426,6 +1436,7 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 		c.keepBlock = int(c.keepBlock) - 1
 	else:
 		c.block = 0
+	_gain_base_block(c)
 	c.energy = maxi(0, int(c.maxEnergy) + int(c.energyNext) + int(c.equipmentStats.get("energyPerTurn", 0)))
 	c.energyNext = 0
 	_run_turn_start_effects(c, player, rand)
