@@ -188,7 +188,7 @@ static func _resolve_snatch(c: Dictionary, rand: Callable) -> void:
 	_recalc_hand_presence(c)
 
 
-## 白金の守り子「基本防御」：毎ターン開始時（戦闘開始時を含む）にブロックを得る。
+## ヴァルちゃん「基本防御」：毎ターン開始時（戦闘開始時を含む）にブロックを得る。
 static func _gain_base_block(c: Dictionary) -> void:
 	var n: int = int(round(float(c.equipmentStats.get("baseBlockPerTurn", 0))))
 	if n <= 0:

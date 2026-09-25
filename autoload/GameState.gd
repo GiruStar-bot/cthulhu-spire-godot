@@ -91,7 +91,7 @@ var blessing_offers: Array = []
 var blessing_backdrop: Texture2D = null
 ## ラン単位のフラグ（ラン開始時に空へ戻す）：no_val / no_trickster / trickster_always / wish_gods / took_energy_for_draw
 var run_host_flags: Dictionary = {}
-## 白金の守り子「パック排出率アップ」：パックID -> 倍率（1.5 の累乗）
+## ヴァルちゃん「パック排出率アップ」：パックID -> 倍率（1.5 の累乗）
 var pack_boosts: Dictionary = {}
 ## 戯神「銀の鍵」：次の階が全なる者との戦闘になる
 var silver_key_pending: bool = false
@@ -484,6 +484,13 @@ func apply_blessing_offer(offer: Dictionary) -> Dictionary:
 		run_blessings.append({"title": title})
 	elif kind == "val_stat":
 		run_blessings.append({"stat": str(offer.get("stat", "")), "n": int(offer.get("n", 0)), "title": title})
+	elif kind == "val_decline":
+		run_host_flags["no_val"] = true
+		blessing_offers = []
+		return {}
+	elif kind == "val_retreat":
+		blessing_offers = []
+		return {"retreat": true}  ## 画面側がフェードアウトしてから extract_to_hub を呼ぶ
 	elif kind == "trickster":
 		result = _apply_trickster_deal(str(offer.get("deal", "")), title)
 	toast = "%sを得た。" % title if title != "" else ""
@@ -565,15 +572,6 @@ func finish_blessing(tree: SceneTree) -> void:
 	blessing_offers = []
 	blessing_backdrop = null
 	_advance_after_blessing(tree)
-
-
-## 「白金の守り子に会いたくない」
-func decline_blessing_host(tree: SceneTree) -> void:
-	if blessing_host == Blessings.HOST_VAL:
-		run_host_flags["no_val"] = true
-	elif blessing_host == Blessings.HOST_TRICKSTER:
-		run_host_flags["no_trickster"] = true
-	finish_blessing(tree)
 
 
 func _advance_after_blessing(tree: SceneTree) -> void:
@@ -944,7 +942,7 @@ func _reward_ticket_archetype() -> String:
 	return _apply_pack_boost(base)
 
 
-## 白金の守り子の「排出率アップ」。重み 1 のパックを 1.5^k に上げたのと同じ確率になるよう、
+## ヴァルちゃんの「排出率アップ」。重み 1 のパックを 1.5^k に上げたのと同じ確率になるよう、
 ## 増えた重みの分だけ、ブーストしたパックへ引き直す（ブーストが無ければ base のまま）。
 func _apply_pack_boost(base: String) -> String:
 	if pack_boosts.is_empty():

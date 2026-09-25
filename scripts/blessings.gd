@@ -2,15 +2,15 @@ class_name Blessings
 extends RefCounted
 
 ## 5階層ごとの「主催者つきバフイベント」。
-## 主催者は白金の守り子（正統派の加護）と戯神（悪魔の取引）の2人。
+## 主催者は女神ちゃん（正統派の加護。開発用の呼び名はヴァルちゃん）と戯神（悪魔の取引）の2人。
 ## ここは抽選と集計だけを持つ純粋ロジック。GameState への反映は GameState.apply_blessing_offer。
 
 ## 主催者ID。画面に出す名前は HOSTS の name（固有名は出さない方針）。
 const HOST_VAL := "val"
 const HOST_TRICKSTER := "trickster"
 
-## 白金の守り子の表示名（仮）。変えるときはここ1か所だけ直す。
-const VAL_DISPLAY_NAME := "白金の守り子"
+## ヴァルちゃんの表示名。変えるときはここ1か所だけ直す。
+const VAL_DISPLAY_NAME := "女神ちゃん"
 
 const HOSTS := {
 	HOST_VAL: {
@@ -27,10 +27,15 @@ const HOSTS := {
 	},
 }
 
-## 白金の守り子：パック排出率アップの倍率（重ねがけで掛け算）
+## ヴァルちゃんのパネルの種類。4種類を等確率で抽選する（叩き台）。
+## 「会いたくない」「撤退する」は、それぞれ同じ回に2枚以上出さない。
+const VAL_KINDS := ["val_pack", "val_stat", "val_decline", "val_retreat"]
+const VAL_ONCE_PER_EVENT := ["val_decline", "val_retreat"]
+
+## ヴァルちゃん：パック排出率アップの倍率（重ねがけで掛け算）
 const PACK_BOOST_MUL := 1.5
 
-## 白金の守り子：ステータス上昇。n は倍率 1 + floor(階層/30) を掛ける前の値。scaled=false は倍率なし。
+## ヴァルちゃん：ステータス上昇。n は倍率 1 + floor(階層/30) を掛ける前の値。scaled=false は倍率なし。
 const VAL_STATS := [
 	{"stat": "strength", "n": 1, "scaled": true, "label": "筋力+%d"},
 	{"stat": "drawBonus", "n": 1, "scaled": false, "label": "ドロー数+%d"},
@@ -100,8 +105,31 @@ static func _roll_val_offers(current_floor: int, rand: Callable, count: int) -> 
 			packs.append(str(a))
 	var mul: int = scale_for_floor(current_floor)
 	var out: Array = []
+	var used_once: Dictionary = {}
 	for i in count:
-		if float(rand.call()) < 0.5 and not packs.is_empty():
+		var kinds: Array = []
+		for k in VAL_KINDS:
+			if VAL_ONCE_PER_EVENT.has(k) and used_once.has(k):
+				continue
+			if k == "val_pack" and packs.is_empty():
+				continue
+			kinds.append(k)
+		var kind: String = str(kinds[clampi(int(floor(float(rand.call()) * kinds.size())), 0, kinds.size() - 1)])
+		if VAL_ONCE_PER_EVENT.has(kind):
+			used_once[kind] = true
+		if kind == "val_decline":
+			out.append({
+				"kind": "val_decline",
+				"title": "%sに会いたくない" % VAL_DISPLAY_NAME,
+				"text": "以降このランでは、%sは現れない。" % VAL_DISPLAY_NAME,
+			})
+		elif kind == "val_retreat":
+			out.append({
+				"kind": "val_retreat",
+				"title": "撤退する",
+				"text": "戦利品を持ったまま拠点へ戻る。体力と正気度は全回復する。",
+			})
+		elif kind == "val_pack":
 			var pack: String = str(Mulberry32.pick_rand(packs, rand))
 			var label: String = str(CollectionData.PACK_TICKET_LABELS.get(pack, pack))
 			out.append({

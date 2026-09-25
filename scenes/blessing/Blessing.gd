@@ -2,8 +2,8 @@ extends Control
 
 ## 5階層ごとの「主催者つきバフイベント」。
 ## 背景は直前の画面のものをそのまま使い（GameState.blessing_backdrop）、UI だけ重ねる。
-## 左下に主催者の上半身 → 頭の右に吹き出し（タイプライター）→ 中央にパネル3枚、その下に文字だけの選択肢。
-## 見た目の規則は DialogueEventModal に合わせている。
+## 左下に主催者の上半身 → 頭の右に吹き出し（タイプライター）→ 中央にパネル3枚。
+## 「会いたくない」「撤退する」もパネルの1枚として出る（Blessings.roll_offers）。
 
 const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const FALLBACK_PORTRAITS := {
@@ -29,9 +29,6 @@ const BUBBLE_PAD := 14.0
 const PANEL_SIZE := Vector2(240, 230)
 const PANEL_GAP := 20.0
 const PANEL_TOP := 64.0
-const CHOICE_GAP := 36.0
-const CHOICE_ALPHA := 0.85
-const CHOICE_HOVER_ALPHA := 1.0
 const FADE_IN_SEC := 0.5
 const OUTRO_FADE_SEC := 0.45
 const REVEAL_CARD_SIZE := Vector2(200, 300)
@@ -47,7 +44,6 @@ var _portrait: TextureRect
 var _bubble: PanelContainer
 var _bubble_label: Label
 var _panels: Array = []
-var _text_choices: Array = []
 var _typing := false
 var _advance_requested := false
 var _choosing := false
@@ -127,9 +123,6 @@ func _build() -> void:
 
 	for i in _offers.size():
 		_panels.append(_make_panel(i, _offers[i]))
-	if _host == Blessings.HOST_VAL:
-		_text_choices.append(_make_text_choice("%sに会いたくない" % Blessings.VAL_DISPLAY_NAME, _on_decline))
-		_text_choices.append(_make_text_choice("撤退する？", _on_retreat))
 	_layout()
 
 
@@ -193,29 +186,6 @@ func _make_panel(index: int, offer: Dictionary) -> Button:
 	return button
 
 
-## 文字だけの選択肢（DialogueEventModal の選択肢と同じ見た目。少し小さめ）
-func _make_text_choice(label: String, handler: Callable) -> Button:
-	var button := Button.new()
-	button.text = label
-	button.flat = true
-	button.focus_mode = Control.FOCUS_NONE
-	for style_name in ["normal", "hover", "pressed", "focus", "disabled"]:
-		button.add_theme_stylebox_override(style_name, StyleBoxEmpty.new())
-	button.add_theme_font_size_override("font_size", 20)
-	for color_name in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		button.add_theme_color_override(color_name, Color(0.93, 0.89, 0.84))
-	button.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
-	button.add_theme_constant_override("outline_size", 6)
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	button.modulate.a = 0.0
-	button.visible = false
-	button.pressed.connect(handler)
-	button.mouse_entered.connect(_on_choice_hover.bind(button, true))
-	button.mouse_exited.connect(_on_choice_hover.bind(button, false))
-	_layer.add_child(button)
-	return button
-
-
 func _layout() -> void:
 	var vp: Vector2 = get_viewport_rect().size
 	## 立ち絵：左下
@@ -237,9 +207,12 @@ func _layout() -> void:
 	var bubble_rect := Rect2(bx, by, bubble_w, bubble_h)
 	_place(_bubble, bubble_rect)
 	## パネル：立ち絵と同じ高さにかかるなら立ち絵より右の残り幅、かからなければ画面幅の中央
+	## 下に文字の選択肢が無いので、立ち絵より上の空きの中で縦中央に置く（上端は PANEL_TOP 以上）
 	var area_left: float = PORTRAIT_MARGIN + pw + 24.0
+	var panel_top: float = PANEL_TOP
 	if PANEL_TOP + PANEL_SIZE.y + 12.0 <= vp.y - ph:
 		area_left = 24.0
+		panel_top = maxf(PANEL_TOP, (vp.y - ph - PANEL_SIZE.y) * 0.5)
 	var n: int = _panels.size()
 	var row_w: float = PANEL_SIZE.x * n + PANEL_GAP * maxi(0, n - 1)
 	var panel_w: float = PANEL_SIZE.x
@@ -249,28 +222,7 @@ func _layout() -> void:
 	var center_x: float = area_left + (vp.x - area_left) * 0.5
 	var row_x: float = center_x - row_w * 0.5
 	for i in n:
-		_place(_panels[i], Rect2(row_x + i * (panel_w + PANEL_GAP), PANEL_TOP, panel_w, PANEL_SIZE.y))
-	## 文字選択肢：パネルの下。吹き出しと重なる高さなら右へずらす
-	if _text_choices.is_empty():
-		return
-	var sizes: Array = []
-	var total_w: float = 0.0
-	for b in _text_choices:
-		(b as Button).reset_size()
-		var sz: Vector2 = (b as Button).get_combined_minimum_size()
-		sizes.append(sz)
-		total_w += sz.x
-	total_w += CHOICE_GAP * (_text_choices.size() - 1)
-	var cy: float = PANEL_TOP + PANEL_SIZE.y + 20.0
-	var cx: float = center_x - total_w * 0.5
-	var choice_h: float = (sizes[0] as Vector2).y
-	if cy < bubble_rect.end.y and cy + choice_h > bubble_rect.position.y:
-		cx = maxf(cx, bubble_rect.end.x + 24.0)
-	cx = minf(cx, vp.x - total_w - 16.0)
-	for i in _text_choices.size():
-		var sz2: Vector2 = sizes[i]
-		_place(_text_choices[i], Rect2(cx, cy, sz2.x, sz2.y))
-		cx += sz2.x + CHOICE_GAP
+		_place(_panels[i], Rect2(row_x + i * (panel_w + PANEL_GAP), panel_top, panel_w, PANEL_SIZE.y))
 
 
 func _place(c: Control, r: Rect2) -> void:
@@ -287,9 +239,9 @@ func _run_intro() -> void:
 	_bubble.visible = true
 	await _typewriter(str(_host_def().get("line", "")))
 	var tw2 := create_tween().set_parallel(true)
-	for c in _panels + _text_choices:
+	for c in _panels:
 		(c as Control).visible = true
-		tw2.tween_property(c, "modulate:a", CHOICE_ALPHA if _text_choices.has(c) else 1.0, FADE_IN_SEC)
+		tw2.tween_property(c, "modulate:a", 1.0, FADE_IN_SEC)
 	await tw2.finished
 	_choosing = true
 
@@ -308,11 +260,6 @@ func _typewriter(full_text: String) -> void:
 	_typing = false
 
 
-func _on_choice_hover(button: Button, hovering: bool) -> void:
-	if _choosing:
-		button.modulate.a = CHOICE_HOVER_ALPHA if hovering else CHOICE_ALPHA
-
-
 func _on_offer_pressed(index: int) -> void:
 	if not _choosing or _done:
 		return
@@ -322,29 +269,16 @@ func _on_offer_pressed(index: int) -> void:
 	if card_id != "":
 		await _reveal_card(card_id)
 	await _fade_out()
+	if result.get("retreat", false):
+		GameState.extract_to_hub(get_tree())  ## 戦利品を持ったまま拠点へ（全回復）
+		return
 	GameState.finish_blessing(get_tree())
-
-
-func _on_decline() -> void:
-	if not _choosing or _done:
-		return
-	_choosing = false
-	await _fade_out()
-	GameState.decline_blessing_host(get_tree())
-
-
-func _on_retreat() -> void:
-	if not _choosing or _done:
-		return
-	_choosing = false
-	await _fade_out()
-	GameState.extract_to_hub(get_tree())
 
 
 ## 魔導書／戯神ちゃん：選択肢が消え、中央にそのカードがうっすら現れて徐々にはっきりする。
 func _reveal_card(card_id: String) -> void:
 	var tw := create_tween().set_parallel(true)
-	for c in _panels + _text_choices + [_bubble]:
+	for c in _panels + [_bubble]:
 		tw.tween_property(c, "modulate:a", 0.0, 0.3)
 	await tw.finished
 	var vp: Vector2 = get_viewport_rect().size
