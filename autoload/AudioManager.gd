@@ -40,6 +40,22 @@ const SFX_PATHS := {
 	"vfx_arrow": "res://audio/sfx/sfx_vfx_arrow.wav",
 	"cat_hiss": "res://audio/sfx/sfx_cat_hiss.wav",
 	"electric": "res://audio/sfx/sfx_electric.wav",
+	## パック開封（音楽くん / pack-open）
+	"pack_idle": "res://audio/sfx/sfx_pack_idle.wav",
+	"pack_shake": "res://audio/sfx/sfx_pack_shake.wav",
+	"pack_burst": "res://audio/sfx/sfx_pack_burst.wav",
+	"pack_deal": "res://audio/sfx/sfx_pack_deal.wav",
+	"pack_flip": "res://audio/sfx/sfx_pack_flip.wav",
+	"pack_tell": "res://audio/sfx/sfx_pack_tell.wav",
+	"pack_hit_elder": "res://audio/sfx/sfx_pack_hit_elder.wav",
+	"pack_hit_greatold": "res://audio/sfx/sfx_pack_hit_greatold.wav",
+	"pack_hit_outer": "res://audio/sfx/sfx_pack_hit_outer.wav",
+	"pack_hit_all": "res://audio/sfx/sfx_pack_hit_all.wav",
+	"pack_new": "res://audio/sfx/sfx_pack_new.wav",
+	"pack_done": "res://audio/sfx/sfx_pack_done.wav",
+	## 共通UI・勝利
+	"ui_click": "res://audio/sfx/sfx_ui_click.wav",
+	"win": "res://audio/sfx/sfx_win.wav",
 }
 
 # Per-card SFX (text/image faithful). Checked before vfx bucket.
@@ -215,7 +231,7 @@ func _sample_for(cue: String) -> String:
 			return "hurt_from_enemy"
 		"draw":
 			return "paper_draw"
-		"play", "hover", "ui", "reward", "win":
+		"play", "hover", "ui", "reward":
 			return "select"
 		_:
 			return cue
