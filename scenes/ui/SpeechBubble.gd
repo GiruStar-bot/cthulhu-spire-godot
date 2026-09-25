@@ -4,7 +4,9 @@ extends Control
 ## 吹き出し部品：角丸の枠＋半透明の暗い地＋話者の方向を指すしっぽ（三角）。
 ## 幅はセリフの長さに合わせて MIN_W〜MAX_W で伸縮し、MAX_W を超える分は折り返す。
 ## anchor（基準位置）を中心に、上下に AMPLITUDE px ふわふわ浮く。
-## いまはバフイベント（Blessing）だけが使う。DialogueEventModal／OuterGiftModal は各自の吹き出しのまま。
+## テロップのある画面で共通に使う：バフイベント（Blessing）、会話イベント（DialogueEventModal）、
+## 外なる神の贈り物（OuterGiftModal）。置き方は、Blessing は自前で set_anchor_position、
+## 会話イベントと贈り物は place_beside（話者の頭の横に置き、しっぽを頭へ向ける）。
 
 const PAD_X := 18.0
 const PAD_Y := 12.0
@@ -53,11 +55,14 @@ func fit_to_text(full_text: String) -> void:
 	_label.text = full_text
 	_label.custom_minimum_size = Vector2(inner_w, 0)
 	_label.size = Vector2(inner_w, 0)
-	var inner_h: float = _label.get_combined_minimum_size().y
+	## 折り返すとき、配置前の Label は幅を知らず最小サイズが縦長になるので、行数×行の高さで測る
+	var lines: int = maxi(1, _label.get_line_count())
+	var inner_h: float = float(lines * _label.get_line_height() + (lines - 1) * _label.get_theme_constant("line_spacing"))
 	var w: float = inner_w + PAD_X * 2.0
 	var h: float = maxf(inner_h + PAD_Y * 2.0, MIN_H)
+	## 先に最小サイズを下げる（同じ吹き出しで短いセリフに替えたとき、前の大きさに縛られないように）
+	custom_minimum_size = Vector2(w, h)
 	size = Vector2(w, h)
-	custom_minimum_size = size
 	_label.position = Vector2(PAD_X, (h - inner_h) * 0.5)
 	_label.size = Vector2(inner_w, inner_h)
 	queue_redraw()
@@ -71,6 +76,24 @@ func set_text(text: String) -> void:
 func set_anchor_position(pos: Vector2) -> void:
 	_anchor = pos
 	position = pos + Vector2(0, _float_offset())
+
+
+## 話者の頭 head の横に置き、しっぽを頭へ向ける。右隣を優先し、bounds の右端を超えるなら左隣
+## （しっぽも右側へ反転）。head_gap は頭の中心からしっぽの先までの横の距離。
+## しっぽの先の高さは頭の高さに合わせる（本体が bounds からはみ出す分だけずらす）。
+## 先に fit_to_text で大きさを決めてから呼ぶこと。
+func place_beside(head: Vector2, head_gap: float, bounds: Rect2) -> void:
+	var right_x: float = head.x + head_gap + TAIL_LEN
+	var left_x: float = head.x - head_gap - TAIL_LEN - size.x
+	var use_right: bool = right_x + size.x <= bounds.end.x or left_x < bounds.position.x
+	tail_side = "left" if use_right else "right"
+	var bx: float = right_x if use_right else left_x
+	bx = clampf(bx, bounds.position.x, maxf(bounds.position.x, bounds.end.x - size.x))
+	var by: float = clampf(head.y - size.y * 0.5, bounds.position.y, maxf(bounds.position.y, bounds.end.y - size.y))
+	## _draw のしっぽの先は根元（size.y * tail_y_frac）から TAIL_W * 0.6 下
+	tail_y_frac = clampf((head.y - by - TAIL_W * 0.6) / maxf(size.y, 1.0), 0.0, 1.0)
+	set_anchor_position(Vector2(bx, by))
+	queue_redraw()
 
 
 func set_floating(enabled: bool) -> void:
