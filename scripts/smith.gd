@@ -32,7 +32,7 @@ const SHOP_POOL := {
 		"taboo": ["yog_gate", "plateau_mail"],
 	},
 	"light": {
-		"normal": ["buckler", "leather", "thief_cloak"],
+		"normal": ["leather", "thief_cloak"],
 		"mid": ["ghoul_rags", "gaki_hide"],
 		"genius": ["yith_coat", "penguin_fur"],
 		"god": ["yellow_rags", "nameless_veil"],
@@ -50,7 +50,7 @@ const SHOP_PRICE := {
 	"iron_shield": 8, "tower_shield": 12, "chain_mail": 7, "deep_scale": 18, "shoggoth_plate": 15,
 	"yith_shell": 35, "dagon_shield": 40, "cthulhu_mail": 80, "tsathoggua_shield": 70,
 	"yog_gate": 150, "plateau_mail": 145,
-	"buckler": 4, "leather": 7, "thief_cloak": 10, "ghoul_rags": 12, "gaki_hide": 14,
+	"leather": 7, "thief_cloak": 10, "ghoul_rags": 12, "gaki_hide": 14,
 	"yith_coat": 30, "penguin_fur": 28, "yellow_rags": 75, "nameless_veil": 80,
 	"azathoth_nap": 120, "colour_robe": 140,
 	"beer": 5,

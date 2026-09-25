@@ -118,8 +118,32 @@ func apply_save(data: Dictionary) -> void:
 		pack_tickets["water"] = int(pack_tickets.get("water", 0)) + int(pack_tickets["deep"])
 		pack_tickets.erase("deep")
 
+	_drop_unknown_cards()
 	restored_from_profile = true
 	profile_seeded = true
+
+
+## 削除済みカード（バックラー等）がセーブに残っていても、所持とデッキから外して落とす。
+func _drop_unknown_cards() -> void:
+	for deck_name in decks.keys():
+		var counts: Dictionary = decks[deck_name]
+		if typeof(counts) != TYPE_DICTIONARY:
+			decks[deck_name] = {}
+			continue
+		var clean: Dictionary = {}
+		for card_id in counts.keys():
+			var id: String = str(card_id)
+			if Cards.CARDS.has(id):
+				clean[id] = int(counts[card_id])
+		decks[deck_name] = clean
+	var kept: Array = []
+	for c in inventory.get("cards", []):
+		if typeof(c) != TYPE_DICTIONARY:
+			continue
+		var base_id: String = str(c.get("base_card_id", ""))
+		if Cards.CARDS.has(base_id):
+			kept.append(c)
+	inventory["cards"] = kept
 
 
 ## 有効な属性パックを初期枚数だけ配る。全パックは対象外。

@@ -260,6 +260,11 @@ static func _recalc_hand_presence(c: Dictionary) -> void:
 	c.handPresenceBlock = block_sum
 
 
+## 画面の防御値。実ブロックと、手札にある間だけ足される常駐防御。被ダメージも同じ合計で軽減する。
+static func displayed_block(c: Dictionary) -> int:
+	return int(c.get("block", 0)) + int(c.get("handPresenceBlock", 0))
+
+
 ## subArchetypes でカードを draw/discard から手札に引き込む
 static func _seek_by_sub_archetype(c: Dictionary, sub: String, need: int, rand: Callable) -> int:
 	var moved: int = 0
@@ -1369,7 +1374,8 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 		else:
 			_add_to_discard(c, card)
 	c.hand = kept
-	_recalc_hand_presence(c)
+	## 手札常駐の防御は、この直後の敵攻撃が参照し終わるまで残す。
+	## ここで再計算すると手札が空になり、盾が居ても被ダメージが減らない。
 	if int(c.weak) > 0:
 		c.weak = int(c.weak) - 1
 	if int(c.vulnerable) > 0:
@@ -1408,6 +1414,7 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 		if int(e.vulnerable) > 0:
 			e.vulnerable = int(e.vulnerable) - 1
 		_roll_next_action(e, rand)
+	_recalc_hand_presence(c)
 	_maybe_choir(c, rand)
 	## 毒などで削れた分もここで拾う（被弾時は _apply_to_enemy 側で判定済み）
 	for e in living(c):

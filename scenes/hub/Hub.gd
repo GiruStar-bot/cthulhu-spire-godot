@@ -78,6 +78,9 @@ const PACK_ART_SIZE := Vector2(160, 240)
 @onready var deck_filter_ai_tag_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover
 @onready var deck_filter_archetype_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterArchetypePopover/DeckFilterArchetypeRow
 @onready var deck_filter_ai_tag_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterAiTagPopover/DeckFilterAiTagRow
+@onready var deck_filter_sub_button: Button = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckSearchRow/SubArchetypeButton
+@onready var deck_filter_sub_popover: PanelContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterSubPopover
+@onready var deck_filter_sub_row: HFlowContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckFilterSubPopover/DeckFilterSubRow
 @onready var deck_result_count_label: Label = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/DeckResultCountLabel
 @onready var card_scroll: ScrollContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScrollFrame/CardScroll
 @onready var card_list_container: GridContainer = $Root/Body/Content/DeckPanel/DeckEditSubPanel/DeckWorkspace/CardPoolPanel/CardPool/CardScrollFrame/CardScroll/CardListContainer
@@ -111,6 +114,7 @@ var _sell_card_row_nodes: Dictionary = {}  ## base_card_id -> {qty_label, minus_
 
 const DECK_FILTERABLE_ARCHETYPES := ["knight", "outer", "elder", "water", "greatold", "all", "fire", "wind", "earth", "magic"]
 const DECK_FILTERABLE_AI_TAGS := ["attack", "defense", "effect"]
+const DECK_FILTERABLE_SUBS := ["earth"]
 const DECK_SORT_MODES := ["cost", "owned", "archetype"]
 const DECK_SORT_LABELS := {"cost": "コスト順", "owned": "所持数順", "archetype": "ジャンル順"}
 const AI_TAG_LABELS := {"attack": "攻撃", "defense": "防御", "effect": "効果"}
@@ -146,6 +150,7 @@ var _deck_save_layer: CanvasLayer = null
 var _deck_renaming: bool = false
 var _deck_filter_archetypes: Dictionary = {}
 var _deck_filter_ai_tags: Dictionary = {}
+var _deck_filter_subs: Dictionary = {}
 var _deck_search: String = ""
 var _deck_sort_mode: String = "cost"
 var _inspector_card_id: String = ""
@@ -234,6 +239,7 @@ func _setup_deck_filters() -> void:
 	deck_filter_reset_button.pressed.connect(_on_deck_filter_reset_pressed)
 	deck_filter_archetype_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_archetype_popover))
 	deck_filter_ai_tag_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_ai_tag_popover))
+	deck_filter_sub_button.pressed.connect(_toggle_deck_popover.bind(deck_filter_sub_popover))
 
 	deck_sort_option_button.clear()
 	for mode in DECK_SORT_MODES:
@@ -247,6 +253,9 @@ func _setup_deck_filters() -> void:
 	_build_toggle_row(deck_filter_ai_tag_row, DECK_FILTERABLE_AI_TAGS,
 		func(t): return str(AI_TAG_LABELS.get(t, t)),
 		_deck_filter_ai_tags, _on_deck_filter_ai_tag_toggled)
+	_build_toggle_row(deck_filter_sub_row, DECK_FILTERABLE_SUBS,
+		func(s): return str(Cards.SUB_ARCHETYPE_LABELS.get(s, s)),
+		_deck_filter_subs, _on_deck_filter_sub_toggled)
 	_float_deck_filter_popovers()
 
 
@@ -270,7 +279,7 @@ func _float_deck_filter_popovers() -> void:
 	var overlay: Control = deck_panel.get_parent() as Control
 	if overlay == null:
 		return
-	for panel in [deck_filter_archetype_popover, deck_filter_ai_tag_popover]:
+	for panel in [deck_filter_archetype_popover, deck_filter_ai_tag_popover, deck_filter_sub_popover]:
 		if panel.get_parent() == overlay:
 			continue
 		panel.reparent(overlay, false)
@@ -280,13 +289,15 @@ func _float_deck_filter_popovers() -> void:
 
 func _toggle_deck_popover(target: Control) -> void:
 	var opening: bool = not target.visible
-	for panel in [deck_filter_archetype_popover, deck_filter_ai_tag_popover]:
+	for panel in [deck_filter_archetype_popover, deck_filter_ai_tag_popover, deck_filter_sub_popover]:
 		panel.visible = false
 	if not opening:
 		return
 	var anchor: Control = deck_filter_archetype_button
 	if target == deck_filter_ai_tag_popover:
 		anchor = deck_filter_ai_tag_button
+	elif target == deck_filter_sub_popover:
+		anchor = deck_filter_sub_button
 	var min_size: Vector2 = target.get_combined_minimum_size()
 	target.size = Vector2(maxf(280.0, min_size.x), maxf(48.0, min_size.y))
 	var pos: Vector2 = anchor.global_position + Vector2(0.0, anchor.size.y + 4.0)
@@ -1551,8 +1562,19 @@ func _filtered_deck_card_ids(owned: Dictionary) -> Array:
 		var ai_tag: String = str(def.get("aiTag", ""))
 		if _deck_filter_ai_tags.size() > 0 and (ai_tag == "" or not _deck_filter_ai_tags.has(ai_tag)):
 			continue
+		if _deck_filter_subs.size() > 0 and not _card_has_filtered_sub(def):
+			continue
 		out.append(card_id)
 	return out
+
+
+## サブ属性フィルターは subArchetypes だけを見る。主属性が earth でも「地」にはしない。
+func _card_has_filtered_sub(def: Dictionary) -> bool:
+	var subs: Array = def.get("subArchetypes", [])
+	for sub in _deck_filter_subs.keys():
+		if subs.has(str(sub)):
+			return true
+	return false
 
 
 ## DeckBuilderScreen.tsx の sortGroups(groups, mode, ownedOf) 相当
@@ -2199,14 +2221,26 @@ func _on_deck_filter_ai_tag_toggled(pressed: bool, value: String) -> void:
 	deck_filter_ai_tag_popover.visible = false
 
 
+func _on_deck_filter_sub_toggled(pressed: bool, value: String) -> void:
+	if pressed:
+		_deck_filter_subs[value] = true
+	else:
+		_deck_filter_subs.erase(value)
+	_rebuild_card_list()
+	deck_filter_sub_popover.visible = false
+
+
 ## DeckBuilderScreen.tsx の「条件をリセット」相当
 func _on_deck_filter_reset_pressed() -> void:
 	_deck_filter_archetypes.clear()
 	_deck_filter_ai_tags.clear()
+	_deck_filter_subs.clear()
 	_deck_search = ""
 	deck_search_edit.text = ""
 	_sync_toggle_row(deck_filter_archetype_row, DECK_FILTERABLE_ARCHETYPES, _deck_filter_archetypes)
 	_sync_toggle_row(deck_filter_ai_tag_row, DECK_FILTERABLE_AI_TAGS, _deck_filter_ai_tags)
+	_sync_toggle_row(deck_filter_sub_row, DECK_FILTERABLE_SUBS, _deck_filter_subs)
 	_rebuild_card_list()
 	deck_filter_archetype_popover.visible = false
 	deck_filter_ai_tag_popover.visible = false
+	deck_filter_sub_popover.visible = false
