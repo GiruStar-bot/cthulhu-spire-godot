@@ -38,12 +38,19 @@ const SCENE_PATHS := {
 
 # --- PlayerProfile 相当（拠点に永続、次ランへ引き継ぐ）。実体は Profile.gd 参照 ---
 var player_name: String = ""
-var stats: Dictionary = Profile.empty_stats()
 var best_floor: int = 0
 var wins: int = 0
 var runs: int = 0
 var earned_points: int = 0
 var unspent_points: int = 0
+## 4元素羅針盤の取得済みマスID（Compass 参照）。1マス＝ステータスポイント1。
+var compass_nodes: Array = []
+## 超越羅針盤。場面2（The Dream Island）に初めて入ると解放。
+## 旧神のマスは白ポイント、戯神のマスは黒ポイントで取る（総獲得数を保存、残りは取得数から逆算）。
+var transcend_nodes: Array = []
+var transcend_unlocked: bool = false
+var white_points: int = 0
+var black_points: int = 0
 var madness: int = 0
 var profile_sanity = null  ## 次ラン開始時に引き継ぐ正気値。null＝未設定（満タンから開始）
 var seen_rlyeh: bool = false
@@ -70,6 +77,8 @@ var sanity: int = 0
 var max_sanity: int = 0
 var deck: Array = []
 var run_strength: int = 0
+## ラン開始時に確定した羅針盤の効果（Compass.bonus）。ラン中に羅針盤を変えても次のランから反映。
+var run_compass: Dictionary = Compass.empty_bonus()
 var extra_energy_next: int = 0
 var act: int = 1
 var run_floors: Array = []
@@ -109,12 +118,17 @@ func _ready() -> void:
 func _load_profile() -> void:
 	var p := Profile.load_profile()
 	player_name = p.player_name
-	stats = p.stats
 	best_floor = p.best_floor
 	wins = p.wins
 	runs = p.runs
 	earned_points = p.earned_points
 	unspent_points = p.unspent_points
+	compass_nodes = p.compass
+	transcend_nodes = p.transcend
+	transcend_unlocked = p.transcend_unlocked
+	white_points = p.white_points
+	black_points = p.black_points
+	_apply_compass_to_collection()
 	madness = p.madness
 	profile_sanity = p.sanity
 	seen_rlyeh = p.seen_rlyeh
@@ -138,12 +152,16 @@ func _persist_profile() -> void:
 	var collection: Dictionary = CollectionData.export_save()
 	Profile.save_profile({
 		"player_name": player_name,
-		"stats": stats,
 		"best_floor": best_floor,
 		"wins": wins,
 		"runs": runs,
 		"earned_points": earned_points,
 		"unspent_points": unspent_points,
+		"compass": compass_nodes,
+		"transcend": transcend_nodes,
+		"transcend_unlocked": transcend_unlocked,
+		"white_points": white_points,
+		"black_points": black_points,
 		"madness": madness,
 		"sanity": profile_sanity,
 		"seen_rlyeh": seen_rlyeh,
@@ -199,7 +217,7 @@ func buy_card_pack() -> Array:
 	if shells < CARD_PACK_PRICE:
 		toast = "貝殻が足りない。"
 		return []
-	var owner: String = character if character != "" else starter_path(stats)
+	var owner: String = character if character != "" else starter_path()
 	var rand := Callable(self, "_rand")
 	var result: Array = []
 	for i in range(4):
@@ -236,19 +254,31 @@ func sell_items(card_ids: Array) -> void:
 	toast = "貝殻+%d" % total
 
 
-## profile.ts の derivedVitals().maxHp
+## 羅針盤（4元素＋超越）の取得済みマスを合算した効果。
+func compass_bonus() -> Dictionary:
+	var owned: Array = compass_nodes.duplicate()
+	owned.append_array(transcend_nodes)
+	return Compass.bonus(owned)
+
+
+## ラン開始時の基礎値（体力・正気度の最大、筋力、エナジー上限）。
+func derived_vitals() -> Dictionary:
+	return Profile.derived_vitals(compass_bonus(), madness)
+
+
 func derived_max_hp() -> int:
-	return Profile.derived_vitals(stats, madness).max_hp
+	return int(derived_vitals().max_hp)
 
 
-## profile.ts の derivedVitals().maxSanity
 func derived_max_sanity() -> int:
-	return Profile.derived_vitals(stats, madness).max_sanity
+	return int(derived_vitals().max_sanity)
 
 
-## profile.ts の derivedVitals().energy
+## 戦闘中のエナジー上限。ラン中はラン開始時に確定した羅針盤の値を使う。
 func derived_energy() -> int:
-	return Profile.derived_vitals(stats, madness).energy
+	if floor > 0:
+		return Profile.BASE_ENERGY + int(run_compass.get("energy", 0))
+	return int(derived_vitals().energy)
 
 
 ## profile.ts の madnessPenalty()
@@ -262,24 +292,84 @@ func total_points() -> int:
 
 
 func _sync_unspent_points() -> void:
-	unspent_points = max(0, earned_points - Profile.stat_sum(stats))
+	unspent_points = max(0, earned_points - compass_nodes.size())
 
 
-## store.ts の setStat(key, value)。総ポイントを超える配分は無視する。
-func set_stat(key: String, value: int) -> void:
-	var next: int = max(Profile.STAT_MIN, value)
-	var others: int = Profile.stat_sum(stats) - int(stats.get(key, 0))
-	if others + next > earned_points:
-		return
-	stats[key] = next
-	stats = Profile.clamp_stats(stats)
+## デッキ上限の羅針盤ボーナスを CollectionData へ渡す（デッキ編成の上限判定に使う）。
+func _apply_compass_to_collection() -> void:
+	CollectionData.deck_limit_bonus = int(compass_bonus().deck_limit)
+
+
+func _after_compass_change() -> void:
 	_sync_unspent_points()
+	_apply_compass_to_collection()
 	_persist_profile()
 
 
-## store.ts の starterPath(stats)
-func starter_path(p_stats: Dictionary) -> String:
-	return "investigator" if int(p_stats.get("hp", 0)) >= int(p_stats.get("san", 0)) else "cultist"
+## 4元素羅針盤のマスを1つ取る。ポイント不足・隣接していない・取得済みなら false。
+func take_compass_node(id: String) -> bool:
+	if not Compass.ELEMENTS.has(Compass.branch_of(id)):
+		return false
+	if unspent_points <= 0 or not Compass.can_take(compass_nodes, id):
+		return false
+	compass_nodes.append(id)
+	_after_compass_change()
+	return true
+
+
+## 4元素羅針盤を全マス返却（無料）。
+func reset_compass() -> void:
+	compass_nodes = []
+	_after_compass_change()
+
+
+## 超越羅針盤の残りポイント。side は "elder"（白）か "trickster"（黒）。
+func transcend_points_left(side: String) -> int:
+	var total: int = white_points if side == "elder" else black_points
+	return max(0, total - Compass.count_in(transcend_nodes, [side]))
+
+
+func take_transcend_node(id: String) -> bool:
+	var side: String = Compass.branch_of(id)
+	if not transcend_unlocked or not Compass.TRANSCEND_SIDES.has(side):
+		return false
+	if transcend_points_left(side) <= 0 or not Compass.can_take(transcend_nodes, id):
+		return false
+	transcend_nodes.append(id)
+	_after_compass_change()
+	return true
+
+
+func reset_transcend() -> void:
+	transcend_nodes = []
+	_after_compass_change()
+
+
+## 白ポイント（旧神バフを選んだとき）。獲得元のイベントは未実装。
+func add_white_points(amount: int) -> void:
+	if amount > 0:
+		white_points += amount
+		_persist_profile()
+
+
+## 黒ポイント（戯神バフを選んだとき）。獲得元のイベントは未実装。
+func add_black_points(amount: int) -> void:
+	if amount > 0:
+		black_points += amount
+		_persist_profile()
+
+
+## 場面2（The Dream Island）に初めて入ったとき超越羅針盤を解放する。
+func unlock_transcend() -> void:
+	if transcend_unlocked:
+		return
+	transcend_unlocked = true
+	_persist_profile()
+
+
+## 旧ステータス配分からスターターを決めていた名残。配分が無くなったので常に investigator。
+func starter_path() -> String:
+	return "investigator"
 
 
 # ============================================================
@@ -296,6 +386,8 @@ func goto_scene(tree: SceneTree, next_scene: String) -> void:
 ## 所持カード／枠テクスチャを ArtCache でウォームしてから Hub へ遷移する（売却・デッキの冷ロード回避）。
 func begin(tree: SceneTree) -> void:
 	_load_profile()
+	if realm == "dream":
+		unlock_transcend()
 	seed = randi()
 	rng = Mulberry32.new(seed)
 	run_floors = []
@@ -325,8 +417,9 @@ func start_run(tree: SceneTree) -> void:
 	runs += 1
 	_persist_profile()
 
-	character = starter_path(stats)
-	var vitals := Profile.derived_vitals(stats, madness)
+	character = starter_path()
+	run_compass = compass_bonus()
+	var vitals: Dictionary = Profile.derived_vitals(run_compass, madness)
 
 	max_hp = vitals.max_hp
 	hp = max_hp
@@ -821,11 +914,11 @@ func turn_grimoire_page(tree: SceneTree) -> void:
 	var next = Grimoire.next_unread(grimoire_read)
 	if next == null or next.get("card_id") == null:
 		return
-	var prev_max: int = Profile.derived_vitals(stats, madness).max_sanity
+	var prev_max: int = Profile.derived_vitals(compass_bonus(), madness).max_sanity
 	var new_madness: int = madness + Profile.MADNESS_STEP
 	var new_read: Array = grimoire_read.duplicate()
 	new_read.append(next.card_id)
-	var max_sanity_next: int = Profile.derived_vitals(stats, new_madness).max_sanity
+	var max_sanity_next: int = Profile.derived_vitals(compass_bonus(), new_madness).max_sanity
 	var cur: int = prev_max if profile_sanity == null else int(profile_sanity)
 	var new_sanity: int = max(0, min(cur, max_sanity_next))
 	if max_sanity_next <= 0 or new_sanity <= 0:
@@ -911,8 +1004,22 @@ func player_hook() -> Dictionary:
 		"extraStrength": run_strength,
 		"extraEnergyNext": extra_energy_next,
 		"baseEnergy": derived_energy(),
-		"blessings": run_blessings,
+		"blessings": _combat_blessings(),
+		"strengthMul": int(run_compass.get("strength_mul", 1)),
+		"sanFullEachTurn": run_compass.get("turn_san_full", false) == true,
 	}
+
+
+## 戦闘へ渡すバフ。羅針盤のドロー・毎ターン防御は既存のバフ集計（Blessings.compute_stats）に乗せる。
+func _combat_blessings() -> Array:
+	var out: Array = run_blessings.duplicate()
+	var draw: int = int(run_compass.get("draw", 0))
+	if draw != 0:
+		out.append({"stat": "drawBonus", "n": draw})
+	var turn_block: int = int(run_compass.get("turn_block", 0))
+	if turn_block > 0:
+		out.append({"stat": "baseBlockPerTurn", "n": turn_block})
+	return out
 
 
 func apply_player_hook(hook: Dictionary) -> void:
@@ -1056,7 +1163,7 @@ func _make_rewards() -> Array:
 
 
 func _reward_card_offer() -> Dictionary:
-	var owner: String = character if character != "" else starter_path(stats)
+	var owner: String = character if character != "" else starter_path()
 	var card: Dictionary = Cards.weighted_card(owner, Callable(self, "_rand"))
 	return {"kind": "card", "card": card}
 
@@ -1079,6 +1186,7 @@ func reset_run() -> void:
 	village = null
 	deck = []
 	run_strength = 0
+	run_compass = Compass.empty_bonus()
 	extra_energy_next = 0
 	hp = 0
 	max_hp = 0

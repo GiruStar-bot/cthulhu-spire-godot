@@ -1,7 +1,8 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scenes/hub/Hub.gd" id="1"]
 [ext_resource type="Texture2D" path="res://art/pixel/bg/loadout.jpg" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/hub/CompassPanel.tscn" id="3"]
 
 [sub_resource type="StyleBoxFlat" id="StyleRitualPanel"]
 bg_color = Color(0.045, 0.043, 0.035, 0.92)
@@ -288,6 +289,21 @@ theme_override_font_sizes/font_size = 11
 toggle_mode = true
 text = "デッキ編成"
 
+[node name="CompassButton" type="Button" parent="Root/Body/Nav"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "羅針盤"
+
+[node name="TranscendButton" type="Button" parent="Root/Body/Nav"]
+visible = false
+layout_mode = 2
+custom_minimum_size = Vector2(0, 38)
+theme_override_font_sizes/font_size = 11
+toggle_mode = true
+text = "超越羅針盤"
+
 [node name="EquipmentButton" type="Button" parent="Root/Body/Nav"]
 visible = false
 layout_mode = 2
@@ -364,22 +380,6 @@ visible = false
 custom_minimum_size = Vector2(0, 44)
 text = "拠点へ帰還"
 
-[node name="StatPanel" type="VBoxContainer" parent="Root/Body/Content/DescendPanel/DescendLeftColumn"]
-layout_mode = 2
-theme = SubResource("ThemeRitual")
-theme_override_styles/panel = SubResource("StyleInkLedger")
-theme_override_constants/separation = 4
-
-[node name="StatHeaderLabel" type="Label" parent="Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.86, 0.69, 0.34, 1)
-horizontal_alignment = 1
-text = "使用可能ポイント: 0 / 総ポイント: 0"
-
-[node name="StatRowsContainer" type="VBoxContainer" parent="Root/Body/Content/DescendPanel/DescendLeftColumn/StatPanel"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
 [node name="PrepareEquipmentSummaryPanel" type="PanelContainer" parent="Root/Body/Content/DescendPanel"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -445,6 +445,23 @@ theme_override_constants/separation = 4
 layout_mode = 2
 autowrap_mode = 2
 text = "選択中: デッキ1（0/10〜20）"
+
+[node name="CompassPanel" parent="Root/Body/Content" instance=ExtResource("3")]
+visible = false
+layout_mode = 1
+offset_left = 22.0
+offset_top = 20.0
+offset_right = -22.0
+offset_bottom = -20.0
+
+[node name="TranscendPanel" parent="Root/Body/Content" instance=ExtResource("3")]
+visible = false
+layout_mode = 1
+offset_left = 22.0
+offset_top = 20.0
+offset_right = -22.0
+offset_bottom = -20.0
+mode = "transcend"
 
 [node name="PlaceholderPanel" type="Label" parent="Root/Body/Content"]
 layout_mode = 1

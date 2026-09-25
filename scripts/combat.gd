@@ -85,6 +85,17 @@ static func _dmg_dealt(base: int, strength: int, weak: int) -> int:
 	return maxi(0, n)
 
 
+## プレイヤーの筋力による与ダメージ加算。羅針盤「火・終点」で2倍（strengthMul）。
+static func _player_strength(c: Dictionary) -> int:
+	return int(c.strength) * maxi(1, int(c.get("strengthMul", 1)))
+
+
+## 羅針盤「戯神・終点（深淵）」：毎ターン開始時に正気度を全回復する。
+static func _restore_sanity_each_turn(c: Dictionary, player: Dictionary) -> void:
+	if c.get("sanFullEachTurn", false) == true:
+		player.sanity = int(player.maxSanity)
+
+
 static func _dmg_taken(raw: int, vulnerable: int) -> int:
 	return int(floor(float(raw) * 1.5)) if vulnerable > 0 else raw
 
@@ -627,6 +638,8 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		"turnStartEffects": [],
 	}
 	c.strength = int(c.strength) + int(player.get("extraStrength", 0))
+	c.strengthMul = maxi(1, int(player.get("strengthMul", 1)))
+	c.sanFullEachTurn = player.get("sanFullEachTurn", false) == true
 	if Cards.count_all_in_deck(deck) >= Cards.ALL_SET_COUNT:
 		c.strength = int(c.strength) + 99999
 		c.block = int(c.block) + 99999
@@ -669,6 +682,7 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		player.hp = maxi(1, int(player.hp) - cost)
 		c.energy = int(c.energy) + 1
 	_gain_base_block(c)
+	_restore_sanity_each_turn(c, player)
 	var outer_bonus: int = int(c.synergy.tier) if c.synergy and str(c.synergy.archetype) == "outer" else 0
 	draw_cards(c, _base_draw_count(c) + outer_bonus, rand, player)
 	if int(player.sanity) <= 0:
@@ -705,7 +719,7 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 				var tgt = _living_target(c, target_id)
 				if tgt == null:
 					continue
-				var n: int = _dmg_dealt(Cards.scale_n(int(e.n), card), int(c.strength), int(c.weak))
+				var n: int = _dmg_dealt(Cards.scale_n(int(e.n), card), _player_strength(c), int(c.weak))
 				if card != null and str(card.get("defId")) == "laststand" and float(player.hp) <= float(player.maxHp) * 0.5:
 					n += 12 if card.get("upgraded") else 9
 				if float(c.nextAttackMul) != 1.0:
@@ -721,7 +735,7 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 					player.hp = maxi(1, int(player.hp) - int(c.attackSelfHurt))
 					c.floaters.append(_floater("-%d" % int(c.attackSelfHurt), "dmg", "player"))
 			"damageAll":
-				var n2: int = _dmg_dealt(Cards.scale_n(int(e.n), card), int(c.strength), int(c.weak))
+				var n2: int = _dmg_dealt(Cards.scale_n(int(e.n), card), _player_strength(c), int(c.weak))
 				if float(c.nextAttackMul) != 1.0:
 					n2 = int(floor(float(n2) * float(c.nextAttackMul)))
 					c.nextAttackMul = 1
@@ -861,7 +875,7 @@ static func _run_effects(effects: Array, c: Dictionary, player: Dictionary, targ
 			"damageX":
 				var tx = _living_target(c, target_id)
 				if tx:
-					_apply_to_enemy(tx, _dmg_dealt(int(e.n) * maxi(0, int(c.xSpent)), int(c.strength), int(c.weak)), c, rand)
+					_apply_to_enemy(tx, _dmg_dealt(int(e.n) * maxi(0, int(c.xSpent)), _player_strength(c), int(c.weak)), c, rand)
 			"exhaustHand":
 				for h in c.hand:
 					c.exhaust.append(h)
@@ -1444,6 +1458,7 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 	else:
 		c.block = 0
 	_gain_base_block(c)
+	_restore_sanity_each_turn(c, player)
 	c.energy = maxi(0, int(c.maxEnergy) + int(c.energyNext) + int(c.equipmentStats.get("energyPerTurn", 0)))
 	c.energyNext = 0
 	_run_turn_start_effects(c, player, rand)
@@ -1456,7 +1471,7 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 		if live.size() > 0:
 			var tgt = Mulberry32.pick_rand(live, rand)
 			if tgt:
-				var n := _dmg_dealt(4, int(c.strength), int(c.weak))
+				var n := _dmg_dealt(4, _player_strength(c), int(c.weak))
 				_apply_to_enemy(tgt, n, c, rand)
 	if reflect > 0:
 		var live2 := living(c)
