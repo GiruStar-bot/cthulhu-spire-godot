@@ -3,6 +3,6 @@
 [ext_resource type="Script" path="res://scenes/ui/VitalsHud.gd" id="1"]
 
 [node name="VitalsHud" type="Panel"]
-custom_minimum_size = Vector2(232, 96)
+custom_minimum_size = Vector2(232, 148)
 mouse_filter = 2
 script = ExtResource("1")

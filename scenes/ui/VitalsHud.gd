@@ -38,6 +38,7 @@ var _hp_value: Label
 var _san_fill: ColorRect
 var _san_value: Label
 var _status_row: HFlowContainer
+var _content: VBoxContainer
 var _frame: NinePatchRect
 var _built: bool = false
 @export var show_frame: bool = true
@@ -65,6 +66,7 @@ func bind(data: Dictionary) -> void:
 	_set_bar(_san_fill, _san_value, int(data.get("sanity", 0)), int(data.get("max_sanity", 0)))
 	_rebuild_status(data)
 	_apply_frame_visible()
+	_fit_to_content()
 
 
 func set_show_frame(enabled: bool) -> void:
@@ -81,6 +83,7 @@ func _build() -> void:
 	# StyleBoxFlat.content_margin does not pad children; inset the content root explicitly.
 	var pad: int = FRAME_CONTENT_INSET if show_frame else 8
 	var col := VBoxContainer.new()
+	_content = col
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, pad)
 	col.add_theme_constant_override("separation", 4)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -105,6 +108,7 @@ func _build() -> void:
 	_status_row.add_theme_constant_override("v_separation", 4)
 	_status_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(_status_row)
+	_fit_to_content()
 
 
 func _make_bar_block(caption: String, fill_color: Color, is_hp: bool) -> VBoxContainer:
@@ -261,6 +265,17 @@ static func _load_static(path: String) -> Texture2D:
 	if resource is Texture2D:
 		return resource as Texture2D
 	return load(FALLBACK_TEX) as Texture2D
+
+
+func _fit_to_content() -> void:
+	if _content == null:
+		return
+	var pad: float = float(FRAME_CONTENT_INSET if show_frame else 8)
+	var need: float = _content.get_combined_minimum_size().y + pad * 2.0
+	var width: float = maxf(custom_minimum_size.x, 232.0)
+	custom_minimum_size = Vector2(width, need)
+	if size.y < need:
+		size.y = need
 
 
 func _decorate() -> void:
