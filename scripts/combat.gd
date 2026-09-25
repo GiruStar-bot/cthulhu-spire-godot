@@ -65,15 +65,8 @@ static func _roll_next_action(e: Dictionary, rand: Callable) -> void:
 		card_ids.append(EnemyAi.roll_enemy_card(str(e.defId), rand).id)
 	e.actionCardIds = card_ids
 	e.intent = EnemyAi.card_to_intent(Cards.get_card(str(card_ids[0])))
-	if d.get("trait") == "liar":
-		var shown: Array = []
-		for i in n:
-			shown.append(EnemyAi.roll_enemy_card(str(e.defId), rand).id)
-		e.shownCardIds = shown
-		e.shownIntent = EnemyAi.card_to_intent(Cards.get_card(str(shown[0])))
-	else:
-		e.erase("shownCardIds")
-		e.erase("shownIntent")
+	e.erase("shownCardIds")
+	e.erase("shownIntent")
 
 
 ## combat.ts living()
@@ -106,6 +99,7 @@ static func _apply_to_enemy(e: Dictionary, raw: int, c: Dictionary, rand: Callab
 	e.hp = maxi(0, int(e.hp) - hp)
 	c.floaters.append(_floater("-%d" % n, "dmg", str(e.uid)))
 	_maybe_split(e, c, rand)
+	_maybe_call_deep_ones(e, c, rand)
 	return n
 
 
@@ -124,6 +118,74 @@ static func _maybe_split(e: Dictionary, c: Dictionary, rand: Callable = Callable
 	c.enemies.append(clone)
 	c.log.append("%sが分かれた。" % Enemies.get_enemy(str(e.defId)).name)
 	c.floaters.append(_floater("分裂", "info", str(e.uid)))
+
+
+## 深みの父（trait "tide"）：HP50%以下で一度だけ、溺れた眷属を呼ぶ。
+const DEEP_ONES_CALL_COUNT := 1
+static func _maybe_call_deep_ones(e: Dictionary, c: Dictionary, rand: Callable = Callable()) -> void:
+	if Enemies.get_enemy(str(e.defId)).get("trait") != "tide":
+		return
+	if e.get("deepOnesCalled") or int(e.hp) <= 0 or int(e.hp) > float(e.maxHp) / 2.0:
+		return
+	e.deepOnesCalled = true
+	var roll: Callable = rand if rand.is_valid() else func(): return 0.5
+	for i in DEEP_ONES_CALL_COUNT:
+		c.enemies.append(make_enemy("drowned", int(c.floor), roll))
+	c.log.append("深きものどもが集う。")
+	c.floaters.append(_floater("召喚", "info", str(e.uid)))
+
+
+## 深みの父（trait "tide"）：3の倍数ターンは満潮。次のターンが満潮なら、行動1枚目を大海嘯に差し替えて予告する。
+## 敵の行動を引き直した直後（ターン番号を進める前）に呼ぶ。
+const TIDE_PERIOD := 3
+const TIDE_CARD_ID := "great_surge"
+
+
+static func _rise_tide(c: Dictionary) -> void:
+	var next_turn: int = int(c.turn) + 1
+	if next_turn % TIDE_PERIOD != 0:
+		return
+	for e in living(c):
+		if Enemies.get_enemy(str(e.defId)).get("trait") != "tide":
+			continue
+		var ids: Array = e.actionCardIds
+		if ids.size() == 0:
+			ids.append(TIDE_CARD_ID)
+		else:
+			ids[0] = TIDE_CARD_ID
+		e.actionCardIds = ids
+		e.intent = EnemyAi.card_to_intent(Cards.get_card(TIDE_CARD_ID))
+		c.log.append("潮が満ちてくる。")
+		c.floaters.append(_floater("満潮", "info", str(e.uid)))
+
+
+## 風に乗りて歩むもの（trait "windwalker"）：毎ターン、プレイヤーの寒気を+1。
+static func _windwalker_chill(c: Dictionary) -> void:
+	for e in living(c):
+		if Enemies.get_enemy(str(e.defId)).get("trait") != "windwalker":
+			continue
+		c.cold = int(c.cold) + 1
+		c.log.append("風が冷たさを増す。")
+		c.floaters.append(_floater("寒気+1", "info", "player"))
+
+
+## 風に乗りて歩むものの「空へ攫う」：敵の行動時は手札が空なので、次のドロー後に手札から奪う。
+## 奪ったカードは snatched に移すだけ（この戦闘の間だけ使えない。GameState.deck には触れない）。
+static func _resolve_snatch(c: Dictionary, rand: Callable) -> void:
+	var pending: int = int(c.get("snatchPending", 0))
+	c.snatchPending = 0
+	var by: String = str(c.get("snatchBy", ""))
+	for i in pending:
+		if c.hand.size() == 0:
+			break
+		var idx := int(floor(rand.call() * float(c.hand.size())))
+		var gone = c.hand.pop_at(idx)
+		var snatched: Array = c.get("snatched", [])
+		snatched.append(gone)
+		c.snatched = snatched
+		c.log.append("%sが《%s》を空へ攫った。" % [by, Cards.get_card(str(gone.defId)).get("name", "")])
+		c.floaters.append(_floater("攫", "info", "player"))
+	_recalc_hand_presence(c)
 
 
 static func _incoming(raw: int, c: Dictionary) -> int:
@@ -507,6 +569,8 @@ static func start_combat(deck: Array, enemy_ids: Array, player: Dictionary, floo
 		"draw": draw,
 		"discard": [],
 		"exhaust": [],
+		"snatched": [],  ## 「空へ攫う」で奪われたカード（この戦闘の間だけ手元から消える）
+		"snatchPending": 0,
 		"hand": [],
 		"energy": base_energy + int(player.get("extraEnergyNext", 0)) + int(eq.get("energyPerTurn", 0)),
 		"maxEnergy": base_energy,
@@ -1237,6 +1301,16 @@ static func _apply_enemy_intent(intent: Dictionary, e: Dictionary, c: Dictionary
 	if intent.get("seal"):
 		c.sealed = intent.seal
 		c.log.append("%sが%sを封じた。" % [Enemies.get_enemy(str(e.defId)).name, "攻撃" if intent.seal == "attack" else "技能"])
+	if intent.get("cold"):
+		c.cold = int(c.cold) + int(intent.cold)
+		c.log.append("%sに寒気%dを与えられた。" % [Enemies.get_enemy(str(e.defId)).name, int(intent.cold)])
+	for add in intent.get("addToDraw", []):
+		for i in int(add.get("n", 1)):
+			_insert_into_draw(c, _spawn_combat_card(str(add.get("id", ""))), rand)
+		c.log.append("%sが%sを山札に混ぜた。" % [Enemies.get_enemy(str(e.defId)).name, Cards.get_card(str(add.get("id", ""))).get("name", "")])
+	if intent.get("snatch"):
+		c.snatchPending = int(c.get("snatchPending", 0)) + int(intent.snatch)
+		c.snatchBy = Enemies.get_enemy(str(e.defId)).name
 
 
 static func _enemy_act(e: Dictionary, c: Dictionary, player: Dictionary, rand: Callable, sfx: Array) -> void:
@@ -1291,15 +1365,6 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 	if int(c.vulnerable) > 0:
 		c.vulnerable = int(c.vulnerable) - 1
 	c.sealed = null
-	var has_bell := false
-	for e in living(c):
-		if Enemies.get_enemy(str(e.defId)).get("trait") == "bell":
-			has_bell = true
-			break
-	if has_bell and int(c.block) > 0:
-		c.log.append("鐘がブロックを砕いた。")
-		c.floaters.append(_floater("破", "info", "player"))
-		c.block = 0
 	if int(c.cold) > 0:
 		player.hp = maxi(1, int(player.hp) - int(c.cold))
 		c.floaters.append(_floater("-%d" % int(c.cold), "dmg", "player"))
@@ -1334,9 +1399,14 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 			e.vulnerable = int(e.vulnerable) - 1
 		_roll_next_action(e, rand)
 	_maybe_choir(c, rand)
+	## 毒などで削れた分もここで拾う（被弾時は _apply_to_enemy 側で判定済み）
+	for e in living(c):
+		_maybe_call_deep_ones(e, c, rand)
 	_check_over(c, player)
 	if c.result != "ongoing":
 		return sfx
+	_windwalker_chill(c)
+	_rise_tide(c)
 	if int(c.intangible) > 0:
 		c.intangible = int(c.intangible) - 1
 	var reflect: int = int(c.blockLost) if c.pendingPhase else 0
@@ -1378,6 +1448,7 @@ static func end_turn(c: Dictionary, player: Dictionary, rand: Callable) -> Array
 				_apply_to_enemy(tgt2, reflect, c, rand)
 				c.log.append("遅延した力が還る。")
 	draw_cards(c, draw_n, rand, player)
+	_resolve_snatch(c, rand)
 	_check_over(c, player)
 	return sfx
 
@@ -1427,9 +1498,9 @@ static func encounter_ids(kind: String, floor: int, rand: Callable, bias: Array 
 		if floor >= 80:
 			return ["nyar"]
 		if floor >= 70:
-			return ["bell"]
+			return ["dagon"]
 		if floor >= 60:
-			return ["warden"]
+			return ["ithaqua"]
 		if floor >= 50:
 			return ["herald"]
 		if floor >= 40:

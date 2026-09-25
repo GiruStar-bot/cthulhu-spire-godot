@@ -935,6 +935,153 @@ const CARDS := {
 			},
 		],
 	},
+	## dagon（70階ボス「深みの父」）。大海嘯は満潮ターン専用（tideOnly：通常の抽選に出ない）。
+	"great_surge": {
+		"id": "great_surge",
+		"name": "大海嘯",
+		"type": "attack",
+		"aiTag": "attack",
+		"cost": 2,
+		"sell_price": 20,
+		"drop_weight": 9,
+		"owner": "shared",
+		"enemyOnly": true,
+		"unobtainable": true,  ## 敵専用の効果タグを持つので、デバッグ全配布・HUBにも出さない
+		"tideOnly": true,
+		"text": "22ダメージ。満潮のときにだけ放たれる。",
+		"upgradedText": "22ダメージ。満潮のときにだけ放たれる。",
+		"flavor": "海が、街ごと呑みに来る。",
+		"art": "res://art/pixel/cards/great_surge.jpg",
+		"target": "enemy",
+		"effects": [
+			{"t": "damage", "n": 22},
+		],
+		"upgradedEffects": [
+			{"t": "damage", "n": 22},
+		],
+	},
+	"abyss_grasp": {
+		"id": "abyss_grasp",
+		"name": "深淵の掌",
+		"type": "attack",
+		"aiTag": "attack",
+		"cost": 1,
+		"sell_price": 20,
+		"drop_weight": 9,
+		"owner": "shared",
+		"enemyOnly": true,
+		"unobtainable": true,  ## 敵専用の効果タグを持つので、デバッグ全配布・HUBにも出さない
+		"text": "9ダメージ。脆弱2を与える。",
+		"upgradedText": "9ダメージ。脆弱2を与える。",
+		"flavor": "底から伸びる手は、決して離さない。",
+		"art": "res://art/pixel/cards/abyss_grasp.jpg",
+		"target": "enemy",
+		"effects": [
+			{"t": "damage", "n": 9},
+			{"t": "vulnerable", "n": 2},
+		],
+		"upgradedEffects": [
+			{"t": "damage", "n": 9},
+			{"t": "vulnerable", "n": 2},
+		],
+	},
+	"brine_hide": {
+		"id": "brine_hide",
+		"name": "塩の外皮",
+		"type": "skill",
+		"aiTag": "defense",
+		"cost": 1,
+		"sell_price": 20,
+		"drop_weight": 9,
+		"owner": "shared",
+		"enemyOnly": true,
+		"unobtainable": true,  ## 敵専用の効果タグを持つので、デバッグ全配布・HUBにも出さない
+		"text": "ブロック18を得る。",
+		"upgradedText": "ブロック18を得る。",
+		"flavor": "千年の塩が、鱗の上で固まっている。",
+		"art": "res://art/pixel/cards/brine_hide.jpg",
+		"target": "enemy",
+		"effects": [
+			{"t": "block", "n": 18},
+		],
+		"upgradedEffects": [
+			{"t": "block", "n": 18},
+		],
+	},
+	## ithaqua（60階ボス「風に乗りて歩むもの」）。
+	"sky_snatch": {
+		"id": "sky_snatch",
+		"name": "空へ攫う",
+		"type": "attack",
+		"aiTag": "attack",
+		"cost": 1,
+		"sell_price": 20,
+		"drop_weight": 9,
+		"owner": "shared",
+		"enemyOnly": true,
+		"unobtainable": true,  ## 敵専用の効果タグを持つので、デバッグ全配布・HUBにも出さない
+		"text": "8ダメージ。手札からランダムに1枚を、この戦闘のあいだ奪い去る。",
+		"upgradedText": "8ダメージ。手札からランダムに1枚を、この戦闘のあいだ奪い去る。",
+		"flavor": "風が、手の中のものを連れていく。",
+		"art": "res://art/pixel/cards/sky_snatch.jpg",
+		"target": "enemy",
+		"effects": [
+			{"t": "damage", "n": 8},
+			{"t": "snatchHand", "n": 1},
+		],
+		"upgradedEffects": [
+			{"t": "damage", "n": 8},
+			{"t": "snatchHand", "n": 1},
+		],
+	},
+	"frost_breath": {
+		"id": "frost_breath",
+		"name": "凍てつく息",
+		"type": "skill",
+		"aiTag": "effect",
+		"cost": 1,
+		"sell_price": 20,
+		"drop_weight": 9,
+		"owner": "shared",
+		"enemyOnly": true,
+		"unobtainable": true,  ## 敵専用の効果タグを持つので、デバッグ全配布・HUBにも出さない
+		"text": "寒気2を与える。山札に凍傷を1枚混ぜる。",
+		"upgradedText": "寒気2を与える。山札に凍傷を1枚混ぜる。",
+		"flavor": "吐息ひとつで、肺の奥まで凍りつく。",
+		"art": "res://art/pixel/cards/frost_breath.jpg",
+		"target": "enemy",
+		"effects": [
+			{"t": "inflictCold", "n": 2},
+			{"t": "addStatusToDraw", "id": "frostbite", "n": 1},
+		],
+		"upgradedEffects": [
+			{"t": "inflictCold", "n": 2},
+			{"t": "addStatusToDraw", "id": "frostbite", "n": 1},
+		],
+	},
+	"gale_claw": {
+		"id": "gale_claw",
+		"name": "疾風の爪",
+		"type": "attack",
+		"aiTag": "attack",
+		"cost": 1,
+		"sell_price": 20,
+		"drop_weight": 9,
+		"owner": "shared",
+		"enemyOnly": true,
+		"unobtainable": true,  ## 敵専用の効果タグを持つので、デバッグ全配布・HUBにも出さない
+		"text": "6ダメージを2回。",
+		"upgradedText": "6ダメージを2回。",
+		"flavor": "見えたときには、もう二度裂かれている。",
+		"art": "res://art/pixel/cards/gale_claw.jpg",
+		"target": "enemy",
+		"effects": [
+			{"t": "damage", "n": 6, "hits": 2},
+		],
+		"upgradedEffects": [
+			{"t": "damage", "n": 6, "hits": 2},
+		],
+	},
 	"pricewisdom": {
 		"id": "pricewisdom",
 		"name": "千貌の代償",
@@ -1961,6 +2108,10 @@ const _AI_TRANSLATABLE := [
 	"poison",
 	"addDread",
 	"heal",
+	## 敵専用（dagon／ithaqua）
+	"inflictCold",
+	"addStatusToDraw",
+	"snatchHand",
 ]
 
 const _AI_EXCLUDED_IDS := [
@@ -2073,6 +2224,8 @@ static func ai_card_pool_from(deck_ids: Array, tag: String) -> Array:
 		if c.get("type") == "status" or c.get("type") == "power":
 			continue
 		if c.get("aiTag") != tag:
+			continue
+		if c.get("tideOnly"):  ## 満潮ターンに差し込む専用カード。通常の抽選には出さない
 			continue
 		if _has_translatable_effect(c):
 			out.append(c)

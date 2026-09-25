@@ -7,6 +7,8 @@ extends Control
 
 const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
+## 山札・捨て札ボタンの描画順。HudPanel/LogPanel（z=30）と揃え、敵の立ち絵（EnemyRow z=1）より手前に出す
+const PILE_BUTTON_Z := 30
 const DISSOLVE_SHADER := preload("res://scenes/combat/enemy_dissolve.gdshader")
 const DISSOLVE_NOISE := preload("res://art/pixel/ui/dissolve_noise.png")
 const VERTIGO_SHADER := preload("res://scenes/combat/screen_vertigo.gdshader")
@@ -322,6 +324,7 @@ func _refresh_hud() -> void:
 		"strength": int(state.get("strength", 0)),
 		"weak": int(state.get("weak", 0)),
 		"poison": int(state.get("poison", 0)),
+		"cold": int(state.get("cold", 0)),
 		"sealed": sealed_raw,
 		"powers": state.get("powers", []),
 		"shells": GameState.shells,
@@ -1118,6 +1121,8 @@ func _build_chrome() -> void:
 	_draw_btn.position = Vector2(12, 184)
 	_draw_btn.size = Vector2(110, 36)
 	_draw_btn.pressed.connect(func(): _open_pile("draw"))
+	## 敵の立ち絵（EnemyRow, z=1）が横に広いと重なるので、HUDと同じ層で手前に描く
+	_draw_btn.z_index = PILE_BUTTON_Z
 	add_child(_draw_btn)
 
 	_discard_btn = PIXEL_BUTTON.instantiate() as Button
@@ -1125,6 +1130,7 @@ func _build_chrome() -> void:
 	_discard_btn.position = Vector2(130, 184)
 	_discard_btn.size = Vector2(120, 36)
 	_discard_btn.pressed.connect(func(): _open_pile("discard"))
+	_discard_btn.z_index = PILE_BUTTON_Z
 	add_child(_discard_btn)
 
 

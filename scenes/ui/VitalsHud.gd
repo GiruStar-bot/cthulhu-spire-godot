@@ -24,6 +24,7 @@ const ENERGY_CAP := 5
 const ENERGY_BOX := 12.0
 const ACCENT := Color("3aa39a")
 const BLOOD := Color("c45c4a")
+const FROST := Color("9fd3ec")
 const MUTED := Color("9a917f")
 const PARCHMENT := Color("ede4d0")
 const INK_TRACK := Color("161512")
@@ -174,6 +175,13 @@ func _rebuild_status(data: Dictionary) -> void:
 			_status_row.add_child(make_icon_stat(ICON_WEAK, str(weak), BLOOD))
 		if poison > 0:
 			_status_row.add_child(make_icon_stat(ICON_POISON, str(poison), ACCENT))
+		## 寒気（ターン終了時にその値だけHPを失う。非致死）。専用アイコンが無いので文字で出す
+		var cold: int = int(data.get("cold", 0))
+		if cold > 0:
+			var cold_lab := _make_label(FROST, 11)
+			cold_lab.text = "寒気%d" % cold
+			cold_lab.autowrap_mode = TextServer.AUTOWRAP_OFF
+			_status_row.add_child(cold_lab)
 		var sealed_raw = data.get("sealed", "")
 		var sealed: String = ""
 		if sealed_raw != null:

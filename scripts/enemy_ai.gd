@@ -62,6 +62,8 @@ static func card_to_intent(card: Dictionary) -> Dictionary:
 		if t == "damage" or t == "damageAll" or t == "damageX":
 			intent.kind = "attack"
 			intent.damage = int(intent.get("damage", 0)) + int(eff.get("n", 0))
+			if eff.has("hits"):
+				intent.hits = int(eff.get("hits", 1))
 		if t == "block" or t == "blockPerEnemy":
 			if intent.kind != "attack":
 				intent.kind = "defend"
@@ -99,6 +101,21 @@ static func card_to_intent(card: Dictionary) -> Dictionary:
 			intent.kind = "debuff"
 		if t == "eihortCurseOnHit":
 			intent.eihortCurse = true
+		## 以下は敵専用（ithaqua）の効果タグ
+		if t == "inflictCold":
+			intent.cold = int(intent.get("cold", 0)) + int(eff.get("n", 0))
+			if intent.kind == "unknown":
+				intent.kind = "debuff"
+		if t == "addStatusToDraw":
+			var adds: Array = intent.get("addToDraw", [])
+			adds.append({"id": str(eff.get("id", "")), "n": int(eff.get("n", 1))})
+			intent.addToDraw = adds
+			if intent.kind == "unknown":
+				intent.kind = "debuff"
+		if t == "snatchHand":
+			intent.snatch = int(intent.get("snatch", 0)) + int(eff.get("n", 1))
+			if intent.kind == "unknown":
+				intent.kind = "debuff"
 	if intent.kind == "unknown":
 		intent.kind = "buff"
 	return intent
