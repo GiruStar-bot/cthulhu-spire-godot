@@ -1381,7 +1381,8 @@ func _ensure_sanity_fx() -> void:
 	add_child(_sanity_fx)
 	_sanity_fx.hit_shown.connect(_on_sanity_hit_shown)
 	## 低い正気度の触手：段階1＝ターン終了ボタン、2＝ログ、3＝HUD
-	_sanity_fx.set_tendril_panels({"end_turn": end_turn_button, "log": log_panel, "hud": hud_panel})
+	## enemy_row：段階3の HUD の触手の背面をこの直前（背景の上・敵の絵の下）に差し込む
+	_sanity_fx.set_tendril_panels({"end_turn": end_turn_button, "log": log_panel, "hud": hud_panel, "enemy_row": enemy_row})
 
 
 ## 正気度の減少を理由別に読んで演出する。CombatLogic が c.sanityLossPaid / c.sanityLossHit に

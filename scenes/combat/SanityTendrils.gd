@@ -4,6 +4,7 @@ extends Control
 ## 低い正気度の触手（GDD v1.1 §5）。段階は累積：1＝ターン終了ボタン、2＝＋ログ、3＝＋HUD（先端に目）。
 ## アニメは段階が変わった瞬間だけ。SanityFx の子として置き、各パネルと同じ絶対 z で描く
 ## （ログは clip_contents なのでパネルの子にはしない）。素材が無い触手は描かない。
+## 段階3の HUD は前後 2 枚（HUD_SPLIT）。前面はここ（UI の上）、背面は戦闘の背景と敵の絵の間に置く。
 
 ## 段階が変わった瞬間に 1 回だけ（段階を飛ばしても 1 回、一番上の段階で）。音と合わせる用。
 signal changed(tier: int, duration: float, is_retract: bool)
@@ -21,6 +22,20 @@ const SPECS: Array[Dictionary] = [
 	{"tier": 3, "panel": "hud", "tex": "res://art/pixel/fx/sanity_tendril_hud.png",
 		"frame": Vector2i(80, 64), "corner": Vector2(0, 0), "anchor": Vector2i(4, 3)},
 ]
+## 段階3の HUD の触手を前後 2 枚に分けた素材（#93）。2 枚ともあれば SPECS の 1 枚の hud.png より優先する。
+##  front：今までの HUD の触手と同じ所（UI の上、HUD と同じ z）。先端の目もこちら。
+##  back ：戦闘の背景の上・敵の絵の下（panels["enemy_row"] の直前の兄弟）。UI はすべてこの上に描かれる。
+##  2 枚は 1 本の絵を列で分けたもの。同じコマ番号を出せば継ぎ目なくつながる（コマは front が決め、back は写すだけ）。
+##  コマの大きさ・コマ数・付け根・目の位置はここだけ。コマを広げる（160〜200px など）ときは数字を変えるだけでよい
+##  （付け根は左上基準なので、右へ広げるなら anchor はそのまま）。
+const HUD_SPLIT := {
+	"tier": 3, "panel": "hud",
+	"tex": "res://art/pixel/fx/sanity_tendril_hud_front.png",
+	"back_tex": "res://art/pixel/fx/sanity_tendril_hud_back.png",
+	"frame": Vector2i(128, 80), "frames": 14, "corner": Vector2(0, 0), "anchor": Vector2i(4, 3),
+	## 待機 A / B での目の左上（front の原寸 px）。成長 9〜11 は素材に描かれている
+	"eye_idle": [Vector2i(33, 1), Vector2i(34, 1)],
+}
 const TEX_EYE := "res://art/pixel/fx/sanity_eye.png"
 ## HUD の触手の目：待機コマ A/B での目の左上（素材の原寸 px。A は伸びきったコマと同じ位置）。
 ## 既定は描き直した素材（#92）。旧素材の位置も持ち、待機コマ A に sanity_eye.png の開いた目が
@@ -35,6 +50,7 @@ var _tier: int = 0
 var _frozen: bool = false
 var _panels: Dictionary = {}
 var _tendrils: Dictionary = {}  # tier -> SanityTendril
+var _specs: Dictionary = {}  # tier -> 実際に使っている spec（段階3は HUD_SPLIT か SPECS の hud）
 
 
 func _ready() -> void:
@@ -44,27 +60,76 @@ func _ready() -> void:
 	VideoSettings.get_instance().changed.connect(_on_reduce_motion_changed)
 
 
-## panels: {"end_turn": Control, "log": Control, "hud": Control}
+## panels: {"end_turn": Control, "log": Control, "hud": Control, "enemy_row": Control}
+## enemy_row は段階3の背面を差し込む位置（その直前の兄弟）。無ければ背面は前面のすぐ下に描く。
 func set_panels(panels: Dictionary) -> void:
 	clear()
 	_panels = panels
-	for spec in SPECS:
+	for base in SPECS:
+		var spec: Dictionary = resolve_spec(int(base.tier))
+		if spec.is_empty():
+			continue
 		var panel: Control = panels.get(spec.panel) as Control
 		var sheet: Texture2D = _tex(str(spec.tex))
 		if panel == null or sheet == null:
 			continue
 		var t := SanityTendril.new()
 		t.name = "Tendril_" + str(spec.panel)
-		t.setup(sheet, spec.frame, ART_SCALE)
+		t.setup(sheet, spec.frame, ART_SCALE, int(spec.get("frames", -1)))
 		t.z_as_relative = false
 		t.z_index = _absolute_z(panel)
 		if int(spec.tier) == 3:
 			var eyes: Array[Texture2D] = _eye_frames()
 			if not eyes.is_empty():
-				t.enable_eye(eyes, eye_pos_idle(sheet, spec.frame, t.grow_count()))
+				var cands: Array = [spec.eye_idle] if spec.has("eye_idle") else [EYE_POS_IDLE, EYE_POS_IDLE_OLD]
+				t.enable_eye(eyes, eye_pos_idle(sheet, spec.frame, t.grow_count(), cands))
 		add_child(t)
+		if spec.has("back_tex"):
+			var back: SanityTendril.Layer = t.add_layer(_tex(str(spec.back_tex)))
+			back.name = "Tendril_" + str(spec.panel) + "_back"
+			_attach_back(back, t, panels.get("enemy_row") as Control)
 		_tendrils[int(spec.tier)] = t
+		_specs[int(spec.tier)] = spec
 	_layout()
+
+
+## 段階ごとに使う spec。段階3は front/back が 2 枚ともあれば HUD_SPLIT、無ければ 1 枚の hud.png、
+## それも無ければ {}（その段階の触手は描かない）。
+func resolve_spec(tier: int) -> Dictionary:
+	if tier == int(HUD_SPLIT.tier) and _tex(str(HUD_SPLIT.tex)) != null and _tex(str(HUD_SPLIT.back_tex)) != null:
+		return HUD_SPLIT
+	for spec in SPECS:
+		if int(spec.tier) == tier:
+			return spec if _tex(str(spec.tex)) != null else {}
+	return {}
+
+
+## 実際に使っている spec（触手が無い段階は {}）
+func spec_for(tier: int) -> Dictionary:
+	return _specs.get(tier, {})
+
+
+## 段階の背面（無ければ null）
+func back_layer(tier: int) -> SanityTendril.Layer:
+	var t: SanityTendril = _tendrils.get(tier) as SanityTendril
+	return t.layer(0) if t != null else null
+
+
+## 背面を敵の絵の入れ物（EnemyRow）の直前の兄弟にする。z は相対 0（EnemyRow の親と同じ）なので、
+## 同じ z の背景・ベール・上端の暗がり・EnemyStage より後（上）、EnemyRow（z=1）とその中の敵の絵より下、
+## 後ろの兄弟（メッセージ、手札、ボタン等）より下になる。EnemyRow が無ければ前面の直前（同じ z）に置く。
+func _attach_back(back: Control, front: SanityTendril, enemy_row: Control) -> void:
+	if enemy_row != null and is_instance_valid(enemy_row) and enemy_row.get_parent() != null:
+		var parent: Node = enemy_row.get_parent()
+		parent.add_child(back)
+		parent.move_child(back, enemy_row.get_index())
+		back.z_as_relative = true
+		back.z_index = 0
+	else:
+		add_child(back)
+		move_child(back, front.get_index())
+		back.z_as_relative = false
+		back.z_index = front.z_index
 
 
 ## 段階の反映。上がったら新しく要る触手を同時に伸ばし、下がったら新しい段階より上だけ退かせる。
@@ -139,8 +204,10 @@ static func place_for(panel_rect: Rect2, spec: Dictionary) -> Vector2:
 func clear() -> void:
 	for node in _tendrils.values():
 		if is_instance_valid(node):
+			(node as SanityTendril).free_layers()
 			(node as Node).queue_free()
 	_tendrils.clear()
+	_specs.clear()
 	_tier = 0
 	_frozen = false
 
@@ -150,15 +217,17 @@ func _process(_delta: float) -> void:
 
 
 func _layout() -> void:
-	for spec in SPECS:
-		var node: SanityTendril = _tendrils.get(int(spec.tier)) as SanityTendril
+	for tier in _specs.keys():
+		var spec: Dictionary = _specs[tier]
+		var node: SanityTendril = _tendrils.get(tier) as SanityTendril
 		var panel: Control = _panels.get(spec.panel) as Control
-		if node == null or not node.visible:
+		if node == null or not is_instance_valid(node) or not node.visible:
 			continue
 		if panel == null or not is_instance_valid(panel) or not panel.is_inside_tree():
 			node.hide_now()
 			continue
 		node.global_position = place_for(panel.get_global_rect(), spec)
+		node.sync_layers()
 
 
 ## 素材から読んだ伸びる尺（無ければ 12fps のコマ数どおりの既定値）
@@ -169,15 +238,19 @@ func _duration(tier: int, grow: bool) -> float:
 	return full if grow else full / SanityTendril.RETRACT_SPEED
 
 
-## 待機コマ A（index grow）に開いた目が描かれている位置の組を返す。どちらも合わなければ既定（#92）。
-func eye_pos_idle(sheet: Texture2D, frame: Vector2i, grow: int) -> Array[Vector2i]:
+## 待機コマ A（index grow）に開いた目が描かれている位置の組を candidates から返す。
+## どれも合わなければ candidates の先頭（既定は 1 枚の hud.png 用：#92、旧素材）。
+func eye_pos_idle(sheet: Texture2D, frame: Vector2i, grow: int, candidates: Array = [EYE_POS_IDLE, EYE_POS_IDLE_OLD]) -> Array[Vector2i]:
 	var art: Image = _rgba(sheet)
 	var eye: Image = _rgba(_tex(TEX_EYE))
+	var out: Array[Vector2i] = []
 	if art != null and eye != null:
-		for cand: Array[Vector2i] in [EYE_POS_IDLE, EYE_POS_IDLE_OLD]:
-			if _eye_drawn_at(art, eye, Vector2i(grow * frame.x, 0) + cand[0]):
-				return cand
-	return EYE_POS_IDLE
+		for cand in candidates:
+			if _eye_drawn_at(art, eye, Vector2i(grow * frame.x, 0) + (cand as Array)[0]):
+				out.assign(cand)
+				return out
+	out.assign(candidates[0])
+	return out
 
 
 ## sanity_eye.png の 1 コマ目（開いた目）の不透明ピクセルが art の at にそのまま描かれているか
@@ -222,7 +295,8 @@ func _eye_frames() -> Array[Texture2D]:
 
 func _on_reduce_motion_changed(enabled: bool) -> void:
 	for node in _tendrils.values():
-		(node as SanityTendril).set_reduce_motion(enabled)
+		if is_instance_valid(node):
+			(node as SanityTendril).set_reduce_motion(enabled)
 
 
 static func _absolute_z(item: CanvasItem) -> int:
