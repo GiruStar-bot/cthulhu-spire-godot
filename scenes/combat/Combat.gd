@@ -278,9 +278,11 @@ func _check_result() -> void:
 		return
 	resolving = true
 	end_turn_button.disabled = true
-	## 戦闘が終わったら（敗北演出の開始を含む）持続音と四隅の縁取りを止める
+	## 戦闘が終わったら（敗北演出の開始を含む）持続音と四隅の縁取りを止める。
+	## 触手は勝利・逃走なら音なしで消し、敗北なら伸びきったコマで固めて敗北演出の間残す。
+	## 正気度0の敗北は 3 本とも出して固める（GDD §8）
 	if _sanity_fx != null and is_instance_valid(_sanity_fx):
-		_sanity_fx.stop_all()
+		_sanity_fx.stop_all(result == "win" or result == "fled", int(player.get("sanity", 1)) <= 0)
 	GameState.prune_run_deck()
 	if result == "win":
 		if GameState.note_boss_status_point(state):
@@ -1378,6 +1380,8 @@ func _ensure_sanity_fx() -> void:
 	_sanity_fx = SanityFx.new()
 	add_child(_sanity_fx)
 	_sanity_fx.hit_shown.connect(_on_sanity_hit_shown)
+	## 低い正気度の触手：段階1＝ターン終了ボタン、2＝ログ、3＝HUD
+	_sanity_fx.set_tendril_panels({"end_turn": end_turn_button, "log": log_panel, "hud": hud_panel})
 
 
 ## 正気度の減少を理由別に読んで演出する。CombatLogic が c.sanityLossPaid / c.sanityLossHit に
