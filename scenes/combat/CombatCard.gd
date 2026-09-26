@@ -44,13 +44,13 @@ const BODY_KEYWORDS := {"水": "water", "火": "fire", "地": "earth", "風": "w
 ## 効果テキストの収め方。フォントは下限 BODY_FONT_MIN まで縮め、フッターは
 ## 基準の高さから「イラストが残る上限」まで広げる。それでも溢れる分は clip で止める。
 const BODY_FONT_MIN := 8
-const BODY_FONT_MAX := 13
+const BODY_FONT_MAX := 12
 const BODY_FONT_PER_PX := 12.0  ## 本文幅 12px ごとに 1pt（128幅カード≒9pt、拡大表示≒13pt）
-const FOOTER_BASE_H := 38.0
+const FOOTER_BASE_H := 33.0
 const FOOTER_MAX_RATIO := 0.6  ## ヘッダー下の領域のうちフッターが取れる割合の上限
 const BODY_PAD_X := 4.0
 const BODY_PAD_Y := 2.0
-const HEADER_H := 22.0
+const HEADER_H := 19.0
 const TAG_TONES := {
 	"attack": Color("6b1f22"),
 	"defense": Color("183c66"),
@@ -417,7 +417,7 @@ func _build() -> void:
 
 	_header = ColorRect.new()
 	_header.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_header.offset_bottom = 22
+	_header.offset_bottom = HEADER_H
 	_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_inner.add_child(_header)
 
@@ -426,8 +426,8 @@ func _build() -> void:
 	_title.offset_left = 4
 	_title.offset_top = 2
 	_title.offset_right = -36
-	_title.offset_bottom = 20
-	_title.add_theme_font_size_override("font_size", 11)
+	_title.offset_bottom = HEADER_H - 2.0
+	_title.add_theme_font_size_override("font_size", 10)
 	_title.add_theme_color_override("font_color", Color.WHITE)
 	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -438,8 +438,8 @@ func _build() -> void:
 	_type.offset_left = -40
 	_type.offset_top = 3
 	_type.offset_right = -4
-	_type.offset_bottom = 19
-	_type.add_theme_font_size_override("font_size", 8)
+	_type.offset_bottom = HEADER_H - 3.0
+	_type.add_theme_font_size_override("font_size", 7)
 	_type.add_theme_color_override("font_color", Color("e9dcc1"))
 	_type.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_type.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -447,8 +447,8 @@ func _build() -> void:
 
 	_art = TextureRect.new()
 	_art.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_art.offset_top = 22
-	_art.offset_bottom = -38
+	_art.offset_top = HEADER_H
+	_art.offset_bottom = -FOOTER_BASE_H
 	_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -456,16 +456,16 @@ func _build() -> void:
 	_inner.add_child(_art)
 
 	var cost_plate := ColorRect.new()
-	cost_plate.position = Vector2(4, 26)
+	cost_plate.position = Vector2(4, HEADER_H + 4.0)
 	cost_plate.size = Vector2(22, 22)
 	cost_plate.color = Color("161512")
 	cost_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_inner.add_child(cost_plate)
 
 	_cost = Label.new()
-	_cost.position = Vector2(4, 27)
+	_cost.position = Vector2(4, HEADER_H + 5.0)
 	_cost.size = Vector2(22, 20)
-	_cost.add_theme_font_size_override("font_size", 12)
+	_cost.add_theme_font_size_override("font_size", 11)
 	_cost.add_theme_color_override("font_color", Color.WHITE)
 	_cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
