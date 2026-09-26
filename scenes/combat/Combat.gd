@@ -77,6 +77,7 @@ var _hit_tweens: Dictionary = {}
 var _float_tweens: Dictionary = {}
 var _px_idle_tweens: Dictionary = {}
 var _px_cast_tweens: Dictionary = {}
+var _px_blink_tweens: Dictionary = {}
 var _px_acting: bool = false
 var _px_committed: bool = false
 var _px_seq: int = 0
@@ -593,6 +594,7 @@ func _start_enemy_dissolve(stage: Control, art: TextureRect) -> void:
 	_kill_float_tween(uid)
 	_kill_px_idle(uid)
 	_kill_px_cast(uid)
+	_kill_px_blink(uid)
 	_hide_px_fx(art)
 	_abandon_px_cast(uid)
 	art.set_meta("float_y", 0.0)
@@ -698,7 +700,9 @@ func _apply_enemy_portrait(art: TextureRect, def: Dictionary) -> void:
 		if fx_2 != null:
 			art.set_meta("px_fx_2", fx_2)
 		art.clip_contents = false
-		art.texture = _make_px_atlas(body_1, 0, Enemies.PX_BODY_W, Enemies.PX_BODY_H)
+		var dims: Dictionary = Enemies.px_dims(def)
+		art.set_meta("px_dims", dims)
+		art.texture = _make_px_atlas(body_1, 0, int(dims.bw), int(dims.bh))
 		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
 		if fx == null:
@@ -723,11 +727,22 @@ func _load_px_texture(path: String) -> Texture2D:
 	return loaded as Texture2D
 
 
+func _px_dims_of(art: TextureRect) -> Dictionary:
+	var d: Variant = art.get_meta("px_dims", null)
+	if d is Dictionary:
+		return d
+	return {
+		"bw": Enemies.PX_BODY_W, "bh": Enemies.PX_BODY_H, "top": Enemies.PX_FX_TOP,
+		"fw": Enemies.PX_FX_W, "fh": Enemies.PX_FX_H, "body_frames": Enemies.PX_FRAME_COUNT,
+	}
+
+
 func _make_px_atlas(sheet: Texture2D, frame: int, frame_w: int, frame_h: int) -> AtlasTexture:
 	var atlas := AtlasTexture.new()
 	atlas.atlas = sheet
 	atlas.filter_clip = true
-	var index: int = clampi(frame, 0, Enemies.PX_FRAME_COUNT - 1)
+	var frames: int = maxi(1, int(sheet.get_width() / frame_w))
+	var index: int = clampi(frame, 0, frames - 1)
 	atlas.region = Rect2(index * frame_w, 0, frame_w, frame_h)
 	return atlas
 
@@ -735,7 +750,8 @@ func _make_px_atlas(sheet: Texture2D, frame: int, frame_w: int, frame_h: int) ->
 func _assign_px_region(rect: TextureRect, sheet: Texture2D, frame: int, frame_w: int, frame_h: int) -> void:
 	if rect == null or sheet == null:
 		return
-	var index: int = clampi(frame, 0, Enemies.PX_FRAME_COUNT - 1)
+	var frames: int = maxi(1, int(sheet.get_width() / frame_w))
+	var index: int = clampi(frame, 0, frames - 1)
 	var atlas: AtlasTexture = rect.texture as AtlasTexture
 	if atlas == null or atlas.atlas != sheet:
 		rect.texture = _make_px_atlas(sheet, index, frame_w, frame_h)
@@ -756,8 +772,9 @@ func _set_px_pose(art: TextureRect, frame: int, variant: int, show_fx: bool) -> 
 		body = art.get_meta("px_body_1", null) as Texture2D
 	if body == null:
 		return
-	var index: int = clampi(frame, 0, Enemies.PX_FRAME_COUNT - 1)
-	_assign_px_region(art, body, index, Enemies.PX_BODY_W, Enemies.PX_BODY_H)
+	var dims: Dictionary = _px_dims_of(art)
+	var index: int = clampi(frame, 0, int(dims.body_frames) - 1)
+	_assign_px_region(art, body, index, int(dims.bw), int(dims.bh))
 	art.set_meta("px_frame", index)
 	art.set_meta("px_variant", use_variant)
 	var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
@@ -766,7 +783,7 @@ func _set_px_pose(art: TextureRect, frame: int, variant: int, show_fx: bool) -> 
 	var fx_sheet: Texture2D = art.get_meta("px_fx_%d" % use_variant, null) as Texture2D
 	if show_fx and fx_sheet != null:
 		fx.visible = true
-		_assign_px_region(fx, fx_sheet, index, Enemies.PX_FX_W, Enemies.PX_FX_H)
+		_assign_px_region(fx, fx_sheet, index, int(dims.fw), int(dims.fh))
 	else:
 		fx.visible = false
 
@@ -794,6 +811,7 @@ func _start_px_idle(uid: String, art: TextureRect) -> void:
 	tw.tween_interval(PX_IDLE_STEP)
 	tw.tween_callback(_toggle_px_idle.bind(uid))
 	_px_idle_tweens[uid] = tw
+	art.set_meta("px_blink_at", Time.get_ticks_msec() + randi_range(2500, 6000))
 
 
 func _toggle_px_idle(uid: String) -> void:
@@ -801,16 +819,55 @@ func _toggle_px_idle(uid: String) -> void:
 	if art == null or not is_instance_valid(art) or art.get_meta("dissolving", false):
 		return
 	var cur: int = int(art.get_meta("px_frame", 0))
-	_set_px_pose(art, 0 if cur == 1 else 1, 1, false)
+	if cur >= 8:
+		return
+	var nxt: int = 0 if cur == 1 else 1
+	_set_px_pose(art, nxt, 1, false)
+	if nxt != 0 or VideoSettings.is_reduce_motion():
+		return
+	var dims: Dictionary = _px_dims_of(art)
+	if int(dims.body_frames) < 10:
+		return
+	if Time.get_ticks_msec() < int(art.get_meta("px_blink_at", 0)):
+		return
+	_play_px_blink(uid, art)
 
 
 func _kill_px_idle(uid: String) -> void:
+	_kill_px_blink(uid)
 	if uid == "" or not _px_idle_tweens.has(uid):
 		return
 	var tw: Tween = _px_idle_tweens.get(uid) as Tween
 	_px_idle_tweens.erase(uid)
 	if tw != null and tw.is_valid():
 		tw.kill()
+
+
+func _kill_px_blink(uid: String) -> void:
+	if uid == "" or not _px_blink_tweens.has(uid):
+		return
+	var tw: Tween = _px_blink_tweens.get(uid) as Tween
+	_px_blink_tweens.erase(uid)
+	if tw != null and tw.is_valid():
+		tw.kill()
+
+
+func _play_px_blink(uid: String, art: TextureRect) -> void:
+	if VideoSettings.is_reduce_motion():
+		return
+	if art == null or not is_instance_valid(art) or art.get_meta("dissolving", false):
+		return
+	_kill_px_blink(uid)
+	var tw: Tween = art.create_tween()
+	tw.tween_callback(_set_px_pose.bind(art, 8, 1, false))
+	tw.tween_interval(0.06)
+	tw.tween_callback(_set_px_pose.bind(art, 9, 1, false))
+	tw.tween_interval(0.08)
+	tw.tween_callback(_set_px_pose.bind(art, 8, 1, false))
+	tw.tween_interval(0.06)
+	tw.tween_callback(_set_px_pose.bind(art, 0, 1, false))
+	_px_blink_tweens[uid] = tw
+	art.set_meta("px_blink_at", Time.get_ticks_msec() + randi_range(2500, 6000))
 
 
 func _kill_px_cast(uid: String) -> void:
@@ -825,6 +882,7 @@ func _kill_px_cast(uid: String) -> void:
 func _play_px_cast(uid: String, art: TextureRect, variant: int, delay: float, seq: int) -> void:
 	_kill_px_idle(uid)
 	_kill_px_cast(uid)
+	_kill_px_blink(uid)
 	_px_cast_open[uid] = true
 	var tw: Tween = art.create_tween()
 	if delay > 0.0:
@@ -1603,8 +1661,11 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	var drawn: Vector2
 	var px_step: int = 1
 	if art.get_meta("px_sprite", false):
-		px_step = maxi(1, int(floor(minf(art_box.x / float(Enemies.PX_BODY_W), art_box.y / float(Enemies.PX_BODY_H)))))
-		drawn = Vector2(float(Enemies.PX_BODY_W * px_step), float(Enemies.PX_BODY_H * px_step))
+		var dims: Dictionary = _px_dims_of(art)
+		var bw: float = float(dims.bw)
+		var bh: float = float(dims.bh)
+		px_step = maxi(1, int(floor(minf(art_box.x / bw, art_box.y / bh))))
+		drawn = Vector2(bw * float(px_step), bh * float(px_step))
 	else:
 		var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
 		drawn = tex_size * fitted
@@ -1651,9 +1712,10 @@ func _place_px_fx(art: TextureRect, step: int) -> void:
 	var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
 	if fx == null:
 		return
+	var dims: Dictionary = _px_dims_of(art)
 	var s: float = float(maxi(1, step))
-	fx.position = Vector2(0.0, -float(Enemies.PX_FX_TOP) * s)
-	fx.size = Vector2(float(Enemies.PX_FX_W) * s, float(Enemies.PX_FX_H) * s)
+	fx.position = Vector2(0.0, -float(dims.top) * s)
+	fx.size = Vector2(float(dims.fw) * s, float(dims.fh) * s)
 	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fx.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
