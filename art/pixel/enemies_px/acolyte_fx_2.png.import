@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dbs34kaaexqg"
-path="res://.godot/imported/fanatic.png-690f937cc3c6ccb48b8de3d0417b0eec.ctex"
+uid="uid://dylbbururibhd"
+path="res://.godot/imported/acolyte_fx_2.png-a6b0dc0fc6e34a76c517b818ded73f22.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/pixel/enemies_px/fanatic.png"
-dest_files=["res://.godot/imported/fanatic.png-690f937cc3c6ccb48b8de3d0417b0eec.ctex"]
+source_file="res://art/pixel/enemies_px/acolyte_fx_2.png"
+dest_files=["res://.godot/imported/acolyte_fx_2.png-a6b0dc0fc6e34a76c517b818ded73f22.ctex"]
 
 [params]
 
