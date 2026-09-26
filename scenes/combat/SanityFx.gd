@@ -246,13 +246,14 @@ func tendrils() -> SanityTendrils:
 ## 戦闘終了（勝利・敗北演出の開始）時：持続音を止め、以後は何も出さない（GDD §8）。
 ##  victory=true（勝利・逃走）：触手を音なしで消す。
 ##  victory=false（敗北）：見えている触手を伸びきったコマで固め、戦闘シーンが消えるまで残す（退く音なし）。
-func stop_all(victory: bool = true) -> void:
+##   sanity_zero=true（正気度0の敗北）なら段階に関係なく 3 本とも固めて出す。音は敗北の SFX に任せる。
+func stop_all(victory: bool = true, sanity_zero: bool = false) -> void:
 	_active = false
 	AudioManager.stop_sanity_drone()
 	if victory:
 		_tendrils.clear()
 	else:
-		_tendrils.freeze_all()
+		_tendrils.freeze_all(sanity_zero)
 	_tier = 0
 	_apply_desat()
 

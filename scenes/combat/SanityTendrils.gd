@@ -105,11 +105,12 @@ func show_tier_now(tier: int) -> void:
 
 ## 敗北時（GDD §8）：見えている触手を伸びきったコマで固め、戦闘シーンが消えるまで残す。
 ## 揺れ・瞬き・退く・音はなし。以後の段階の変化も無視する。
-func freeze_all() -> void:
+## all_tiers=true（正気度0の敗北）：段階に関係なく 3 本とも即座に出して固める（changed は出さない）。
+func freeze_all(all_tiers: bool = false) -> void:
 	_frozen = true
 	for node in _tendrils.values():
 		if is_instance_valid(node):
-			(node as SanityTendril).freeze()
+			(node as SanityTendril).freeze(all_tiers)
 	_layout()
 
 

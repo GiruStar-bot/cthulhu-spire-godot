@@ -117,10 +117,12 @@ func show_grown(reduce: bool) -> void:
 		_t = -1.0 / FPS
 
 
-## 敗北時：見えている触手を伸びきったコマで固める。以後は揺れも瞬きも退きもしない。
-func freeze() -> void:
-	if mode == Mode.HIDDEN or not visible:
+## 敗北時：伸びきったコマで固める（目は素材の開いた目のまま）。以後は揺れも瞬きも退きもしない。
+## show_hidden=true（正気度0の敗北）は隠れている触手も即座に出して固める。
+func freeze(show_hidden: bool = false) -> void:
+	if not show_hidden and (mode == Mode.HIDDEN or not visible):
 		return
+	visible = true
 	mode = Mode.FROZEN
 	_t = 0.0
 	_set_frame(_grow - 1)
