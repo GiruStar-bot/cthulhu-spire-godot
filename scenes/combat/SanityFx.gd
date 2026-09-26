@@ -304,6 +304,11 @@ func set_frame_panels(panels: Array[Control]) -> void:
 	_frames.set_tier(_tier if _active else 0, false)
 
 
+## 枠の染みがかぶってはいけない隣の要素の矩形を返す Callable（-> Array[Rect2]）。
+func set_frame_neighbor_source(source: Callable) -> void:
+	_frames.set_neighbor_source(source)
+
+
 func _apply_tier(animate: bool) -> void:
 	var tier: int = _tier
 	var reduce: bool = VideoSettings.is_reduce_motion()

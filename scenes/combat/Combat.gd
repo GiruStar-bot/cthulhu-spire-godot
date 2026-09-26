@@ -1381,6 +1381,7 @@ func _ensure_sanity_fx() -> void:
 	## 四隅の 3 つはパネルに隠れるので、低い正気度はパネルの枠にも出す
 	var framed: Array[Control] = [hud_panel, log_panel, end_turn_button]
 	_sanity_fx.set_frame_panels(framed)
+	_sanity_fx.set_frame_neighbor_source(_frame_neighbor_rects)
 
 
 ## 正気度の減少を理由別に読んで演出する。CombatLogic が c.sanityLossPaid / c.sanityLossHit に
@@ -1401,6 +1402,28 @@ func _run_sanity_fx(san_now: int) -> void:
 	_sanity_drop_from = Vector2(-1.0, -1.0)
 	if str(state.get("result", "ongoing")) == "ongoing":
 		_sanity_fx.set_sanity(san_now, int(player.get("maxSanity", 0)))
+
+
+## 枠の染みがかぶってはいけない隣の要素（手札、敵の行動予告・プレート、山札/捨て札ボタン）の画面上の矩形。
+func _frame_neighbor_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var items: Array[Node] = []
+	if hand_row:
+		items.append_array(hand_row.get_children())
+	if enemy_row:
+		for stage in enemy_row.get_children():
+			var plate: Node = stage.get_node_or_null("Plate")
+			if plate != null:
+				items.append_array(plate.get_children())
+	items.append_array([_draw_btn, _discard_btn])
+	for item in items:
+		if not is_instance_valid(item) or not (item is Control):
+			continue
+		var c := item as Control
+		if c.is_visible_in_tree() and not c.is_queued_for_deletion():
+			## 扇の手札は回転しているので、回転後の外接矩形で見る
+			out.append(c.get_global_transform() * Rect2(Vector2.ZERO, c.size))
+	return out
 
 
 func _on_sanity_hit_shown(crack_tex: Texture2D, shake: bool) -> void:
