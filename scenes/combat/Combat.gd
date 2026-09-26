@@ -604,13 +604,16 @@ func _kill_float_tween(uid: String) -> void:
 
 func _apply_enemy_portrait(art: TextureRect, def: Dictionary) -> void:
 	var sprite_path: String = str(def.get("sprite", ""))
-	if sprite_path != "" and FileAccess.file_exists(sprite_path):
-		var sheet: Texture2D = _load_texture_safe(sprite_path)
-		art.set_meta("px_sprite", true)
-		art.set_meta("px_sheet", sheet)
-		art.set_meta("px_frame", 0)
-		art.texture = _make_px_atlas(sheet, 0)
-		return
+	## 書き出し後は res:// の元PNGが無く .import だけになる。FileAccess.file_exists は false になる。
+	if sprite_path != "" and ResourceLoader.exists(sprite_path, "Texture2D"):
+		var loaded: Resource = ResourceLoader.load(sprite_path, "Texture2D")
+		var sheet: Texture2D = loaded as Texture2D
+		if sheet != null:
+			art.set_meta("px_sprite", true)
+			art.set_meta("px_sheet", sheet)
+			art.set_meta("px_frame", 0)
+			art.texture = _make_px_atlas(sheet, 0)
+			return
 	art.set_meta("px_sprite", false)
 	art.texture = _load_texture_safe(str(def.get("art", "")))
 
