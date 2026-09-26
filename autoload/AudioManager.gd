@@ -46,6 +46,12 @@ const SFX_PATHS := {
 	"sanity_low_1": "res://audio/sfx/sfx_sanity_low_1.wav",
 	"sanity_low_2": "res://audio/sfx/sfx_sanity_low_2.wav",
 	"sanity_low_3": "res://audio/sfx/sfx_sanity_low_3.wav",
+	"sanity_tendril_1": "res://audio/sfx/sfx_sanity_tendril_1.wav",
+	"sanity_tendril_2": "res://audio/sfx/sfx_sanity_tendril_2.wav",
+	"sanity_tendril_3": "res://audio/sfx/sfx_sanity_tendril_3.wav",
+	"sanity_tendril_retract_1": "res://audio/sfx/sfx_sanity_tendril_retract_1.wav",
+	"sanity_tendril_retract_2": "res://audio/sfx/sfx_sanity_tendril_retract_2.wav",
+	"sanity_tendril_retract_3": "res://audio/sfx/sfx_sanity_tendril_retract_3.wav",
 	## パック開封（音楽くん / pack-open）
 	"pack_idle": "res://audio/sfx/sfx_pack_idle.wav",
 	"pack_shake": "res://audio/sfx/sfx_pack_shake.wav",
@@ -437,6 +443,31 @@ func play_sanity_sfx(cue: String) -> bool:
 	_sanity_sfx_player.stop()
 	_sanity_sfx_player.stream = stream
 	_sanity_sfx_player.play()
+	return true
+
+
+var _sanity_tendril_player: AudioStreamPlayer
+
+
+## 触手の音。SanityFx の tendril_changed(tier, duration, is_retract) から呼ぶ。
+## tier（1〜3）と is_retract でキーを選ぶ。duration は選択に使わない（尺は素材側で合わせてある）。
+## 段階を飛ばした時は呼び出し側が一番上の tier で 1 回だけ呼ぶ。
+## sanity_hit と同時に鳴るので、sanity_pay/hit とは別のプレイヤーで重ねる。連続時は鳴らし直す。
+func play_sanity_tendril(tier: int, _duration: float = 0.0, is_retract: bool = false) -> bool:
+	if tier < 1 or tier > 3:
+		return false
+	var cue: String = ("sanity_tendril_retract_%d" if is_retract else "sanity_tendril_%d") % tier
+	var stream: AudioStream = _sanity_stream(cue)
+	if stream == null:
+		return false
+	if _sanity_tendril_player == null:
+		_sanity_tendril_player = AudioStreamPlayer.new()
+		_sanity_tendril_player.name = "SanityTendrilPlayer"
+		_sanity_tendril_player.bus = SFX_BUS
+		add_child(_sanity_tendril_player)
+	_sanity_tendril_player.stop()
+	_sanity_tendril_player.stream = stream
+	_sanity_tendril_player.play()
 	return true
 
 
