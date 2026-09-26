@@ -60,7 +60,7 @@ const EXPLORE_DESTINATIONS := [
 	{
 		"id": "dreamland",
 		"name": "夢幻郷",
-		"pos": Vector2(0.41, 0.50),
+		"pos": Vector2(0.406, 0.345),
 		"art": "res://art/pixel/ui/map_obj_dreamland.png",
 		"marker": Vector2(92, 182),
 		"map": "dream",
