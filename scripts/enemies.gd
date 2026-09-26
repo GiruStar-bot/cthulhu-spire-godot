@@ -3,12 +3,18 @@ extends RefCounted
 
 ## combat.ts が import する getEnemy() のため、enemies.ts のカタログ＋getEnemy を最小移植。
 
+## ドット立ち絵シート。1コマ 80×144、横8コマ（0待機A 1待機B 2〜7カード使用）。
+const PX_FRAME_W := 80
+const PX_FRAME_H := 144
+const PX_FRAME_COUNT := 8
+
 const ENEMIES := {
 	"acolyte": {
 		"id": "acolyte",
 		"name": "侍祭",
 		"art": "res://art/pixel/acolyte.png",
 		"poster": "res://art/pixel/acolyte.png",
+		"sprite": "res://art/pixel/enemies_px/acolyte.png",
 		"biome": "shrine",
 		"maxHp": 32,
 		"archetype": "fanatic",
@@ -18,6 +24,7 @@ const ENEMIES := {
 		"name": "狂信者",
 		"art": "res://art/pixel/fanatic.png",
 		"poster": "res://art/pixel/fanatic.png",
+		"sprite": "res://art/pixel/enemies_px/fanatic.png",
 		"biome": "shrine",
 		"maxHp": 42,
 		"tier": "elite",
@@ -126,6 +133,7 @@ const ENEMIES := {
 		"name": "尖塔の大司祭",
 		"art": "res://art/pixel/priest.png",
 		"poster": "res://art/pixel/priest.png",
+		"sprite": "res://art/pixel/enemies_px/priest.png",
 		"biome": "shrine",
 		"maxHp": 168,
 		"archetype": "fanatic",
