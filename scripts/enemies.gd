@@ -138,6 +138,7 @@ const ENEMIES := {
 		"art": "res://art/pixel/priest.png",
 		"poster": "res://art/pixel/priest.png",
 		"sprite": "res://art/pixel/enemies_px/priest",
+		"px": {"body_w": 91, "body_h": 162, "fx_top": 48, "body_frames": 10},
 		"biome": "shrine",
 		"maxHp": 168,
 		"archetype": "fanatic",
@@ -300,6 +301,22 @@ static func px_sheet_path(sprite_base: String, layer: String, variant: int) -> S
 		return ""
 	var n: int = 2 if variant >= 2 else 1
 	return "%s_%s_%d.png" % [sprite_base, layer, n]
+
+
+## キャラごとのドット立ち絵の寸法。def に "px" が無ければ既定（128x224、上64、8コマ）。
+static func px_dims(def: Dictionary) -> Dictionary:
+	var p: Dictionary = {}
+	var raw: Variant = def.get("px", {})
+	if raw is Dictionary:
+		p = raw
+	var bw: int = int(p.get("body_w", PX_BODY_W))
+	var bh: int = int(p.get("body_h", PX_BODY_H))
+	var top: int = int(p.get("fx_top", PX_FX_TOP))
+	return {
+		"bw": bw, "bh": bh, "top": top,
+		"fw": bw, "fh": bh + top,
+		"body_frames": int(p.get("body_frames", PX_FRAME_COUNT)),
+	}
 
 
 const BOSS_IDS := ["priest", "choir", "nurse", "flock", "herald", "ithaqua", "dagon", "nyar", "iha", "yog_sothoth"]
