@@ -42,6 +42,9 @@ const ENEMY_BOSS_H := 688.0
 const ENEMY_GROUND_SINGLE := 0.20
 const ENEMY_GROUND_DUAL := 0.14
 const ENEMY_BOSS_HP := 150
+const PX_IDLE_STEP := 0.5
+const PX_CAST_STAGGER := 0.2
+const PX_CAST_HOLDS: Array = [0.10, 0.18, 0.22, 0.20, 0.16, 0.26]
 
 @onready var hud_panel: VitalsHud = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
@@ -72,6 +75,8 @@ var _chrome_ready: bool = false
 var _death_fx_done: Dictionary = {}
 var _hit_tweens: Dictionary = {}
 var _float_tweens: Dictionary = {}
+var _px_idle_tweens: Dictionary = {}
+var _px_cast_tweens: Dictionary = {}
 var _prev_hp: int = -1
 var _prev_sanity: int = -1
 var _prev_block: int = -1
@@ -97,10 +102,17 @@ func _ready() -> void:
 		enemy_row.resized.connect(_layout_enemies)
 	if hand_row and not hand_row.resized.is_connected(_layout_fan):
 		hand_row.resized.connect(_layout_fan)
+	VideoSettings.get_instance().changed.connect(_on_px_reduce_motion)
 	_begin_combat()
 	_refresh()
 	call_deferred("_fit_log_label")
 	call_deferred("_layout_enemies")
+
+
+func _exit_tree() -> void:
+	var settings: VideoSettings = VideoSettings.get_instance()
+	if settings.changed.is_connected(_on_px_reduce_motion):
+		settings.changed.disconnect(_on_px_reduce_motion)
 
 
 func _input(event: InputEvent) -> void:
@@ -214,12 +226,16 @@ func _end_turn() -> void:
 	AudioManager.play_sfx("step")
 	var hp_before: int = int(player.hp)
 	var hand_before: int = int(state.hand.size()) if state.get("hand") else 0
+	var alive_before: Array = []
+	for foe in CombatLogic.living(state):
+		alive_before.append(str(foe.get("uid", "")))
 	var turn_sfx: Array = CombatLogic.end_turn(state, player, Callable(GameState, "_rand"))
 	GameState.apply_player_hook(player)
 	if state.get("eihortCursed", false):
 		state.erase("eihortCursed")
 		GameState.apply_eihort_curse()
 	_refresh()
+	_play_enemy_card_motions(alive_before)
 	AudioManager.play_cues(turn_sfx)
 	_play_draw_sfx(hand_before)
 	# 毒・冷気など、敵ヒット以外のHP減
@@ -414,6 +430,8 @@ func _refresh_enemies() -> void:
 			child.queue_free()
 			_enemy_art_by_uid.erase(uid)
 			_enemy_hit_by_uid.erase(uid)
+			_kill_px_idle(uid)
+			_kill_px_cast(uid)
 	if enemy_row.size.x >= 16.0 and enemy_row.size.y >= 16.0:
 		_layout_enemies()
 	else:
@@ -445,7 +463,7 @@ func _spawn_enemy_stage(e: Dictionary, dead: bool, dual: bool = false) -> Contro
 	art.stretch_mode = TextureRect.STRETCH_SCALE
 	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	art.texture = _load_texture_safe(str(def.get("art", "")))
+	_apply_enemy_portrait(art, def)
 	art.set_meta("dead", dead)
 	stage.add_child(art)
 	_enemy_art_by_uid[uid] = art
@@ -457,6 +475,8 @@ func _spawn_enemy_stage(e: Dictionary, dead: bool, dual: bool = false) -> Contro
 		plate.z_index = 12
 		stage.add_child(plate)
 		_enemy_hit_by_uid[uid] = art
+		if art.get_meta("px_sprite", false):
+			_start_px_idle(uid, art)
 	return stage
 
 
@@ -501,6 +521,8 @@ func _start_enemy_dissolve(stage: Control, art: TextureRect) -> void:
 	var uid: String = str(stage.get_meta("enemy_uid", ""))
 	_kill_hit_tween(uid)
 	_kill_float_tween(uid)
+	_kill_px_idle(uid)
+	_kill_px_cast(uid)
 	art.set_meta("float_y", 0.0)
 	art.modulate = Color.WHITE
 	art.self_modulate = Color.WHITE
@@ -581,6 +603,165 @@ func _kill_float_tween(uid: String) -> void:
 	if tw != null and is_instance_valid(tw):
 		tw.kill()
 
+
+func _apply_enemy_portrait(art: TextureRect, def: Dictionary) -> void:
+	var sprite_path: String = str(def.get("sprite", ""))
+	## 書き出し後は res:// の元PNGが無く .import だけになる。FileAccess.file_exists は false になる。
+	if sprite_path != "" and ResourceLoader.exists(sprite_path, "Texture2D"):
+		var loaded: Resource = ResourceLoader.load(sprite_path, "Texture2D")
+		var sheet: Texture2D = loaded as Texture2D
+		if sheet != null:
+			art.set_meta("px_sprite", true)
+			art.set_meta("px_sheet", sheet)
+			art.set_meta("px_frame", 0)
+			art.texture = _make_px_atlas(sheet, 0)
+			return
+	art.set_meta("px_sprite", false)
+	art.texture = _load_texture_safe(str(def.get("art", "")))
+
+
+func _make_px_atlas(sheet: Texture2D, frame: int) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = sheet
+	atlas.filter_clip = true
+	var index: int = clampi(frame, 0, Enemies.PX_FRAME_COUNT - 1)
+	atlas.region = Rect2(index * Enemies.PX_FRAME_W, 0, Enemies.PX_FRAME_W, Enemies.PX_FRAME_H)
+	return atlas
+
+
+func _set_px_frame(art: TextureRect, frame: int) -> void:
+	if art == null or not is_instance_valid(art):
+		return
+	if not art.get_meta("px_sprite", false):
+		return
+	var sheet: Texture2D = art.get_meta("px_sheet") as Texture2D
+	if sheet == null:
+		return
+	var index: int = clampi(frame, 0, Enemies.PX_FRAME_COUNT - 1)
+	var atlas: AtlasTexture = art.texture as AtlasTexture
+	if atlas == null or atlas.atlas != sheet:
+		art.texture = _make_px_atlas(sheet, index)
+	else:
+		atlas.region = Rect2(index * Enemies.PX_FRAME_W, 0, Enemies.PX_FRAME_W, Enemies.PX_FRAME_H)
+	art.set_meta("px_frame", index)
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+
+func _start_px_idle(uid: String, art: TextureRect) -> void:
+	_kill_px_idle(uid)
+	if art == null or not is_instance_valid(art):
+		return
+	if not art.get_meta("px_sprite", false) or art.get_meta("dissolving", false):
+		return
+	if VideoSettings.is_reduce_motion():
+		_set_px_frame(art, 0)
+		return
+	if int(art.get_meta("px_frame", 0)) > 1:
+		_set_px_frame(art, 0)
+	var tw: Tween = art.create_tween().set_loops()
+	tw.tween_interval(PX_IDLE_STEP)
+	tw.tween_callback(_toggle_px_idle.bind(uid))
+	_px_idle_tweens[uid] = tw
+
+
+func _toggle_px_idle(uid: String) -> void:
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art == null or not is_instance_valid(art) or art.get_meta("dissolving", false):
+		return
+	var cur: int = int(art.get_meta("px_frame", 0))
+	_set_px_frame(art, 0 if cur == 1 else 1)
+
+
+func _kill_px_idle(uid: String) -> void:
+	if uid == "" or not _px_idle_tweens.has(uid):
+		return
+	var tw: Tween = _px_idle_tweens.get(uid) as Tween
+	_px_idle_tweens.erase(uid)
+	if tw != null and tw.is_valid():
+		tw.kill()
+
+
+func _kill_px_cast(uid: String) -> void:
+	if uid == "" or not _px_cast_tweens.has(uid):
+		return
+	var tw: Tween = _px_cast_tweens.get(uid) as Tween
+	_px_cast_tweens.erase(uid)
+	if tw != null and tw.is_valid():
+		tw.kill()
+
+
+func _play_enemy_card_motions(alive_before: Array) -> void:
+	if VideoSettings.is_reduce_motion():
+		return
+	var still_alive: Dictionary = {}
+	for foe in CombatLogic.living(state):
+		var foe_uid: String = str(foe.get("uid", ""))
+		still_alive[foe_uid] = true
+	var slot: int = 0
+	for uid in alive_before:
+		var uid_s: String = str(uid)
+		if not still_alive.has(uid_s):
+			continue
+		var art: TextureRect = _enemy_art_by_uid.get(uid_s) as TextureRect
+		if art == null or not is_instance_valid(art):
+			continue
+		if not art.get_meta("px_sprite", false) or art.get_meta("dissolving", false):
+			continue
+		_play_px_cast(uid_s, art, PX_CAST_STAGGER * float(slot))
+		slot += 1
+
+
+func _play_px_cast(uid: String, art: TextureRect, delay: float) -> void:
+	_kill_px_idle(uid)
+	_kill_px_cast(uid)
+	var tw: Tween = art.create_tween()
+	if delay > 0.0:
+		tw.tween_interval(delay)
+	var i: int = 0
+	while i < PX_CAST_HOLDS.size():
+		var frame: int = 2 + i
+		var hold: float = float(PX_CAST_HOLDS[i])
+		tw.tween_callback(_set_px_frame.bind(art, frame))
+		tw.tween_interval(hold)
+		i += 1
+	tw.tween_callback(_set_px_frame.bind(art, 0))
+	tw.tween_callback(_resume_px_idle.bind(uid))
+	_px_cast_tweens[uid] = tw
+
+
+func _resume_px_idle(uid: String) -> void:
+	_px_cast_tweens.erase(uid)
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art == null or not is_instance_valid(art) or art.get_meta("dissolving", false):
+		return
+	if VideoSettings.is_reduce_motion():
+		_set_px_frame(art, 0)
+		return
+	_start_px_idle(uid, art)
+
+
+func _on_px_reduce_motion(enabled: bool) -> void:
+	if enabled:
+		var idle_ids: Array = _px_idle_tweens.keys()
+		for uid in idle_ids:
+			_kill_px_idle(str(uid))
+		var cast_ids: Array = _px_cast_tweens.keys()
+		for uid2 in cast_ids:
+			_kill_px_cast(str(uid2))
+		for uid3 in _enemy_art_by_uid.keys():
+			var art: TextureRect = _enemy_art_by_uid[uid3] as TextureRect
+			if art != null and is_instance_valid(art) and art.get_meta("px_sprite", false):
+				_set_px_frame(art, 0)
+		return
+	for uid4 in _enemy_art_by_uid.keys():
+		var art2: TextureRect = _enemy_art_by_uid[uid4] as TextureRect
+		if art2 == null or not is_instance_valid(art2):
+			continue
+		if not art2.get_meta("px_sprite", false) or art2.get_meta("dissolving", false):
+			continue
+		if art2.get_meta("dead", false):
+			continue
+		_start_px_idle(str(uid4), art2)
 
 
 func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool) -> String:
@@ -1261,8 +1442,13 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 			max_h = minf(view.y * 0.78, ENEMY_BOSS_H)
 	var art_box := Vector2(maxf(64.0, max_w), maxf(64.0, max_h))
 
-	var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
-	var drawn: Vector2 = tex_size * fitted
+	var drawn: Vector2
+	if art.get_meta("px_sprite", false):
+		var step: int = maxi(1, int(floor(minf(art_box.x / float(Enemies.PX_FRAME_W), art_box.y / float(Enemies.PX_FRAME_H)))))
+		drawn = Vector2(float(Enemies.PX_FRAME_W * step), float(Enemies.PX_FRAME_H * step))
+	else:
+		var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
+		drawn = tex_size * fitted
 	var ground_ratio: float = ENEMY_GROUND_DUAL if count >= 2 else ENEMY_GROUND_SINGLE
 	var ground_y: float = area.y * (1.0 - ground_ratio)
 	var art_pos := Vector2((slot_w - drawn.x) * 0.5, ground_y - drawn.y)
