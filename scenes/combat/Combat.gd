@@ -35,10 +35,11 @@ const ENEMY_PLATE_W := 176.0
 const ENEMY_PLATE_W_DUAL := 148.0
 const ENEMY_PLATE_GAP := 8.0
 const ENEMY_CUTOUT_W := 688.0
-const ENEMY_CUTOUT_H := 608.0
+const ENEMY_CUTOUT_H := 640.0
 const ENEMY_CUTOUT_W_DUAL := 640.0
 const ENEMY_BOSS_W := 816.0
-const ENEMY_BOSS_H := 688.0
+const ENEMY_BOSS_H := 680.0
+const ENEMY_TOP_GUTTER := 24.0
 const ENEMY_GROUND_SINGLE := 0.20
 const ENEMY_GROUND_DUAL := 0.14
 const ENEMY_BOSS_HP := 150
@@ -1655,15 +1656,16 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	if count == 1:
 		if is_boss:
 			max_w = minf(view.x, ENEMY_BOSS_W)
-			max_h = minf(view.y * 0.78, ENEMY_BOSS_H)
+			max_h = minf(view.y * 0.74, ENEMY_BOSS_H)
 		else:
 			max_w = minf(view.x * 0.94, ENEMY_CUTOUT_W)
-			max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H)
+			max_h = minf(view.y * 0.72, ENEMY_CUTOUT_H)
 	else:
 		max_w = minf(slot_w * 0.98, minf(view.x * 0.80, ENEMY_CUTOUT_W_DUAL))
-		max_h = minf(view.y * 0.70, ENEMY_CUTOUT_H)
+		max_h = minf(view.y * 0.72, ENEMY_CUTOUT_H)
 		if is_boss:
-			max_h = minf(view.y * 0.78, ENEMY_BOSS_H)
+			max_h = minf(view.y * 0.74, ENEMY_BOSS_H)
+	max_h -= ENEMY_TOP_GUTTER
 	var art_box := Vector2(maxf(64.0, max_w), maxf(64.0, max_h))
 
 	var drawn: Vector2
@@ -1672,7 +1674,8 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		var dims: Dictionary = _px_dims_of(art)
 		var bw: float = float(dims.bw)
 		var bh: float = float(dims.bh)
-		px_step = maxi(1, int(floor(minf(art_box.x / bw, art_box.y / bh))))
+		var fit_h: float = float(dims.fh)
+		px_step = maxi(1, int(floor(minf(art_box.x / bw, art_box.y / fit_h))))
 		drawn = Vector2(bw * float(px_step), bh * float(px_step))
 	else:
 		var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
