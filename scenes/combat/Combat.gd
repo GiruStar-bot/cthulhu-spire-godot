@@ -734,6 +734,7 @@ func _px_dims_of(art: TextureRect) -> Dictionary:
 	return {
 		"bw": Enemies.PX_BODY_W, "bh": Enemies.PX_BODY_H, "top": Enemies.PX_FX_TOP,
 		"fw": Enemies.PX_FX_W, "fh": Enemies.PX_FX_H, "body_frames": Enemies.PX_FRAME_COUNT,
+		"cast_holds": [], "cast_fire": 6, "blink": false,
 	}
 
 
@@ -819,14 +820,15 @@ func _toggle_px_idle(uid: String) -> void:
 	if art == null or not is_instance_valid(art) or art.get_meta("dissolving", false):
 		return
 	var cur: int = int(art.get_meta("px_frame", 0))
-	if cur >= 8:
+	var dims: Dictionary = _px_dims_of(art)
+	var blink_on: bool = dims.get("blink", false) == true
+	if blink_on and cur >= 8:
 		return
 	var nxt: int = 0 if cur == 1 else 1
 	_set_px_pose(art, nxt, 1, false)
 	if nxt != 0 or VideoSettings.is_reduce_motion():
 		return
-	var dims: Dictionary = _px_dims_of(art)
-	if int(dims.body_frames) < 10:
+	if not blink_on:
 		return
 	if Time.get_ticks_msec() < int(art.get_meta("px_blink_at", 0)):
 		return
@@ -887,12 +889,18 @@ func _play_px_cast(uid: String, art: TextureRect, variant: int, delay: float, se
 	var tw: Tween = art.create_tween()
 	if delay > 0.0:
 		tw.tween_interval(delay)
+	var dims: Dictionary = _px_dims_of(art)
+	var holds: Array = PX_CAST_HOLDS
+	var holds_raw: Variant = dims.get("cast_holds", [])
+	if holds_raw is Array and not (holds_raw as Array).is_empty():
+		holds = holds_raw
+	var fire: int = int(dims.get("cast_fire", 6))
 	var i: int = 0
-	while i < PX_CAST_HOLDS.size():
+	while i < holds.size():
 		var frame: int = 2 + i
-		var hold: float = float(PX_CAST_HOLDS[i])
+		var hold: float = float(holds[i])
 		tw.tween_callback(_set_px_pose.bind(art, frame, variant, true))
-		if frame == 6:
+		if frame == fire:
 			tw.tween_callback(_on_px_frame6.bind(uid, seq))
 		tw.tween_interval(hold)
 		i += 1

@@ -29,6 +29,11 @@ const ENEMIES := {
 		"art": "res://art/pixel/fanatic.png",
 		"poster": "res://art/pixel/fanatic.png",
 		"sprite": "res://art/pixel/enemies_px/fanatic",
+		"px": {
+			"body_w": 96, "body_h": 156, "fx_top": 48, "body_frames": 10,
+			"cast_holds": [0.12, 0.16, 0.14, 0.22, 0.16, 0.16, 0.18, 0.24],
+			"cast_fire": 8,
+		},
 		"biome": "shrine",
 		"maxHp": 42,
 		"tier": "elite",
@@ -138,7 +143,7 @@ const ENEMIES := {
 		"art": "res://art/pixel/priest.png",
 		"poster": "res://art/pixel/priest.png",
 		"sprite": "res://art/pixel/enemies_px/priest",
-		"px": {"body_w": 91, "body_h": 162, "fx_top": 48, "body_frames": 10},
+		"px": {"body_w": 91, "body_h": 162, "fx_top": 48, "body_frames": 10, "blink": true},
 		"biome": "shrine",
 		"maxHp": 168,
 		"archetype": "fanatic",
@@ -303,7 +308,7 @@ static func px_sheet_path(sprite_base: String, layer: String, variant: int) -> S
 	return "%s_%s_%d.png" % [sprite_base, layer, n]
 
 
-## キャラごとのドット立ち絵の寸法。def に "px" が無ければ既定（128x224、上64、8コマ）。
+## キャラごとのドット立ち絵。def に "px" が無ければ既定（128x224、上64、8コマ、効果は6コマ目）。
 static func px_dims(def: Dictionary) -> Dictionary:
 	var p: Dictionary = {}
 	var raw: Variant = def.get("px", {})
@@ -312,10 +317,19 @@ static func px_dims(def: Dictionary) -> Dictionary:
 	var bw: int = int(p.get("body_w", PX_BODY_W))
 	var bh: int = int(p.get("body_h", PX_BODY_H))
 	var top: int = int(p.get("fx_top", PX_FX_TOP))
+	var holds: Array = []
+	var holds_raw: Variant = p.get("cast_holds", [])
+	if holds_raw is Array:
+		holds = holds_raw
+	var blink_raw: Variant = p.get("blink", false)
+	var blink_on: bool = blink_raw == true
 	return {
 		"bw": bw, "bh": bh, "top": top,
 		"fw": bw, "fh": bh + top,
 		"body_frames": int(p.get("body_frames", PX_FRAME_COUNT)),
+		"cast_holds": holds,
+		"cast_fire": int(p.get("cast_fire", 6)),
+		"blink": blink_on,
 	}
 
 
