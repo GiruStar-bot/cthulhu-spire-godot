@@ -28,6 +28,8 @@ const EYE_POS_IDLE: Array[Vector2i] = [Vector2i(47, 1), Vector2i(48, 1)]
 const EYE_LID_COLOR := Color("0b0f0e")
 
 var _tier: int = 0
+## 敗北で固めた後は段階の変化を受け付けない
+var _frozen: bool = false
 var _panels: Dictionary = {}
 var _tendrils: Dictionary = {}  # tier -> SanityTendril
 
@@ -66,7 +68,7 @@ func set_panels(panels: Dictionary) -> void:
 func set_tier(tier: int) -> void:
 	tier = clampi(tier, 0, SPECS.size())
 	var old: int = _tier
-	if tier == old:
+	if tier == old or _frozen:
 		return
 	_tier = tier
 	var reduce: bool = VideoSettings.is_reduce_motion()
@@ -84,6 +86,37 @@ func set_tier(tier: int) -> void:
 	changed.emit(top, _duration(top, grow), not grow)
 
 
+## 戦闘開始時の段階（前の戦闘から持ち越した正気度）。伸びるアニメも changed も音も出さず、
+## 段階ぶんの触手を伸びきったコマですぐ出して待機（reduce_motion は静止）。以後の set_tier はこの段階から。
+func show_tier_now(tier: int) -> void:
+	tier = clampi(tier, 0, SPECS.size())
+	if _frozen:
+		return
+	_tier = tier
+	var reduce: bool = VideoSettings.is_reduce_motion()
+	for t in _tendrils.keys():
+		var node: SanityTendril = _tendrils[t] as SanityTendril
+		if int(t) <= tier:
+			node.show_grown(reduce)
+		else:
+			node.hide_now()
+	_layout()
+
+
+## 敗北時（GDD §8）：見えている触手を伸びきったコマで固め、戦闘シーンが消えるまで残す。
+## 揺れ・瞬き・退く・音はなし。以後の段階の変化も無視する。
+func freeze_all() -> void:
+	_frozen = true
+	for node in _tendrils.values():
+		if is_instance_valid(node):
+			(node as SanityTendril).freeze()
+	_layout()
+
+
+func is_frozen() -> bool:
+	return _frozen
+
+
 func current_tier() -> int:
 	return _tier
 
@@ -98,13 +131,14 @@ static func place_for(panel_rect: Rect2, spec: Dictionary) -> Vector2:
 	return corner - Vector2(spec.anchor as Vector2i) * ART_SCALE
 
 
-## 勝敗が決まったとき・戦闘を出るとき：音を出さずに全部消す。
+## 勝ったとき（と逃げられたとき）・パネルを付け直すとき：音を出さずに全部消す。
 func clear() -> void:
 	for node in _tendrils.values():
 		if is_instance_valid(node):
 			(node as Node).queue_free()
 	_tendrils.clear()
 	_tier = 0
+	_frozen = false
 
 
 func _process(_delta: float) -> void:

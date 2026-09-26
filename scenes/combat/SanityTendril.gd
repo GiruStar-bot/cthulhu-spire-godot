@@ -4,8 +4,10 @@ extends TextureRect
 ## 触手 1 本（SanityTendrils が作る）。横 1 列のシート：伸びるコマ → 最後に待機 2 コマ。
 ## 伸びる：12fps で 1 回、待機：2 コマを 0.5 秒ずつ交互（1px の揺れは素材に描かれている）、
 ## 退く：伸びるコマを逆順に 2 倍速で流して消える。reduce_motion ON は伸びきったコマで止め、退くときは即消す。
+## 固める（敗北時）：伸びきったコマで止めたまま残す。揺れ・瞬き・退くはもう無い（GDD §8）。
+## 持ち越し（低い段階のまま次の戦闘へ）：伸びるアニメなしで伸びきったコマから出し、そのまま待機へ。
 
-enum Mode { HIDDEN, GROW, IDLE, STATIC, RETRACT }
+enum Mode { HIDDEN, GROW, IDLE, STATIC, RETRACT, FROZEN }
 
 const FPS := 12.0
 const RETRACT_SPEED := 2.0
@@ -87,6 +89,8 @@ func eye_node() -> TextureRect:
 
 
 func play_grow(reduce: bool) -> void:
+	if mode == Mode.FROZEN:
+		return
 	visible = true
 	_t = 0.0
 	if reduce:
@@ -98,8 +102,37 @@ func play_grow(reduce: bool) -> void:
 	_reset_blink()
 
 
+## 前の戦闘から持ち越した段階：伸びるアニメなしで伸びきったコマをすぐ出し、1 コマ分おいて待機へ
+## （reduce_motion ON は伸びきったコマで静止）。
+func show_grown(reduce: bool) -> void:
+	visible = true
+	_set_frame(_grow - 1)
+	_reset_blink()
+	if reduce:
+		mode = Mode.STATIC
+		_t = 0.0
+	else:
+		mode = Mode.IDLE
+		## 負の間は伸びきったコマのまま（瞬きもしない）、0 から通常の待機
+		_t = -1.0 / FPS
+
+
+## 敗北時：見えている触手を伸びきったコマで固める。以後は揺れも瞬きも退きもしない。
+func freeze() -> void:
+	if mode == Mode.HIDDEN or not visible:
+		return
+	mode = Mode.FROZEN
+	_t = 0.0
+	_set_frame(_grow - 1)
+	_reset_blink()
+
+
+func is_frozen() -> bool:
+	return mode == Mode.FROZEN
+
+
 func play_retract(reduce: bool) -> void:
-	if mode == Mode.HIDDEN:
+	if mode == Mode.HIDDEN or mode == Mode.FROZEN:
 		return
 	if reduce:
 		hide_now()
@@ -143,6 +176,8 @@ func _process(delta: float) -> void:
 			else:
 				_set_frame(mini(int(_t * FPS), _grow - 1))
 		Mode.IDLE:
+			if _t < 0.0:
+				return
 			_set_frame(_grow + (int(_t / IDLE_STEP) % IDLE_FRAMES))
 			_tick_blink(delta)
 		Mode.RETRACT:

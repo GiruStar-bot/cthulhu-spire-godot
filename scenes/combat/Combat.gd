@@ -278,9 +278,10 @@ func _check_result() -> void:
 		return
 	resolving = true
 	end_turn_button.disabled = true
-	## 戦闘が終わったら（敗北演出の開始を含む）持続音と四隅の縁取りを止める
+	## 戦闘が終わったら（敗北演出の開始を含む）持続音と四隅の縁取りを止める。
+	## 触手は勝利・逃走なら音なしで消し、敗北なら伸びきったコマで固めて敗北演出の間残す（GDD §8）
 	if _sanity_fx != null and is_instance_valid(_sanity_fx):
-		_sanity_fx.stop_all()
+		_sanity_fx.stop_all(result == "win" or result == "fled")
 	GameState.prune_run_deck()
 	if result == "win":
 		if GameState.note_boss_status_point(state):

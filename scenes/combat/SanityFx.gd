@@ -39,6 +39,8 @@ const EDGE_FALLBACK_FRAC := 0.07
 const DESAT_BY_TIER: Array[float] = [0.0, 0.06, 0.12, 0.18]
 
 var _active: bool = true
+## 最初の set_sanity（戦闘開始時の状態）を済ませたか
+var _started: bool = false
 var _tier: int = 0
 var _desat: ColorRect
 var _desat_mat: ShaderMaterial
@@ -212,11 +214,19 @@ func play_loss(paid: int, hit: int, drop_from: Vector2, gauge_rect: Rect2) -> vo
 
 ## 今の正気度から「低い状態」の段階を反映（触手・彩度・持続音）。段階が下がる時も同じく戻す。
 ## 持続音のクロスフェードと触手（と音）は同じ呼び出しの中で同時に始まる。
+## 最初の 1 回は戦闘開始時の状態（前の戦闘から持ち越した段階）：触手は伸びきった形ですぐ出し、
+## tendril_changed も触手の音も出さない（GDD §8。段階は変わっていないため）。持続音は通常どおり。
 func set_sanity(sanity: int, max_sanity: int) -> void:
 	if not _active:
 		return
 	var tier: int = SanityTiers.tier_for(sanity, max_sanity)
 	AudioManager.play_sanity_drone(tier)
+	if not _started:
+		_started = true
+		_tier = tier
+		_tendrils.show_tier_now(tier)
+		_apply_desat()
+		return
 	if tier == _tier:
 		return
 	_tier = tier
@@ -233,12 +243,17 @@ func tendrils() -> SanityTendrils:
 	return _tendrils
 
 
-## 戦闘終了（勝利・敗北演出の開始）時：持続音と触手を止め（音は出さない）、以後は何も出さない。
-func stop_all() -> void:
+## 戦闘終了（勝利・敗北演出の開始）時：持続音を止め、以後は何も出さない（GDD §8）。
+##  victory=true（勝利・逃走）：触手を音なしで消す。
+##  victory=false（敗北）：見えている触手を伸びきったコマで固め、戦闘シーンが消えるまで残す（退く音なし）。
+func stop_all(victory: bool = true) -> void:
 	_active = false
 	AudioManager.stop_sanity_drone()
+	if victory:
+		_tendrils.clear()
+	else:
+		_tendrils.freeze_all()
 	_tier = 0
-	_tendrils.clear()
 	_apply_desat()
 
 
