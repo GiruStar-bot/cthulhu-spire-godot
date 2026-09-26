@@ -77,6 +77,12 @@ var _hit_tweens: Dictionary = {}
 var _float_tweens: Dictionary = {}
 var _px_idle_tweens: Dictionary = {}
 var _px_cast_tweens: Dictionary = {}
+var _px_acting: bool = false
+var _px_committed: bool = false
+var _px_seq: int = 0
+var _px_cast_open: Dictionary = {}
+var _px_frame6_uids: Dictionary = {}
+var _px_frame6_need: int = 0
 var _prev_hp: int = -1
 var _prev_sanity: int = -1
 var _prev_block: int = -1
@@ -110,6 +116,9 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	_px_seq += 1
+	_px_acting = false
+	_px_committed = true
 	var settings: VideoSettings = VideoSettings.get_instance()
 	if settings.changed.is_connected(_on_px_reduce_motion):
 		settings.changed.disconnect(_on_px_reduce_motion)
@@ -179,7 +188,7 @@ func _apply_biome_art(enemy_ids: Array) -> void:
 
 
 func _on_end_turn_pressed() -> void:
-	if resolving or state.is_empty():
+	if _px_acting or resolving or state.is_empty():
 		return
 	if state.get("phase") != "player" or state.get("result") != "ongoing":
 		return
@@ -187,7 +196,7 @@ func _on_end_turn_pressed() -> void:
 
 
 func _play_card(card_uid: String, target_id) -> void:
-	if resolving or state.get("phase") != "player" or state.get("result") != "ongoing":
+	if _px_acting or resolving or state.get("phase") != "player" or state.get("result") != "ongoing":
 		return
 	var selected_card = _find_hand(card_uid)
 	var card_type := str(Cards.get_card(str(selected_card.defId)).get("type", "skill")) if selected_card else "skill"
@@ -222,20 +231,30 @@ func _play_card(card_uid: String, target_id) -> void:
 
 
 func _end_turn() -> void:
+	if _px_acting:
+		return
+	_px_committed = false
+	var actors: Array = _px_acting_sprites()
+	if actors.is_empty() or VideoSettings.is_reduce_motion():
+		_commit_end_turn()
+		return
+	_begin_px_card_motions(actors)
+
+
+func _commit_end_turn() -> void:
+	if _px_committed or not is_inside_tree():
+		return
+	_px_committed = true
 	targeting_uid = ""
 	AudioManager.play_sfx("step")
 	var hp_before: int = int(player.hp)
 	var hand_before: int = int(state.hand.size()) if state.get("hand") else 0
-	var alive_before: Array = []
-	for foe in CombatLogic.living(state):
-		alive_before.append(str(foe.get("uid", "")))
 	var turn_sfx: Array = CombatLogic.end_turn(state, player, Callable(GameState, "_rand"))
 	GameState.apply_player_hook(player)
 	if state.get("eihortCursed", false):
 		state.erase("eihortCursed")
 		GameState.apply_eihort_curse()
 	_refresh()
-	_play_enemy_card_motions(alive_before)
 	AudioManager.play_cues(turn_sfx)
 	_play_draw_sfx(hand_before)
 	# 毒・冷気など、敵ヒット以外のHP減
@@ -243,6 +262,57 @@ func _end_turn() -> void:
 	if int(player.hp) < hp_before and not had_enemy_hit:
 		AudioManager.play_sfx("hurt_self")
 	_check_result()
+
+
+func _player_can_act() -> bool:
+	return state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving and not _px_acting
+
+
+func _px_acting_sprites() -> Array:
+	var actors: Array = []
+	for foe in CombatLogic.living(state):
+		if foe.get("bound"):
+			continue
+		var uid: String = str(foe.get("uid", ""))
+		var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+		if art == null or not is_instance_valid(art) or not art.get_meta("px_sprite", false):
+			continue
+		var raw: Variant = foe.get("actionCardIds", [])
+		var count: int = 0
+		if raw is Array:
+			count = (raw as Array).size()
+		actors.append({"uid": uid, "n": clampi(count, 1, 2)})
+	return actors
+
+
+func _begin_px_card_motions(actors: Array) -> void:
+	_px_acting = true
+	_px_committed = false
+	_px_seq += 1
+	_px_cast_open = {}
+	_px_frame6_uids = {}
+	_px_frame6_need = actors.size()
+	targeting_uid = ""
+	if _drag_uid != "":
+		_clear_drag()
+	if end_turn_button != null:
+		end_turn_button.disabled = true
+	_refresh_hand()
+	var seq: int = _px_seq
+	var slot: int = 0
+	for actor in actors:
+		var uid: String = str(actor.get("uid", ""))
+		var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+		if art == null or not is_instance_valid(art):
+			_px_frame6_uids[uid] = true
+			continue
+		_play_px_cast(uid, art, int(actor.get("n", 1)), PX_CAST_STAGGER * float(slot), seq)
+		slot += 1
+	if _px_frame6_need > 0 and _px_frame6_uids.size() >= _px_frame6_need and not _px_committed:
+		_commit_end_turn()
+	if _px_cast_open.is_empty() and _px_acting:
+		_px_acting = false
+		_refresh()
 
 
 
@@ -254,7 +324,7 @@ func _play_draw_sfx(hand_before: int) -> void:
 	for _i in range(gained):
 		AudioManager.play_sfx("paper_draw")
 func _on_hand_pressed(card_uid: String) -> void:
-	if resolving:
+	if _px_acting or resolving:
 		return
 	var card = _find_hand(card_uid)
 	if card == null:
@@ -274,7 +344,7 @@ func _on_hand_pressed(card_uid: String) -> void:
 
 
 func _on_enemy_pressed(enemy_uid: String) -> void:
-	if resolving:
+	if _px_acting or resolving:
 		return
 	if targeting_uid == "":
 		return
@@ -325,7 +395,7 @@ func _refresh() -> void:
 		_refresh_hand()
 	_show_new_floaters()
 	_run_player_hit_fx()
-	var player_turn: bool = state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving
+	var player_turn: bool = _player_can_act()
 	end_turn_button.disabled = not player_turn
 
 
@@ -523,6 +593,8 @@ func _start_enemy_dissolve(stage: Control, art: TextureRect) -> void:
 	_kill_float_tween(uid)
 	_kill_px_idle(uid)
 	_kill_px_cast(uid)
+	_hide_px_fx(art)
+	_abandon_px_cast(uid)
 	art.set_meta("float_y", 0.0)
 	art.modulate = Color.WHITE
 	art.self_modulate = Color.WHITE
@@ -605,46 +677,106 @@ func _kill_float_tween(uid: String) -> void:
 
 
 func _apply_enemy_portrait(art: TextureRect, def: Dictionary) -> void:
-	var sprite_path: String = str(def.get("sprite", ""))
+	var sprite_base: String = str(def.get("sprite", ""))
 	## 書き出し後は res:// の元PNGが無く .import だけになる。FileAccess.file_exists は false になる。
-	if sprite_path != "" and ResourceLoader.exists(sprite_path, "Texture2D"):
-		var loaded: Resource = ResourceLoader.load(sprite_path, "Texture2D")
-		var sheet: Texture2D = loaded as Texture2D
-		if sheet != null:
-			art.set_meta("px_sprite", true)
-			art.set_meta("px_sheet", sheet)
-			art.set_meta("px_frame", 0)
-			art.texture = _make_px_atlas(sheet, 0)
-			return
+	var body_1: Texture2D = _load_px_texture(Enemies.px_sheet_path(sprite_base, "body", 1))
+	if body_1 != null:
+		var body_2: Texture2D = _load_px_texture(Enemies.px_sheet_path(sprite_base, "body", 2))
+		if body_2 == null:
+			body_2 = body_1
+		var fx_1: Texture2D = _load_px_texture(Enemies.px_sheet_path(sprite_base, "fx", 1))
+		var fx_2: Texture2D = _load_px_texture(Enemies.px_sheet_path(sprite_base, "fx", 2))
+		if fx_2 == null:
+			fx_2 = fx_1
+		art.set_meta("px_sprite", true)
+		art.set_meta("px_body_1", body_1)
+		art.set_meta("px_body_2", body_2)
+		art.set_meta("px_frame", 0)
+		art.set_meta("px_variant", 1)
+		if fx_1 != null:
+			art.set_meta("px_fx_1", fx_1)
+		if fx_2 != null:
+			art.set_meta("px_fx_2", fx_2)
+		art.clip_contents = false
+		art.texture = _make_px_atlas(body_1, 0, Enemies.PX_BODY_W, Enemies.PX_BODY_H)
+		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
+		if fx == null:
+			fx = TextureRect.new()
+			fx.name = "Fx"
+			art.add_child(fx)
+		fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fx.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		fx.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fx.stretch_mode = TextureRect.STRETCH_SCALE
+		fx.z_index = 2
+		fx.visible = false
+		return
 	art.set_meta("px_sprite", false)
 	art.texture = _load_texture_safe(str(def.get("art", "")))
 
 
-func _make_px_atlas(sheet: Texture2D, frame: int) -> AtlasTexture:
+func _load_px_texture(path: String) -> Texture2D:
+	if path == "" or not ResourceLoader.exists(path, "Texture2D"):
+		return null
+	var loaded: Resource = ResourceLoader.load(path, "Texture2D")
+	return loaded as Texture2D
+
+
+func _make_px_atlas(sheet: Texture2D, frame: int, frame_w: int, frame_h: int) -> AtlasTexture:
 	var atlas := AtlasTexture.new()
 	atlas.atlas = sheet
 	atlas.filter_clip = true
 	var index: int = clampi(frame, 0, Enemies.PX_FRAME_COUNT - 1)
-	atlas.region = Rect2(index * Enemies.PX_FRAME_W, 0, Enemies.PX_FRAME_W, Enemies.PX_FRAME_H)
+	atlas.region = Rect2(index * frame_w, 0, frame_w, frame_h)
 	return atlas
 
 
-func _set_px_frame(art: TextureRect, frame: int) -> void:
+func _assign_px_region(rect: TextureRect, sheet: Texture2D, frame: int, frame_w: int, frame_h: int) -> void:
+	if rect == null or sheet == null:
+		return
+	var index: int = clampi(frame, 0, Enemies.PX_FRAME_COUNT - 1)
+	var atlas: AtlasTexture = rect.texture as AtlasTexture
+	if atlas == null or atlas.atlas != sheet:
+		rect.texture = _make_px_atlas(sheet, index, frame_w, frame_h)
+	else:
+		atlas.region = Rect2(index * frame_w, 0, frame_w, frame_h)
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+
+func _set_px_pose(art: TextureRect, frame: int, variant: int, show_fx: bool) -> void:
 	if art == null or not is_instance_valid(art):
 		return
 	if not art.get_meta("px_sprite", false):
 		return
-	var sheet: Texture2D = art.get_meta("px_sheet") as Texture2D
-	if sheet == null:
+	var use_variant: int = 2 if variant >= 2 else 1
+	var body: Texture2D = art.get_meta("px_body_%d" % use_variant, null) as Texture2D
+	if body == null:
+		use_variant = 1
+		body = art.get_meta("px_body_1", null) as Texture2D
+	if body == null:
 		return
 	var index: int = clampi(frame, 0, Enemies.PX_FRAME_COUNT - 1)
-	var atlas: AtlasTexture = art.texture as AtlasTexture
-	if atlas == null or atlas.atlas != sheet:
-		art.texture = _make_px_atlas(sheet, index)
-	else:
-		atlas.region = Rect2(index * Enemies.PX_FRAME_W, 0, Enemies.PX_FRAME_W, Enemies.PX_FRAME_H)
+	_assign_px_region(art, body, index, Enemies.PX_BODY_W, Enemies.PX_BODY_H)
 	art.set_meta("px_frame", index)
-	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	art.set_meta("px_variant", use_variant)
+	var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
+	if fx == null:
+		return
+	var fx_sheet: Texture2D = art.get_meta("px_fx_%d" % use_variant, null) as Texture2D
+	if show_fx and fx_sheet != null:
+		fx.visible = true
+		_assign_px_region(fx, fx_sheet, index, Enemies.PX_FX_W, Enemies.PX_FX_H)
+	else:
+		fx.visible = false
+
+
+func _hide_px_fx(art: TextureRect) -> void:
+	if art == null or not is_instance_valid(art):
+		return
+	var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
+	if fx != null:
+		fx.visible = false
 
 
 func _start_px_idle(uid: String, art: TextureRect) -> void:
@@ -654,10 +786,10 @@ func _start_px_idle(uid: String, art: TextureRect) -> void:
 	if not art.get_meta("px_sprite", false) or art.get_meta("dissolving", false):
 		return
 	if VideoSettings.is_reduce_motion():
-		_set_px_frame(art, 0)
+		_set_px_pose(art, 0, 1, false)
 		return
-	if int(art.get_meta("px_frame", 0)) > 1:
-		_set_px_frame(art, 0)
+	if int(art.get_meta("px_frame", 0)) > 1 or int(art.get_meta("px_variant", 1)) != 1:
+		_set_px_pose(art, 0, 1, false)
 	var tw: Tween = art.create_tween().set_loops()
 	tw.tween_interval(PX_IDLE_STEP)
 	tw.tween_callback(_toggle_px_idle.bind(uid))
@@ -669,7 +801,7 @@ func _toggle_px_idle(uid: String) -> void:
 	if art == null or not is_instance_valid(art) or art.get_meta("dissolving", false):
 		return
 	var cur: int = int(art.get_meta("px_frame", 0))
-	_set_px_frame(art, 0 if cur == 1 else 1)
+	_set_px_pose(art, 0 if cur == 1 else 1, 1, false)
 
 
 func _kill_px_idle(uid: String) -> void:
@@ -690,30 +822,10 @@ func _kill_px_cast(uid: String) -> void:
 		tw.kill()
 
 
-func _play_enemy_card_motions(alive_before: Array) -> void:
-	if VideoSettings.is_reduce_motion():
-		return
-	var still_alive: Dictionary = {}
-	for foe in CombatLogic.living(state):
-		var foe_uid: String = str(foe.get("uid", ""))
-		still_alive[foe_uid] = true
-	var slot: int = 0
-	for uid in alive_before:
-		var uid_s: String = str(uid)
-		if not still_alive.has(uid_s):
-			continue
-		var art: TextureRect = _enemy_art_by_uid.get(uid_s) as TextureRect
-		if art == null or not is_instance_valid(art):
-			continue
-		if not art.get_meta("px_sprite", false) or art.get_meta("dissolving", false):
-			continue
-		_play_px_cast(uid_s, art, PX_CAST_STAGGER * float(slot))
-		slot += 1
-
-
-func _play_px_cast(uid: String, art: TextureRect, delay: float) -> void:
+func _play_px_cast(uid: String, art: TextureRect, variant: int, delay: float, seq: int) -> void:
 	_kill_px_idle(uid)
 	_kill_px_cast(uid)
+	_px_cast_open[uid] = true
 	var tw: Tween = art.create_tween()
 	if delay > 0.0:
 		tw.tween_interval(delay)
@@ -721,12 +833,49 @@ func _play_px_cast(uid: String, art: TextureRect, delay: float) -> void:
 	while i < PX_CAST_HOLDS.size():
 		var frame: int = 2 + i
 		var hold: float = float(PX_CAST_HOLDS[i])
-		tw.tween_callback(_set_px_frame.bind(art, frame))
+		tw.tween_callback(_set_px_pose.bind(art, frame, variant, true))
+		if frame == 6:
+			tw.tween_callback(_on_px_frame6.bind(uid, seq))
 		tw.tween_interval(hold)
 		i += 1
-	tw.tween_callback(_set_px_frame.bind(art, 0))
+	tw.tween_callback(_set_px_pose.bind(art, 0, 1, false))
 	tw.tween_callback(_resume_px_idle.bind(uid))
+	tw.tween_callback(_on_px_cast_done.bind(uid, seq))
 	_px_cast_tweens[uid] = tw
+
+
+func _on_px_frame6(uid: String, seq: int) -> void:
+	if seq != _px_seq or not is_inside_tree() or _px_committed:
+		return
+	if _px_frame6_uids.has(uid):
+		return
+	_px_frame6_uids[uid] = true
+	if _px_frame6_need > 0 and _px_frame6_uids.size() >= _px_frame6_need:
+		_commit_end_turn()
+
+
+func _on_px_cast_done(uid: String, seq: int) -> void:
+	if seq != _px_seq or not is_inside_tree():
+		return
+	_px_cast_tweens.erase(uid)
+	if not _px_cast_open.erase(uid):
+		return
+	if _px_cast_open.is_empty() and _px_acting:
+		_px_acting = false
+		_refresh()
+
+
+func _abandon_px_cast(uid: String) -> void:
+	if uid == "" or not _px_cast_open.has(uid):
+		return
+	_px_cast_open.erase(uid)
+	if not _px_frame6_uids.has(uid) and not _px_committed:
+		_px_frame6_uids[uid] = true
+		if _px_frame6_need > 0 and _px_frame6_uids.size() >= _px_frame6_need:
+			_commit_end_turn()
+	if _px_cast_open.is_empty() and _px_acting and is_inside_tree():
+		_px_acting = false
+		call_deferred("_refresh")
 
 
 func _resume_px_idle(uid: String) -> void:
@@ -735,23 +884,32 @@ func _resume_px_idle(uid: String) -> void:
 	if art == null or not is_instance_valid(art) or art.get_meta("dissolving", false):
 		return
 	if VideoSettings.is_reduce_motion():
-		_set_px_frame(art, 0)
+		_set_px_pose(art, 0, 1, false)
 		return
 	_start_px_idle(uid, art)
 
 
 func _on_px_reduce_motion(enabled: bool) -> void:
 	if enabled:
+		_px_seq += 1
 		var idle_ids: Array = _px_idle_tweens.keys()
 		for uid in idle_ids:
 			_kill_px_idle(str(uid))
 		var cast_ids: Array = _px_cast_tweens.keys()
 		for uid2 in cast_ids:
 			_kill_px_cast(str(uid2))
+		_px_cast_open.clear()
 		for uid3 in _enemy_art_by_uid.keys():
 			var art: TextureRect = _enemy_art_by_uid[uid3] as TextureRect
 			if art != null and is_instance_valid(art) and art.get_meta("px_sprite", false):
-				_set_px_frame(art, 0)
+				_set_px_pose(art, 0, 1, false)
+		if _px_acting and not _px_committed:
+			_px_acting = false
+			_commit_end_turn()
+		elif _px_acting:
+			_px_acting = false
+			if is_inside_tree():
+				_refresh()
 		return
 	for uid4 in _enemy_art_by_uid.keys():
 		var art2: TextureRect = _enemy_art_by_uid[uid4] as TextureRect
@@ -779,7 +937,7 @@ func _enemy_label(def: Dictionary, e: Dictionary, intent: Dictionary, dead: bool
 func _refresh_hand() -> void:
 	if _drag_uid != "":
 		return
-	var player_turn: bool = state.get("phase") == "player" and state.get("result") == "ongoing" and not resolving
+	var player_turn: bool = _player_can_act()
 	var desired: Array = state.get("hand", [])
 	var desired_uids: Dictionary = {}
 	for card in desired:
@@ -962,7 +1120,7 @@ func _on_drag_began(card_uid: String) -> void:
 			if child.get_meta("draw_in", false) == true:
 				return
 			break
-	if resolving or _drag_uid != "" or state.is_empty():
+	if resolving or _px_acting or _drag_uid != "" or state.is_empty():
 		return
 	if state.get("phase") != "player" or state.get("result") != "ongoing":
 		return
@@ -1443,9 +1601,10 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	var art_box := Vector2(maxf(64.0, max_w), maxf(64.0, max_h))
 
 	var drawn: Vector2
+	var px_step: int = 1
 	if art.get_meta("px_sprite", false):
-		var step: int = maxi(1, int(floor(minf(art_box.x / float(Enemies.PX_FRAME_W), art_box.y / float(Enemies.PX_FRAME_H)))))
-		drawn = Vector2(float(Enemies.PX_FRAME_W * step), float(Enemies.PX_FRAME_H * step))
+		px_step = maxi(1, int(floor(minf(art_box.x / float(Enemies.PX_BODY_W), art_box.y / float(Enemies.PX_BODY_H)))))
+		drawn = Vector2(float(Enemies.PX_BODY_W * px_step), float(Enemies.PX_BODY_H * px_step))
 	else:
 		var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
 		drawn = tex_size * fitted
@@ -1484,6 +1643,19 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 			var plate_y: float = maxf(8.0, area.y * 0.16)
 			_place_unanchored(plate, Vector2(plate_x, plate_y), Vector2(plate_w, plate_h))
 	_place_unanchored(art, art_pos, drawn)
+	if art.get_meta("px_sprite", false):
+		_place_px_fx(art, px_step)
+
+
+func _place_px_fx(art: TextureRect, step: int) -> void:
+	var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
+	if fx == null:
+		return
+	var s: float = float(maxi(1, step))
+	fx.position = Vector2(0.0, -float(Enemies.PX_FX_TOP) * s)
+	fx.size = Vector2(float(Enemies.PX_FX_W) * s, float(Enemies.PX_FX_H) * s)
+	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
 func _place_unanchored(node: Control, pos: Vector2, node_size: Vector2) -> void:

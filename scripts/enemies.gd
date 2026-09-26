@@ -3,9 +3,13 @@ extends RefCounted
 
 ## combat.ts が import する getEnemy() のため、enemies.ts のカタログ＋getEnemy を最小移植。
 
-## ドット立ち絵シート。1コマ 80×144、横8コマ（0待機A 1待機B 2〜7カード使用）。
-const PX_FRAME_W := 80
-const PX_FRAME_H := 144
+## ドット立ち絵。本体1コマ128×224、効果1コマ128×288（上64は頭上の余白）。横8コマ。
+## 0待機A 1待機B 2〜7カード使用。sprite は接頭辞で、実ファイルは <sprite>_body_1.png など。
+const PX_BODY_W := 128
+const PX_BODY_H := 224
+const PX_FX_W := 128
+const PX_FX_H := 288
+const PX_FX_TOP := 64
 const PX_FRAME_COUNT := 8
 
 const ENEMIES := {
@@ -14,7 +18,7 @@ const ENEMIES := {
 		"name": "侍祭",
 		"art": "res://art/pixel/acolyte.png",
 		"poster": "res://art/pixel/acolyte.png",
-		"sprite": "res://art/pixel/enemies_px/acolyte.png",
+		"sprite": "res://art/pixel/enemies_px/acolyte",
 		"biome": "shrine",
 		"maxHp": 32,
 		"archetype": "fanatic",
@@ -24,7 +28,7 @@ const ENEMIES := {
 		"name": "狂信者",
 		"art": "res://art/pixel/fanatic.png",
 		"poster": "res://art/pixel/fanatic.png",
-		"sprite": "res://art/pixel/enemies_px/fanatic.png",
+		"sprite": "res://art/pixel/enemies_px/fanatic",
 		"biome": "shrine",
 		"maxHp": 42,
 		"tier": "elite",
@@ -133,7 +137,7 @@ const ENEMIES := {
 		"name": "尖塔の大司祭",
 		"art": "res://art/pixel/priest.png",
 		"poster": "res://art/pixel/priest.png",
-		"sprite": "res://art/pixel/enemies_px/priest.png",
+		"sprite": "res://art/pixel/enemies_px/priest",
 		"biome": "shrine",
 		"maxHp": 168,
 		"archetype": "fanatic",
@@ -288,6 +292,14 @@ static func get_enemy(id: String) -> Dictionary:
 		push_error("Unknown enemy %s" % id)
 		return {}
 	return ENEMIES[id]
+
+
+## layer は "body" か "fx"。variant は 1（1枚）か 2（2枚同時）。
+static func px_sheet_path(sprite_base: String, layer: String, variant: int) -> String:
+	if sprite_base == "":
+		return ""
+	var n: int = 2 if variant >= 2 else 1
+	return "%s_%s_%d.png" % [sprite_base, layer, n]
 
 
 const BOSS_IDS := ["priest", "choir", "nurse", "flock", "herald", "ithaqua", "dagon", "nyar", "iha", "yog_sothoth"]
