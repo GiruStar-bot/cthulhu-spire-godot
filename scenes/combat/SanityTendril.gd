@@ -6,6 +6,31 @@ extends TextureRect
 ## 退く：伸びるコマを逆順に 2 倍速で流して消える。reduce_motion ON は伸びきったコマで止め、退くときは即消す。
 ## 固める（敗北時）：伸びきったコマで止めたまま残す。揺れ・瞬き・退くはもう無い（GDD §8）。
 ## 持ち越し（低い段階のまま次の戦闘へ）：伸びるアニメなしで伸びきったコマから出し、そのまま待機へ。
+## 重ねの層（add_layer）：別の所（別の z）に描く同じ大きさのシート。コマ番号・表示・位置はこの 1 本が決め、
+## 層は写すだけ（タイマーは 1 つ）。段階3の HUD の背面に使う。
+
+
+## 写すだけの層。frame_index はいつも持ち主と同じ。
+class Layer extends TextureRect:
+	var frame_index: int = 0
+	var _atlas: AtlasTexture
+	var _frame_size: Vector2i
+
+	func setup(sheet: Texture2D, frame_size: Vector2i, scale_px: float) -> void:
+		_frame_size = frame_size
+		_atlas = AtlasTexture.new()
+		_atlas.atlas = sheet
+		texture = _atlas
+		expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		stretch_mode = TextureRect.STRETCH_SCALE
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		size = Vector2(frame_size) * scale_px
+		visible = false
+
+	func set_frame(index: int) -> void:
+		frame_index = index
+		_atlas.region = Rect2(float(index * _frame_size.x), 0.0, float(_frame_size.x), float(_frame_size.y))
 
 enum Mode { HIDDEN, GROW, IDLE, STATIC, RETRACT, FROZEN }
 
@@ -34,13 +59,19 @@ var _eye_pos: Array[Vector2i] = []
 var _blink_left: float = 0.0
 var _blink_step: int = -1
 var blink_count: int = 0
+var _layers: Array[Layer] = []
 
 
-func setup(sheet: Texture2D, frame_size: Vector2i, scale_px: float) -> void:
+## frames：シートのコマ数（成長＋待機 2）。-1 はシートの幅から数える。幅が足りなければ幅に合わせる。
+func setup(sheet: Texture2D, frame_size: Vector2i, scale_px: float, frames: int = -1) -> void:
 	_sheet = sheet
 	_frame_size = frame_size
 	art_scale = scale_px
-	_grow = maxi(1, sheet.get_width() / frame_size.x - IDLE_FRAMES)
+	var in_sheet: int = sheet.get_width() / frame_size.x
+	if frames > 0 and frames != in_sheet:
+		push_warning("SanityTendril: %s は %d コマ（指定 %d）" % [sheet.resource_path, in_sheet, frames])
+	var n: int = mini(frames, in_sheet) if frames > 0 else in_sheet
+	_grow = maxi(1, n - IDLE_FRAMES)
 	_atlas = AtlasTexture.new()
 	_atlas.atlas = sheet
 	texture = _atlas
@@ -78,6 +109,55 @@ func enable_eye(eye_frames: Array[Texture2D], idle_eye_pos: Array[Vector2i]) -> 
 	_eye.size = Vector2(EYE_FRAME) * art_scale
 	_eye.visible = false
 	add_child(_eye)
+
+
+## 同じ大きさ・同じコマ割りのシートを写す層を作って返す（置き場所は呼ぶ側が決める）。
+func add_layer(sheet: Texture2D) -> Layer:
+	var l := Layer.new()
+	l.setup(sheet, _frame_size, art_scale)
+	_layers.append(l)
+	l.set_frame(frame_index)
+	_sync_layer_visibility()
+	return l
+
+
+func layer(i: int) -> Layer:
+	if i < 0 or i >= _layers.size() or not is_instance_valid(_layers[i]):
+		return null
+	return _layers[i]
+
+
+## 層の位置を持ち主に合わせる（SanityTendrils が位置を決めるたびに呼ぶ）
+func sync_layers() -> void:
+	for l in _layers:
+		if is_instance_valid(l) and l.is_inside_tree():
+			l.global_position = global_position
+
+
+func _sync_layer_visibility() -> void:
+	var shown: bool = is_visible_in_tree() if is_inside_tree() else visible
+	for l in _layers:
+		if is_instance_valid(l):
+			l.visible = shown
+
+
+## 層も一緒に消す（持ち主を消すとき。勝ち・逃げ・パネルの付け直し）
+func free_layers() -> void:
+	for l in _layers:
+		if is_instance_valid(l):
+			l.visible = false
+			l.queue_free()
+	_layers.clear()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED:
+		_sync_layer_visibility()
+		sync_layers()
+	elif what == NOTIFICATION_PREDELETE:
+		for l in _layers:
+			if is_instance_valid(l):
+				l.queue_free()
 
 
 func has_eye() -> bool:
@@ -192,6 +272,9 @@ func _process(delta: float) -> void:
 
 func _set_frame(index: int) -> void:
 	frame_index = index
+	for l in _layers:
+		if is_instance_valid(l):
+			l.set_frame(index)
 	if _atlas != null:
 		_atlas.region = Rect2(float(index * _frame_size.x), 0.0, float(_frame_size.x), float(_frame_size.y))
 	if _eye != null and _eye_pos.size() >= IDLE_FRAMES and index >= _grow:
