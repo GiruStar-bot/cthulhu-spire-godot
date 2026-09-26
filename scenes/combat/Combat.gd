@@ -1378,6 +1378,9 @@ func _ensure_sanity_fx() -> void:
 	_sanity_fx = SanityFx.new()
 	add_child(_sanity_fx)
 	_sanity_fx.hit_shown.connect(_on_sanity_hit_shown)
+	## 四隅の 3 つはパネルに隠れるので、低い正気度はパネルの枠にも出す
+	var framed: Array[Control] = [hud_panel, log_panel, end_turn_button]
+	_sanity_fx.set_frame_panels(framed)
 
 
 ## 正気度の減少を理由別に読んで演出する。CombatLogic が c.sanityLossPaid / c.sanityLossHit に

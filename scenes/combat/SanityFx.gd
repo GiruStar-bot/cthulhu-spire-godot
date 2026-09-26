@@ -5,6 +5,7 @@ extends Control
 ##  - 払った（カードの代償）：雫が 1 粒ゲージへ飛ぶ（約0.3秒）＋ sanity_pay
 ##  - 削られた（恐怖・敵の吸収）：画面端のインクが 0.5 秒でにじんで引く＋ゲージのヒビ／2px 震え＋ sanity_hit
 ##  - 低い状態（SanityTiers の 3 段階）：四隅の縁取り、段階3で目の瞬き、わずかな彩度低下＋持続音
+##    ＋パネル枠のインク染み（SanityFrameStains。四隅の多くはパネルに隠れるため）
 ## Combat のルート直下に置き、z_index で「敵より上・敵プレート/手札/HUD より下」に描く。
 
 ## 「削られた」ときにゲージのヒビ・震えを出してほしい合図（VitalsHud 側で描く）。
@@ -64,6 +65,7 @@ var _edge_tween: Tween
 var _tier_tween: Tween
 var _blink_timer: Timer
 var _blinking: bool = false
+var _frames: SanityFrameStains
 
 
 func _ready() -> void:
@@ -127,6 +129,9 @@ func _build() -> void:
 			_edge_root.add_child(_edge_strip(edge_tex, str(side)))
 		else:
 			_edge_root.add_child(_edge_gradient(str(side)))
+
+	_frames = SanityFrameStains.new()
+	add_child(_frames)
 
 	_blink_timer = Timer.new()
 	_blink_timer.one_shot = true
@@ -286,10 +291,17 @@ func stop_all() -> void:
 	_blink_timer.stop()
 	_tier = 0
 	_apply_tier(false)
+	_frames.clear()
 
 
 func current_tier() -> int:
 	return _tier
+
+
+## 段階に合わせて枠にインク染みを付けるパネル（HUD・ログ・ターン終了ボタンなど）。
+func set_frame_panels(panels: Array[Control]) -> void:
+	_frames.set_panels(panels)
+	_frames.set_tier(_tier if _active else 0, false)
 
 
 func _apply_tier(animate: bool) -> void:
@@ -316,6 +328,7 @@ func _apply_tier(animate: bool) -> void:
 	else:
 		_set_tier_images(corner_tex, tier)
 		_corner_root.modulate.a = target_alpha
+	_frames.set_tier(tier, animate)
 	_desat.visible = desat_amount > 0.0
 	_desat_mat.set_shader_parameter("amount", desat_amount)
 	_restart_blink()
