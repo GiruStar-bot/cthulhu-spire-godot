@@ -40,6 +40,8 @@ const ENEMY_CUTOUT_W_DUAL := 640.0
 const ENEMY_BOSS_W := 816.0
 const ENEMY_BOSS_H := 680.0
 const ENEMY_TOP_GUTTER := 24.0
+## ドット敵のカード演出をステージ上端から空ける最低余白。24pxだと2倍の大司祭まで落ちる。
+const ENEMY_PX_TOP_MARGIN := 8.0
 const ENEMY_GROUND_SINGLE := 0.20
 const ENEMY_GROUND_DUAL := 0.14
 const ENEMY_BOSS_HP := 150
@@ -1608,6 +1610,20 @@ func _open_pile(which: String) -> void:
 	overlay.add_child(close_btn)
 
 
+func _px_hand_feet_limit(area_y: float) -> float:
+	## 中央の手札の上端（EnemyRow ローカル）。ここに足元を置くと描画が重ならない。
+	if hand_row == null or enemy_row == null:
+		return area_y
+	if not is_instance_valid(hand_row) or not is_instance_valid(enemy_row):
+		return area_y
+	if hand_row.size.y < 8.0 or enemy_row.size.y < 8.0:
+		return area_y
+	var card_local_top: float = hand_row.size.y - 4.0 - CARD_SIZE.y
+	var card_global_y: float = hand_row.get_global_rect().position.y + card_local_top
+	var row_global_y: float = enemy_row.get_global_rect().position.y
+	return minf(area_y, card_global_y - row_global_y - 2.0)
+
+
 func _layout_enemies() -> void:
 	if enemy_row == null or not is_instance_valid(enemy_row):
 		return
@@ -1670,12 +1686,32 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 
 	var drawn: Vector2
 	var px_step: int = 1
+	var px_feet_y: float = -1.0
 	if art.get_meta("px_sprite", false):
 		var dims: Dictionary = _px_dims_of(art)
 		var bw: float = float(dims.bw)
 		var bh: float = float(dims.bh)
-		var fit_h: float = float(dims.fh)
-		px_step = maxi(1, int(floor(minf(art_box.x / bw, art_box.y / fit_h))))
+		var top: float = float(dims.top)
+		var ground_ratio_px: float = ENEMY_GROUND_DUAL if count >= 2 else ENEMY_GROUND_SINGLE
+		var nominal_feet: float = area.y * (1.0 - ground_ratio_px)
+		var feet_cap: float = _px_hand_feet_limit(area.y)
+		var float_y_px: float = 0.0
+		if art.has_meta("float_y"):
+			float_y_px = float(art.get_meta("float_y"))
+		## ENEMY_GROUND_* は手札より下に潜る。足元はその上端で止める（それ以上は下げない）。
+		px_feet_y = minf(nominal_feet, feet_cap) + float_y_px
+		var body_budget: float = maxf(bh, px_feet_y - float_y_px - ENEMY_PX_TOP_MARGIN)
+		## 倍率は本体の高さだけ。fh で割ると大司祭が 3→2 に一段落ちた。
+		## 候補は手札までの実高さに加え旧ボス枠も見るので、入るなら 3 倍が残る。
+		var candidate_h: float = maxf(body_budget, minf(view.y * 0.78, ENEMY_BOSS_H))
+		px_step = maxi(1, int(floor(minf(art_box.x / bw, candidate_h / bh))))
+		var drops: int = 0
+		while px_step > 1 and drops < 6:
+			var fx_top: float = px_feet_y - (bh + top) * float(px_step)
+			if fx_top >= ENEMY_PX_TOP_MARGIN - 0.5:
+				break
+			px_step -= 1
+			drops += 1
 		drawn = Vector2(bw * float(px_step), bh * float(px_step))
 	else:
 		var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
@@ -1687,6 +1723,8 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	if art.has_meta("float_y"):
 		float_y = float(art.get_meta("float_y"))
 	art_pos.y += float_y
+	if px_feet_y >= 0.0:
+		art_pos.y = px_feet_y - drawn.y
 	if plate != null:
 		var plate_w: float = ENEMY_PLATE_W_DUAL if count >= 2 else ENEMY_PLATE_W
 		var plate_h: float = maxf(140.0 if count >= 2 else 220.0, plate.get_combined_minimum_size().y)
