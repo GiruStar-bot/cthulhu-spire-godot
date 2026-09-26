@@ -1606,9 +1606,11 @@ static func encounter_ids(kind: String, floor: int, rand: Callable, bias: Array 
 	elif floor >= 40:
 		pool = ["serpent", "spawn", "coral"]
 	elif floor >= 20:
-		pool = ["acolyte", "drowned", "coral", "byakhee"]
+		## 狂信者は精鋭（20階未満で珊瑚・翼ある飢えと三択）にしか居らず、20階で消えていた。
+		## 侍祭と同じく40階未満の通常戦闘にも出す。
+		pool = ["acolyte", "fanatic", "drowned", "coral", "byakhee"]
 	else:
-		pool = ["acolyte", "drowned", "coral"]
+		pool = ["acolyte", "fanatic", "drowned", "coral"]
 	var double := 0.5 if floor >= 40 else (0.35 if floor >= 12 else 0.12)
 	if not bias.is_empty():
 		for arch in bias:
