@@ -19,6 +19,11 @@ const ENEMIES := {
 		"art": "res://art/pixel/acolyte.png",
 		"poster": "res://art/pixel/acolyte.png",
 		"sprite": "res://art/pixel/enemies_px/acolyte",
+		"px": {
+			"body_w": 75, "body_h": 154, "fx_top": 48, "body_frames": 10,
+			"cast_holds": [0.10, 0.26, 0.18, 0.16, 0.17, 0.22],
+			"cast_fire": 4, "blink": true,
+		},
 		"biome": "shrine",
 		"maxHp": 32,
 		"archetype": "fanatic",
