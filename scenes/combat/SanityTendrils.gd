@@ -22,8 +22,11 @@ const SPECS: Array[Dictionary] = [
 		"frame": Vector2i(80, 64), "corner": Vector2(0, 0), "anchor": Vector2i(4, 3)},
 ]
 const TEX_EYE := "res://art/pixel/fx/sanity_eye.png"
-## HUD の触手の目：待機コマ A/B での目の左上（素材の原寸 px。A は伸びきったコマと同じ位置）
-const EYE_POS_IDLE: Array[Vector2i] = [Vector2i(47, 1), Vector2i(48, 1)]
+## HUD の触手の目：待機コマ A/B での目の左上（素材の原寸 px。A は伸びきったコマと同じ位置）。
+## 既定は描き直した素材（#92）。旧素材の位置も持ち、待機コマ A に sanity_eye.png の開いた目が
+## その位置にそのまま描かれている方を選ぶ（どちらの素材でも瞬きがずれない）。
+const EYE_POS_IDLE: Array[Vector2i] = [Vector2i(41, 1), Vector2i(42, 1)]
+const EYE_POS_IDLE_OLD: Array[Vector2i] = [Vector2i(47, 1), Vector2i(48, 1)]
 ## 瞬きのコマは透明な所があるので、先に目の 12x8 をこの色で塗ってから重ねる
 const EYE_LID_COLOR := Color("0b0f0e")
 
@@ -58,7 +61,7 @@ func set_panels(panels: Dictionary) -> void:
 		if int(spec.tier) == 3:
 			var eyes: Array[Texture2D] = _eye_frames()
 			if not eyes.is_empty():
-				t.enable_eye(eyes, EYE_POS_IDLE)
+				t.enable_eye(eyes, eye_pos_idle(sheet, spec.frame, t.grow_count()))
 		add_child(t)
 		_tendrils[int(spec.tier)] = t
 	_layout()
@@ -166,17 +169,47 @@ func _duration(tier: int, grow: bool) -> float:
 	return full if grow else full / SanityTendril.RETRACT_SPEED
 
 
-func _eye_frames() -> Array[Texture2D]:
-	var out: Array[Texture2D] = []
-	var sheet: Texture2D = _tex(TEX_EYE)
-	if sheet == null:
-		return out
-	var img: Image = sheet.get_image()
+## 待機コマ A（index grow）に開いた目が描かれている位置の組を返す。どちらも合わなければ既定（#92）。
+func eye_pos_idle(sheet: Texture2D, frame: Vector2i, grow: int) -> Array[Vector2i]:
+	var art: Image = _rgba(sheet)
+	var eye: Image = _rgba(_tex(TEX_EYE))
+	if art != null and eye != null:
+		for cand: Array[Vector2i] in [EYE_POS_IDLE, EYE_POS_IDLE_OLD]:
+			if _eye_drawn_at(art, eye, Vector2i(grow * frame.x, 0) + cand[0]):
+				return cand
+	return EYE_POS_IDLE
+
+
+## sanity_eye.png の 1 コマ目（開いた目）の不透明ピクセルが art の at にそのまま描かれているか
+static func _eye_drawn_at(art: Image, eye: Image, at: Vector2i) -> bool:
+	var fs: Vector2i = SanityTendril.EYE_FRAME
+	if at.x < 0 or at.y < 0 or at.x + fs.x > art.get_width() or at.y + fs.y > art.get_height():
+		return false
+	for y in fs.y:
+		for x in fs.x:
+			var c: Color = eye.get_pixel(x, y)
+			if c.a > 0.5 and not art.get_pixel(at.x + x, at.y + y).is_equal_approx(c):
+				return false
+	return true
+
+
+static func _rgba(tex: Texture2D) -> Image:
+	if tex == null:
+		return null
+	var img: Image = tex.get_image()
 	if img == null:
-		return out
+		return null
 	if img.is_compressed():
 		img.decompress()
 	img.convert(Image.FORMAT_RGBA8)
+	return img
+
+
+func _eye_frames() -> Array[Texture2D]:
+	var out: Array[Texture2D] = []
+	var img: Image = _rgba(_tex(TEX_EYE))
+	if img == null:
+		return out
 	var fw: int = SanityTendril.EYE_FRAME.x
 	var fh: int = SanityTendril.EYE_FRAME.y
 	for f in range(img.get_width() / fw):
