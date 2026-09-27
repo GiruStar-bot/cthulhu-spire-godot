@@ -13,7 +13,6 @@ INK = "#201428"
 VOID = "#0c0b17"
 PLUM = "#5b3c70"
 VIOLET = "#a17bc6"
-PALE = "#e7cafd"
 EYE = "#ade5da"
 EYE_FIRE = "#d8fff2"
 
@@ -87,7 +86,7 @@ def rift(draw: ImageDraw.ImageDraw, rx: int, ry: int, rim: str) -> None:
     draw.line(points + [points[0]], fill=rim, width=2)
 
 
-def effect_frame(frame: int) -> Image.Image:
+def effect_frame(frame: int, cards: Image.Image) -> Image.Image:
     """The actual enemy card appears through this tear at FIRE_FRAME."""
     fx = Image.new("RGBA", (WIDTH, HEIGHT + TOP))
     draw = ImageDraw.Draw(fx)
@@ -105,59 +104,29 @@ def effect_frame(frame: int) -> Image.Image:
         for x, y in ((43, 55), (69, 56), (47, 77), (65, 76)):
             point(draw, x, y, PLUM)
     elif frame == 10:
-        rift(draw, 10, 13, PALE)
+        rift(draw, 10, 13, VIOLET)
         line(draw, [(46, 67), (40, 62), (38, 56)], VIOLET)
         line(draw, [(66, 67), (72, 62), (74, 56)], VIOLET)
-        for x, y in ((54, 53), (60, 77), (42, 73), (70, 72)):
-            point(draw, x, y, PALE)
     elif frame == FIRE_FRAME:
-        # The split and eye flash share the real-card spawn frame.
+        # The violet tear splits behind the shared gold-and-teal card pixels.
         for side in (-1, 1):
             x = 56 + side * 14
             draw.line([(56 + side * 3, 53 + TOP), (x, 56 + TOP),
                        (x + side * 8, 65 + TOP), (x, 78 + TOP),
-                       (x + side * 11, 84 + TOP)], fill=PALE, width=2)
+                       (x + side * 11, 84 + TOP)], fill=VIOLET, width=2)
             line(draw, [(56 + side * 4, 57), (x + side * 3, 66),
                         (x + side * 9, 76)], VIOLET)
-            line(draw, [(x + side * 10, 52), (x + side * 17, 46)], PALE)
-        for x, y in ((24, 56), (88, 57), (21, 78), (91, 80),
-                     (54, 45), (60, 47), (32, 91), (80, 91)):
-            point(draw, x, y, PALE)
-    elif frame == 12:
-        for x, y in ((31, 51), (81, 53), (24, 73), (88, 72),
-                     (50, 37), (63, 39)):
-            point(draw, x, y, PALE if x % 2 else VIOLET)
-        line(draw, [(28, 73), (23, 65), (26, 58)], VIOLET)
-        line(draw, [(84, 73), (89, 65), (86, 58)], VIOLET)
-    elif frame == 13:
-        for x, y in ((43, 49), (69, 48), (52, 32), (61, 34)):
-            point(draw, x, y, PLUM)
+    if 10 <= frame <= 14:
+        # Same source frames 5..9 used by coral, starveling, serpent and colour.
+        source = frame - 5
+        card = cards.crop((source * 96, 0, (source + 1) * 96, 204))
+        bounds = card.getbbox()
+        if bounds:
+            card = card.crop(bounds)
+            center_y = {10: 115, 11: 108, 12: 94, 13: 82, 14: 82}[frame]
+            fx.alpha_composite(card, (56 - card.width // 2,
+                                      center_y - card.height // 2))
     return fx
-
-
-def sample_card() -> Image.Image:
-    """One representative outer card for the GIF; combat draws the real card."""
-    card = Image.new("RGBA", (30, 43), INK)
-    draw = ImageDraw.Draw(card)
-    draw.rectangle((1, 1, 28, 41), outline=PALE, width=1)
-    draw.rectangle((3, 3, 26, 8), fill=PLUM)
-    art = Image.open(ROOT / "art/pixel/cards/death.jpg").convert("RGB")
-    art = art.resize((24, 25), Image.Resampling.NEAREST)
-    card.paste(art, (3, 10))
-    draw.rectangle((3, 36, 26, 39), fill=PLUM)
-    draw.line((5, 37, 23, 37), fill=PALE)
-    return card
-
-
-def with_sample_card(frame: Image.Image, card: Image.Image, progress: float,
-                     opacity: float = 1.0) -> Image.Image:
-    result = frame.copy()
-    overlay = card.copy()
-    overlay.putalpha(overlay.getchannel("A").point(lambda a: int(a * opacity)))
-    center_y = round(HEIGHT * (0.40 + (0.21 - 0.40) * progress)) + TOP
-    result.alpha_composite(overlay, ((WIDTH - card.width) // 2,
-                                     center_y - card.height // 2))
-    return result
 
 
 def main() -> None:
@@ -178,7 +147,7 @@ def main() -> None:
     fx_sheet = Image.new("RGBA", (WIDTH * FRAMES, HEIGHT + TOP))
     contact = Image.new("RGBA", (WIDTH * FRAMES, HEIGHT + TOP), (7, 20, 24, 255))
     previews = []
-    card = sample_card()
+    cards = Image.open(PIXELS / "fanatic_fx_1.png").convert("RGBA")
     for frame, pose in enumerate(poses):
         sprite = Image.new("RGBA", (WIDTH, HEIGHT))
         sprite.alpha_composite(pose, (0, hover[frame]))
@@ -187,15 +156,11 @@ def main() -> None:
             eyes.point((x, 36 + hover[frame]),
                        fill=EYE_FIRE if frame == FIRE_FRAME else EYE)
         body.alpha_composite(sprite, (frame * WIDTH, 0))
-        fx = effect_frame(frame)
+        fx = effect_frame(frame, cards)
         fx_sheet.alpha_composite(fx, (frame * WIDTH, 0))
         preview = Image.new("RGBA", (WIDTH, HEIGHT + TOP), (7, 20, 24, 255))
         preview.alpha_composite(sprite, (0, TOP))
         preview.alpha_composite(fx)
-        if frame >= FIRE_FRAME:
-            progress = min(1.0, (frame - FIRE_FRAME) / 2.0)
-            preview = with_sample_card(preview, card, progress,
-                                       0.65 if frame == FIRE_FRAME else 1.0)
         contact.alpha_composite(preview, (frame * WIDTH, 0))
         previews.append(preview)
     body.save(PIXELS / "byakhee_body_1.png")
