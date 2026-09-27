@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Procedural pixel sheet for the tentacle card's ground strike.
 
-No reference illustration. The playback matches SanityTendril (a horizontal
-strip, grow then reverse) but the picture does not: this is a thick, muscular
-octopus arm with a row of suckers, in flesh colors. Not the thin teal tendril.
+No reference illustration. Playback matches SanityTendril (a horizontal strip,
+grow then reverse) but the picture does not: one thick octopus arm. Colors
+follow the water-card frame — dark indigo body, bright cyan suckers.
 """
 from __future__ import annotations
 
@@ -16,26 +16,29 @@ H = 88
 FRAMES = 8
 OUT = "art/pixel/fx/tentacle_ground.png"
 
-# Wet octopus flesh. Dorsal is dark wine, the belly is pale, suckers are rings.
-INK = (20, 8, 12, 255)
-DORSAL = (78, 24, 36, 255)
-MUSCLE = (132, 48, 58, 255)
-HIGH = (196, 112, 104, 255)
-BELLY = (214, 164, 142, 255)
-RING = (236, 214, 186, 255)
-HOLE = (36, 12, 18, 255)
-SPARK = (232, 196, 176, 255)
+# Water-frame family. Body stays in the dark indigo of frame_card_water_9.
+# Suckers are much lighter so the row still reads.
+INK = (6, 14, 18, 255)
+DORSAL = (14, 34, 42, 255)
+MUSCLE = (24, 72, 88, 255)
+HIGH = (78, 168, 186, 255)
+BELLY = (36, 104, 124, 255)
+RING = (210, 244, 250, 255)
+HOLE = (8, 22, 30, 255)
+SPARK = (176, 228, 238, 255)
+GROUND = (12, 36, 46, 255)
 
 # Base at the ground, tip at the end. y grows downward.
+# Outer poses sit a few px in from the edge so the thicker limb does not clip.
 POSES: list[list[tuple[int, int]]] = [
 	[(36, 84), (36, 74)],
 	[(36, 84), (37, 66), (35, 54)],
 	[(36, 84), (38, 62), (34, 46), (30, 34)],
 	[(36, 84), (37, 60), (32, 44), (28, 28), (36, 16)],
-	[(36, 84), (35, 58), (28, 42), (30, 26), (42, 14), (54, 18)],
-	[(36, 84), (34, 56), (26, 40), (30, 24), (46, 12), (62, 18), (66, 28)],
-	[(36, 84), (34, 60), (26, 44), (14, 34), (6, 42), (4, 54)],
-	[(36, 84), (34, 62), (28, 46), (16, 34), (8, 40), (6, 52), (14, 62)],
+	[(36, 84), (35, 58), (28, 42), (30, 26), (42, 16), (52, 20)],
+	[(36, 84), (34, 56), (26, 40), (30, 24), (44, 14), (56, 20), (60, 30)],
+	[(36, 84), (34, 60), (26, 44), (16, 34), (10, 42), (8, 54)],
+	[(36, 84), (34, 62), (28, 46), (18, 34), (12, 40), (10, 52), (16, 62)],
 ]
 
 
@@ -89,11 +92,11 @@ def disc(img: Image.Image, x: int, y: int, r: int, color: tuple[int, int, int, i
 
 def radius_at(i: int, count: int) -> int:
 	if count <= 1:
-		return 6
+		return 8
 	t = i / float(count - 1)
-	base = 6.4 - 3.1 * t
-	bulge = 0.85 * math.sin(i * 0.72)
-	return max(3, int(round(base + bulge)))
+	base = 8.8 - 3.8 * t
+	bulge = 1.05 * math.sin(i * 0.72)
+	return max(4, int(round(base + bulge)))
 
 
 def belly_normal(pts: list[tuple[int, int]], i: int) -> tuple[int, int]:
@@ -113,7 +116,7 @@ def draw_ground(img: Image.Image, reach: int) -> None:
 	half = 5 + reach
 	for x in range(36 - half, 37 + half):
 		plot(img, x, y, INK)
-		plot(img, x, y - 1, (48, 22, 28, 255))
+		plot(img, x, y - 1, GROUND)
 		if abs(x - 36) % 5 == 0:
 			plot(img, x, y - 2, MUSCLE)
 	plot(img, 36, y - 3, HIGH)
@@ -144,10 +147,9 @@ def draw_suckers(img: Image.Image, pts: list[tuple[int, int]]) -> None:
 		r = radius_at(i, n)
 		cx = pts[i][0] + sx * max(2, r - 1)
 		cy = pts[i][1] + sy * max(2, r - 1)
-		disc(img, cx, cy, 3, INK)
-		disc(img, cx, cy, 2, RING)
-		plot(img, cx, cy, HOLE)
-		plot(img, cx + sx, cy + sy, HOLE)
+		disc(img, cx, cy, 4, INK)
+		disc(img, cx, cy, 3, RING)
+		disc(img, cx, cy, 1, HOLE)
 
 
 def draw_hook(img: Image.Image, pts: list[tuple[int, int]]) -> None:
@@ -159,7 +161,7 @@ def draw_hook(img: Image.Image, pts: list[tuple[int, int]]) -> None:
 	mag = max(abs(dx), abs(dy), 1)
 	sx = int(round(dx / mag))
 	sy = int(round(dy / mag))
-	for step, rad in ((1, 3), (2, 2), (3, 2)):
+	for step, rad in ((1, 4), (2, 3), (4, 3)):
 		disc(img, x1 + sx * step, y1 + sy * step, rad + 1, INK)
 		disc(img, x1 + sx * step, y1 + sy * step, rad, DORSAL)
 		disc(img, x1 + sx * step, y1 + sy * step, max(1, rad - 1), MUSCLE)
