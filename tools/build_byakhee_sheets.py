@@ -135,34 +135,67 @@ def effect_frame(frame: int) -> Image.Image:
     return fx
 
 
+def sample_card() -> Image.Image:
+    """One representative outer card for the GIF; combat draws the real card."""
+    card = Image.new("RGBA", (30, 43), INK)
+    draw = ImageDraw.Draw(card)
+    draw.rectangle((1, 1, 28, 41), outline=PALE, width=1)
+    draw.rectangle((3, 3, 26, 8), fill=PLUM)
+    art = Image.open(ROOT / "art/pixel/cards/death.jpg").convert("RGB")
+    art = art.resize((24, 25), Image.Resampling.NEAREST)
+    card.paste(art, (3, 10))
+    draw.rectangle((3, 36, 26, 39), fill=PLUM)
+    draw.line((5, 37, 23, 37), fill=PALE)
+    return card
+
+
+def with_sample_card(frame: Image.Image, card: Image.Image, progress: float,
+                     opacity: float = 1.0) -> Image.Image:
+    result = frame.copy()
+    overlay = card.copy()
+    overlay.putalpha(overlay.getchannel("A").point(lambda a: int(a * opacity)))
+    center_y = round(HEIGHT * (0.40 + (0.21 - 0.40) * progress)) + TOP
+    result.alpha_composite(overlay, ((WIDTH - card.width) // 2,
+                                     center_y - card.height // 2))
+    return result
+
+
 def main() -> None:
     idle = native("idle.png")
-    asym = native("idle_asym.png")
-    up = native("wings_up.png")
+    mid = native("wing_mid.png")
+    peak = native("wing_peak.png")
     half = native("cast_half.png")
     full = native("cast_full.png")
-    palette = shared_palette([idle, asym, up, half, full])
-    idle, asym, up, half, full = [
-        palette_map(image, palette) for image in (idle, asym, up, half, full)
+    palette = shared_palette([idle, mid, peak, half, full])
+    idle, mid, peak, half, full = [
+        palette_map(image, palette) for image in (idle, mid, peak, half, full)
     ]
-    # Each pose is a complete redraw: the large moving wing shadows stay attached.
-    poses = [idle, asym, up, up, asym, idle,
-             idle, up, half, full, full, full, full, half, idle]
+    # Paired wings travel down -> level -> high -> level -> down in each beat.
+    poses = [idle, mid, peak, mid, idle, idle,
+             idle, mid, peak, mid, half, full, full, half, idle]
+    hover = [0, -1, -2, -1, 0, 0, 0, -1, -2, -1, 0, 0, 0, 0, 0]
     body = Image.new("RGBA", (WIDTH * FRAMES, HEIGHT))
     fx_sheet = Image.new("RGBA", (WIDTH * FRAMES, HEIGHT + TOP))
     contact = Image.new("RGBA", (WIDTH * FRAMES, HEIGHT + TOP), (7, 20, 24, 255))
     previews = []
+    card = sample_card()
     for frame, pose in enumerate(poses):
-        sprite = pose.copy()
+        sprite = Image.new("RGBA", (WIDTH, HEIGHT))
+        sprite.alpha_composite(pose, (0, hover[frame]))
         eyes = ImageDraw.Draw(sprite)
         for x in (47, 64):
-            eyes.point((x, 36), fill=EYE_FIRE if frame == FIRE_FRAME else EYE)
+            eyes.point((x, 36 + hover[frame]),
+                       fill=EYE_FIRE if frame == FIRE_FRAME else EYE)
         body.alpha_composite(sprite, (frame * WIDTH, 0))
         fx = effect_frame(frame)
         fx_sheet.alpha_composite(fx, (frame * WIDTH, 0))
         preview = Image.new("RGBA", (WIDTH, HEIGHT + TOP), (7, 20, 24, 255))
         preview.alpha_composite(sprite, (0, TOP))
         preview.alpha_composite(fx)
+        if frame >= FIRE_FRAME:
+            progress = min(1.0, (frame - FIRE_FRAME) / 2.0)
+            preview = with_sample_card(preview, card, progress,
+                                       0.65 if frame == FIRE_FRAME else 1.0)
         contact.alpha_composite(preview, (frame * WIDTH, 0))
         previews.append(preview)
     body.save(PIXELS / "byakhee_body_1.png")
@@ -173,7 +206,7 @@ def main() -> None:
     previews[FIRE_FRAME - 1].resize((448, 864), Image.Resampling.NEAREST).save(
         SOURCE / "byakhee_rift_preview.png")
     durations = [190, 170, 220, 180, 190, 210,
-                 120, 160, 170, 190, 220, 240, 180, 170, 200]
+                 120, 160, 170, 190, 220, 240, 180, 170, 800]
     gif = [frame.resize((336, 648), Image.Resampling.NEAREST).convert("RGB")
            for frame in previews]
     gif[0].save(SOURCE / "byakhee_preview.gif", save_all=True,
