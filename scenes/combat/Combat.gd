@@ -10,6 +10,7 @@ const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
 ## 山札・捨て札ボタンの描画順。HudPanel/LogPanel（z=30）と揃え、敵の立ち絵（EnemyRow z=1）より手前に出す
 const PILE_BUTTON_Z := 30
 const DISSOLVE_SHADER := preload("res://scenes/combat/enemy_dissolve.gdshader")
+const HIT_FLASH_SHADER := preload("res://scenes/combat/enemy_hit_flash.gdshader")
 const DISSOLVE_NOISE := preload("res://art/pixel/ui/dissolve_noise.png")
 const SHOCK_CARDS := ["migo_gun"]
 const SHOCK_CORE := Color(0.70, 0.95, 0.28, 0.95)
@@ -83,6 +84,7 @@ var _discard_btn: Button
 var _chrome_ready: bool = false
 var _death_fx_done: Dictionary = {}
 var _hit_tweens: Dictionary = {}
+var _hit_flash_mats: Dictionary = {}
 var _float_tweens: Dictionary = {}
 var _px_idle_tweens: Dictionary = {}
 var _px_cast_tweens: Dictionary = {}
@@ -685,12 +687,16 @@ func _spawn_dust_motes(art: TextureRect) -> void:
 
 
 func _kill_hit_tween(uid: String) -> void:
-	if uid == "" or not _hit_tweens.has(uid):
+	if uid == "":
 		return
-	var tw: Tween = _hit_tweens.get(uid) as Tween
-	_hit_tweens.erase(uid)
-	if tw != null and tw.is_valid():
-		tw.kill()
+	if _hit_tweens.has(uid):
+		var tw: Tween = _hit_tweens.get(uid) as Tween
+		_hit_tweens.erase(uid)
+		if tw != null and tw.is_valid():
+			tw.kill()
+	var mat: ShaderMaterial = _hit_flash_mats.get(uid) as ShaderMaterial
+	if mat != null:
+		_clear_hit_flash(uid, mat)
 
 
 func _kill_float_tween(uid: String) -> void:
@@ -1266,12 +1272,37 @@ func _animate_enemy_hit(uid: String) -> void:
 		return
 	_kill_hit_tween(uid)
 	art.pivot_offset = art.size * 0.5
-	var tween := art.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.tween_property(art, "modulate", Color(1.55, 1.25, 1.25, 1.0), 0.07)
-	tween.parallel().tween_property(art, "scale", Vector2(0.96, 1.06), 0.07)
-	tween.tween_property(art, "modulate", Color.WHITE, 0.21)
-	tween.parallel().tween_property(art, "scale", Vector2.ONE, 0.21)
+	art.modulate = Color.WHITE
+	var mat := ShaderMaterial.new()
+	mat.shader = HIT_FLASH_SHADER
+	mat.set_shader_parameter("flash", 0.0)
+	art.material = mat
+	var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
+	if fx != null:
+		fx.material = mat
+	_hit_flash_mats[uid] = mat
+	var tween := art.create_tween()
+	tween.tween_property(mat, "shader_parameter/flash", 1.0, 0.06).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(art, "scale", Vector2(0.96, 1.06), 0.07).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(mat, "shader_parameter/flash", 0.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(art, "scale", Vector2.ONE, 0.21).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_callback(_clear_hit_flash.bind(uid, mat))
 	_hit_tweens[uid] = tween
+
+
+func _clear_hit_flash(uid: String, mat: ShaderMaterial) -> void:
+	if _hit_flash_mats.get(uid) == mat:
+		_hit_flash_mats.erase(uid)
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art == null or not is_instance_valid(art):
+		return
+	if art.material == mat and not art.get_meta("dissolving", false):
+		art.material = null
+		art.modulate = Color.WHITE
+		art.scale = Vector2.ONE
+	var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
+	if fx != null and is_instance_valid(fx) and fx.material == mat:
+		fx.material = null
 
 
 func _on_drag_began(card_uid: String) -> void:
