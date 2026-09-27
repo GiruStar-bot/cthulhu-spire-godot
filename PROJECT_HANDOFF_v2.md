@@ -1,4 +1,13 @@
-# Abyss of R'lyeh 開発引き継ぎ資料 v2（詳細ルール集）
+# Abyss of R'lyeh 開発引き継ぎ資料 v2（詳細ルール集）※旧資料・要注意
+
+> **【2026年9月27日追記】このファイルは移行前（React 19 + Vite 6 + Tailwind v4 + Zustand 5版）の資料であり、内容が大きく古くなっています。**
+> 現行のGodot版（`GiruStar-bot/cthulhu-spire-godot`）のプロジェクト概要・開発体制・進行状況は **`PROJECT_ONBOARDING.md`** を、コーディング規約は **`AGENTS.md`** / **`GODOT_CODING_RULES.md`** を参照してください。
+>
+> 特に以下は現行と食い違っているので、このまま鵜呑みにしないこと：
+> - 「2. 3ツール体制」の記述（Claudeは書き込み権限なし、実装はGrokのみ）は原作（React版）時代のもので、現行のGodot版では Claude Code / Codex / Grok Build がそれぞれ直接コードを書き込み・コミットする体制になっている（`AGENTS.md`参照）。
+> - リポジトリ・スタック（React 19 + Vite 6 + Tailwind v4 + Zustand 5）は原作リポジトリ`GiruStar-bot/cthulhu-spire`のものであり、現行の作業対象は Godot 4.7 + GDScript の `GiruStar-bot/cthulhu-spire-godot`。
+>
+> 一方で、「3. 厳守すべきルール」に書かれたゲームデザイン上の地雷・確立済みルールの多くは、Godot移植でも踏襲すべき知見として参考価値が残っています（装備・ルーン等、Godot版で既に廃止済みの機能に触れる記述は除く）。削除はせず、経緯の参照用として残します。
 
 このプロジェクトの新しいチャットは、この資料を前提に会話を始めてよい。v1（プロジェクト概要中心）を土台に、**試行錯誤で確立したルール・地雷・省略禁止事項**を大幅加筆した版。
 
