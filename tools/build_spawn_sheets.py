@@ -15,9 +15,6 @@ PIXELS = ROOT / "art/pixel/enemies_px"
 SOURCE = PIXELS / "source/spawn"
 W, H, TOP, FRAMES, FIRE = 112, 168, 48, 13, 8
 INK = (19, 16, 17, 255)
-RIM = (84, 67, 57, 255)
-TOOTH = (235, 220, 170, 255)
-THROAT = (21, 12, 15, 255)
 
 
 def native_base() -> Image.Image:
@@ -79,48 +76,37 @@ def belly_pose(base: Image.Image, breathe: int, crouch: int) -> Image.Image:
     return result
 
 
-def maw(image: Image.Image, radius_x: int, radius_y: int, glint: bool) -> None:
-    """Redraw the front-facing mouth at each key pose, including its teeth."""
-    draw = ImageDraw.Draw(image)
-    cx, cy = 56, 48
-    # A dark gray face plate covers the source mouth; the rim and teeth are
-    # then repainted at the intended opening, not stretched from old pixels.
-    draw.ellipse((cx - 20, cy - 21, cx + 20, cy + 21), fill=(83, 81, 78, 255))
-    draw.ellipse((cx - radius_x - 3, cy - radius_y - 3,
-                  cx + radius_x + 3, cy + radius_y + 3), fill=RIM)
-    draw.ellipse((cx - radius_x, cy - radius_y,
-                  cx + radius_x, cy + radius_y), fill=THROAT)
-    # Radial tooth pairs remain individually readable at native resolution.
-    for dx in (-9, -5, -1, 3, 7):
-        yy = round(radius_y * (1.0 - (dx / max(1, radius_x)) ** 2) ** 0.5)
-        for side in (-1, 1):
-            y = cy + side * max(2, yy - 1)
-            draw.rectangle((cx + dx, y - (2 if side > 0 else 0),
-                            cx + dx + 1, y + (2 if side < 0 else 0)), fill=TOOTH)
-    for side in (-1, 1):
-        for dy in (-7, -2, 3, 8):
-            xx = round(radius_x * (1.0 - (dy / max(1, radius_y)) ** 2) ** 0.5)
-            x = cx + side * max(2, xx - 1)
-            draw.rectangle((x - (2 if side > 0 else 0), cy + dy,
-                            x + (2 if side < 0 else 0), cy + dy + 1), fill=TOOTH)
-    if glint:
-        draw.point((cx - 3, cy - 2), fill=(109, 224, 207, 255))
-        draw.point((cx + 4, cy + 3), fill=(109, 224, 207, 255))
+def open_maw(image: Image.Image, base: Image.Image, extra: int) -> None:
+    """Open the existing shaded mouth without replacing its rim or teeth."""
+    if not extra:
+        return
+    # The oval includes the original cheek and tooth shading. Masking its
+    # outer edge avoids the rectangular cut-out visible in a scaled patch.
+    left, top, right, bottom = 37, 27, 76, 70
+    patch = base.crop((left, top, right, bottom))
+    width, height = patch.size
+    enlarged = patch.resize((width + extra * 2, height + extra * 2),
+                            Image.Resampling.NEAREST)
+    mask = Image.new("L", enlarged.size)
+    ImageDraw.Draw(mask).ellipse((1, 1, enlarged.width - 2,
+                                 enlarged.height - 2), fill=255)
+    enlarged.putalpha(mask)
+    image.alpha_composite(enlarged,
+                          (left - extra, top - extra))
 
 
 def effect(frame: int, shared: Image.Image) -> Image.Image:
     fx = Image.new("RGBA", (W, H + TOP))
     draw = ImageDraw.Draw(fx)
-    cy = TOP + 78
-    if 5 <= frame <= 8:
-        # The individual wind-up is a brief pressure ripple from the maw to
-        # the chest. The card itself is always the existing shared art.
-        extent = {5: 4, 6: 8, 7: 13, 8: 19}[frame]
-        for side in (-1, 1):
-            x = 56 + side * extent
-            draw.arc((x - 6, cy - 9, x + 6, cy + 9),
-                     100 if side < 0 else 280, 260 if side < 0 else 80,
-                     fill=(94, 181, 166, 255), width=1)
+    cy = TOP + 49
+    if 6 <= frame <= 8:
+        # Short, uneven spit trails connect the mouth to the shared card.
+        # They inherit the monster's olive color, so the gold/teal card
+        # remains the same visual signal as every other pixel enemy.
+        length = {6: 2, 7: 4, 8: 7}[frame]
+        for x, offset in ((51, 0), (57, 2), (62, -1)):
+            draw.line((x, cy + 8, x + offset, cy + 8 + length),
+                      fill=(143, 139, 77, 255), width=1)
     if FIRE <= frame <= FIRE + 4:
         source_index = frame - FIRE + 5  # Exact fanatic card frames 5..9.
         card = shared.crop((source_index * 96, 0,
@@ -128,7 +114,7 @@ def effect(frame: int, shared: Image.Image) -> Image.Image:
         bounds = card.getbbox()
         if bounds:
             card = card.crop(bounds)
-            center_y = {8: 126, 9: 112, 10: 101, 11: 96, 12: 96}[frame]
+            center_y = {8: 96, 9: 82, 10: 64, 11: 45, 12: 30}[frame]
             fx.alpha_composite(card, (56 - card.width // 2,
                                       center_y - card.height // 2))
     return fx
@@ -140,15 +126,13 @@ def main() -> None:
     # Two uneven breaths, then a held compression before the mouth snaps open.
     breaths = [0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     crouches = [0, 0, 0, 0, 0, 1, 2, 2, 0, 0, 0, 0, 0]
-    openings = [(12, 13), (12, 12), (11, 11), (12, 12),
-                (12, 13), (11, 10), (10, 8), (14, 15),
-                (17, 19), (17, 19), (15, 16), (13, 14), (12, 13)]
+    openings = [0, 0, 0, 0, 0, 0, 1, 3, 5, 5, 3, 1, 0]
     body_sheet = Image.new("RGBA", (W * FRAMES, H))
     fx_sheet = Image.new("RGBA", (W * FRAMES, H + TOP))
     previews = []
     for frame in range(FRAMES):
         body = belly_pose(base, breaths[frame], crouches[frame])
-        maw(body, *openings[frame], glint=frame == FIRE)
+        open_maw(body, base, openings[frame])
         body_sheet.alpha_composite(body, (frame * W, 0))
         vfx = effect(frame, shared)
         fx_sheet.alpha_composite(vfx, (frame * W, 0))
