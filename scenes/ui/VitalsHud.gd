@@ -14,8 +14,9 @@ const FRAME_OUTSET := 4
 const FRAME_CONTENT_INSET := 22  # FRAME_DISPLAY + 6
 ## この枠だけ上下の余白を詰める（石の内側ぎりぎり）。左右は FRAME_CONTENT_INSET のまま。
 const HUD_INSET_Y := 17
-## HP と SAN を横並びにするための最小幅。
+## HP/SAN ゲージと状態アイコン列が1行に収まる最小幅。
 const HUD_MIN_WIDTH := 300.0
+const BAR_H := 10.0
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ICON_STR := "res://art/pixel/status/strength.png"
 const ICON_POISON := "res://art/pixel/status/poison.png"
@@ -38,9 +39,6 @@ const SAN_TICK_COLOR := Color("1a1020")
 const SAN_TICK_W := 2.0
 const SAN_SHAKE_PX := 2.0
 
-var _header: HBoxContainer
-var _name_label: Label
-var _floor_label: Label
 var _hp_fill: ColorRect
 var _hp_value: Label
 var _san_fill: ColorRect
@@ -65,15 +63,6 @@ func _ready() -> void:
 func bind(data: Dictionary) -> void:
 	if not _built:
 		_build()
-	var show_header: bool = data.get("show_header", true) and true
-	_header.visible = show_header
-	if show_header:
-		var pname: String = str(data.get("player_name", ""))
-		if pname == "":
-			pname = "無名"
-		_name_label.text = pname
-		_floor_label.text = str(data.get("floor_text", ""))
-		_floor_label.visible = _floor_label.text != ""
 	_set_bar(_hp_fill, _hp_value, int(data.get("hp", 0)), int(data.get("max_hp", 0)))
 	_set_bar(_san_fill, _san_value, int(data.get("sanity", 0)), int(data.get("max_sanity", 0)))
 	_rebuild_status(data)
@@ -103,23 +92,8 @@ func _build() -> void:
 	## HFlow の折り返しは並べ替え後に確定するので、そのたびに枠の高さを合わせ直す。
 	col.minimum_size_changed.connect(_fit_to_content)
 
-	_header = HBoxContainer.new()
-	_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_name_label = _make_label(PARCHMENT, 13)
-	_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_floor_label = _make_label(MUTED, 11)
-	_floor_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_header.add_child(_name_label)
-	_header.add_child(_floor_label)
-	col.add_child(_header)
-
-	var bars := HBoxContainer.new()
-	bars.add_theme_constant_override("separation", 12)
-	bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bars.add_child(_make_bar_block("HP", Color("8b1e1e"), true))
-	bars.add_child(_make_bar_block("SAN", ACCENT, false))
-	col.add_child(bars)
+	col.add_child(_make_bar_block("HP", Color("8b1e1e"), true))
+	col.add_child(_make_bar_block("SAN", ACCENT, false))
 
 	_status_row = HFlowContainer.new()
 	_status_row.add_theme_constant_override("h_separation", 8)
@@ -129,7 +103,7 @@ func _build() -> void:
 	_fit_to_content()
 
 
-## 「HP ▬▬▬ 50/50」を1行に収める。見出し・ゲージ・数値を横に並べて高さを節約する。
+## 「HP ▬▬▬▬▬▬ 50/50」を1行に収める。ゲージはパネル幅いっぱいまで伸ばす。
 func _make_bar_block(caption: String, fill_color: Color, is_hp: bool) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
@@ -137,6 +111,8 @@ func _make_bar_block(caption: String, fill_color: Color, is_hp: bool) -> HBoxCon
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var cap := _make_label(MUTED, 10)
 	cap.text = caption
+	## HP と SAN でゲージの左端をそろえる
+	cap.custom_minimum_size = Vector2(24, 0)
 	var fill: ColorRect = _make_bar(fill_color)
 	## VBox に入れておくと、ゲージの x は常に 0（震え演出の基準位置）になる。
 	var bar_box := VBoxContainer.new()
@@ -163,7 +139,7 @@ func _make_bar_block(caption: String, fill_color: Color, is_hp: bool) -> HBoxCon
 
 func _make_bar(fill_color: Color) -> ColorRect:
 	var track := ColorRect.new()
-	track.custom_minimum_size = Vector2(0, 8)
+	track.custom_minimum_size = Vector2(0, BAR_H)
 	track.color = INK_TRACK
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fill := ColorRect.new()

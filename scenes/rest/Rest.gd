@@ -116,16 +116,12 @@ func _on_building_hover(hotspot: Button, hovering: bool) -> void:
 
 
 func _vitals_payload() -> Dictionary:
-	var current_floor: int = int(GameState.floor)
 	return {
-		"player_name": GameState.player_name,
-		"floor_text": "%s · %s" % [Floors.floor_band(current_floor), Floors.layer_label(current_floor)],
 		"hp": GameState.hp,
 		"max_hp": GameState.max_hp,
 		"sanity": GameState.sanity,
 		"max_sanity": GameState.max_sanity,
 		"shells": GameState.shells,
-		"show_header": true,
 		"show_energy": false,
 		"show_status": false,
 		"show_shells": true,
