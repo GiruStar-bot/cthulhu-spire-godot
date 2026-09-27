@@ -1834,7 +1834,6 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		var dims: Dictionary = _px_dims_of(art)
 		var bw: float = float(dims.bw)
 		var bh: float = float(dims.bh)
-		var top: float = float(dims.top)
 		var ground_ratio_px: float = ENEMY_GROUND_DUAL if count >= 2 else ENEMY_GROUND_SINGLE
 		var nominal_feet: float = area.y * (1.0 - ground_ratio_px)
 		var feet_cap: float = _px_hand_feet_limit(area.y)
@@ -1850,8 +1849,10 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		px_step = maxi(1, int(floor(minf(art_box.x / bw, candidate_h / bh))))
 		var drops: int = 0
 		while px_step > 1 and drops < 6:
-			var fx_top: float = px_feet_y - (bh + top) * float(px_step)
-			if fx_top >= ENEMY_PX_TOP_MARGIN - 0.5:
+			## 頭上FXの余白（fx_top）まで画面内に強制すると、本体は入るのに 2 倍へ落ちる。
+			## 余白は見切れてよい。本体の上端だけを残す。
+			var body_top: float = px_feet_y - bh * float(px_step)
+			if body_top >= ENEMY_PX_TOP_MARGIN - 0.5:
 				break
 			px_step -= 1
 			drops += 1
