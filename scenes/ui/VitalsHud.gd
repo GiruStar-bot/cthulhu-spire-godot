@@ -12,6 +12,10 @@ const FRAME_DISPLAY := 16
 const FRAME_OUTSET := 4
 ## Godot 4 StyleBoxFlat.content_margin does NOT inset child Controls — use this for offsets/MarginContainer.
 const FRAME_CONTENT_INSET := 22  # FRAME_DISPLAY + 6
+## この枠だけ上下の余白を詰める（石の内側ぎりぎり）。左右は FRAME_CONTENT_INSET のまま。
+const HUD_INSET_Y := 17
+## HP と SAN を横並びにするための最小幅。
+const HUD_MIN_WIDTH := 300.0
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ICON_STR := "res://art/pixel/status/strength.png"
 const ICON_POISON := "res://art/pixel/status/poison.png"
@@ -80,22 +84,24 @@ func bind(data: Dictionary) -> void:
 func set_show_frame(enabled: bool) -> void:
 	show_frame = enabled
 	_apply_frame_visible()
+	_apply_content_inset()
+	_fit_to_content()
 
 
 func _build() -> void:
 	_built = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if custom_minimum_size.x < 8.0:
-		custom_minimum_size = Vector2(232, 96)
+		custom_minimum_size = Vector2(HUD_MIN_WIDTH, 64)
 	_decorate()
-	# StyleBoxFlat.content_margin does not pad children; inset the content root explicitly.
-	var pad: int = FRAME_CONTENT_INSET if show_frame else 8
 	var col := VBoxContainer.new()
 	_content = col
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, pad)
-	col.add_theme_constant_override("separation", 4)
+	col.add_theme_constant_override("separation", 3)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(col)
+	_apply_content_inset()
+	## HFlow の折り返しは並べ替え後に確定するので、そのたびに枠の高さを合わせ直す。
+	col.minimum_size_changed.connect(_fit_to_content)
 
 	_header = HBoxContainer.new()
 	_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -108,8 +114,12 @@ func _build() -> void:
 	_header.add_child(_floor_label)
 	col.add_child(_header)
 
-	col.add_child(_make_bar_block("HP", Color("8b1e1e"), true))
-	col.add_child(_make_bar_block("SAN", ACCENT, false))
+	var bars := HBoxContainer.new()
+	bars.add_theme_constant_override("separation", 12)
+	bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bars.add_child(_make_bar_block("HP", Color("8b1e1e"), true))
+	bars.add_child(_make_bar_block("SAN", ACCENT, false))
+	col.add_child(bars)
 
 	_status_row = HFlowContainer.new()
 	_status_row.add_theme_constant_override("h_separation", 8)
@@ -119,23 +129,27 @@ func _build() -> void:
 	_fit_to_content()
 
 
-func _make_bar_block(caption: String, fill_color: Color, is_hp: bool) -> VBoxContainer:
-	var block := VBoxContainer.new()
-	block.add_theme_constant_override("separation", 2)
-	block.mouse_filter = Control.MOUSE_FILTER_IGNORE
+## 「HP ▬▬▬ 50/50」を1行に収める。見出し・ゲージ・数値を横に並べて高さを節約する。
+func _make_bar_block(caption: String, fill_color: Color, is_hp: bool) -> HBoxContainer:
 	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var cap := _make_label(MUTED, 10)
 	cap.text = caption
-	cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var fill: ColorRect = _make_bar(fill_color)
+	## VBox に入れておくと、ゲージの x は常に 0（震え演出の基準位置）になる。
+	var bar_box := VBoxContainer.new()
+	bar_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar_box.add_child(fill.get_parent())
 	var value := _make_label(PARCHMENT, 10)
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	value.custom_minimum_size = Vector2(72, 0)
+	value.custom_minimum_size = Vector2(40, 0)
 	row.add_child(cap)
+	row.add_child(bar_box)
 	row.add_child(value)
-	block.add_child(row)
-	var fill: ColorRect = _make_bar(fill_color)
-	block.add_child(fill.get_parent())
 	if is_hp:
 		_hp_fill = fill
 		_hp_value = value
@@ -144,7 +158,7 @@ func _make_bar_block(caption: String, fill_color: Color, is_hp: bool) -> VBoxCon
 		_san_value = value
 		_san_track = fill.get_parent() as ColorRect
 		_add_sanity_ticks(_san_track)
-	return block
+	return row
 
 
 func _make_bar(fill_color: Color) -> ColorRect:
@@ -209,7 +223,7 @@ func flash_sanity_crack(crack_tex: Texture2D, shake: bool) -> void:
 	if shake:
 		if _san_shake_tween != null and _san_shake_tween.is_valid():
 			_san_shake_tween.kill()
-		## VBox の子なので定位置は x=0（途中で kill されても基準がずれないよう固定値）
+		## VBox（bar_box）の子なので定位置は x=0（途中で kill されても基準がずれないよう固定値）
 		var base_x: float = 0.0
 		_san_shake_tween = create_tween()
 		_san_shake_tween.tween_property(_san_track, "position:x", base_x + SAN_SHAKE_PX, 0.04)
@@ -334,15 +348,31 @@ static func _load_static(path: String) -> Texture2D:
 	return load(FALLBACK_TEX) as Texture2D
 
 
+func _content_pad_y() -> float:
+	return float(HUD_INSET_Y if show_frame else 6)
+
+
+func _apply_content_inset() -> void:
+	if _content == null:
+		return
+	var pad_x: float = float(FRAME_CONTENT_INSET if show_frame else 8)
+	var pad_y: float = _content_pad_y()
+	_content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_content.offset_left = pad_x
+	_content.offset_right = -pad_x
+	_content.offset_top = pad_y
+	_content.offset_bottom = -pad_y
+
+
+## 中身の高さぴったりに枠を合わせる（.tscn 側の高さが大きくても余白を残さない）。
 func _fit_to_content() -> void:
 	if _content == null:
 		return
-	var pad: float = float(FRAME_CONTENT_INSET if show_frame else 8)
-	var need: float = _content.get_combined_minimum_size().y + pad * 2.0
-	var width: float = maxf(custom_minimum_size.x, 232.0)
+	var need: float = _content.get_combined_minimum_size().y + _content_pad_y() * 2.0
+	var width: float = maxf(custom_minimum_size.x, HUD_MIN_WIDTH)
 	custom_minimum_size = Vector2(width, need)
-	if size.y < need:
-		size.y = need
+	if not (get_parent() is Container):
+		size = Vector2(maxf(size.x, width), need)
 
 
 func _decorate() -> void:
