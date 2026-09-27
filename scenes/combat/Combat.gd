@@ -745,6 +745,7 @@ func _px_dims_of(art: TextureRect) -> Dictionary:
 	return {
 		"bw": Enemies.PX_BODY_W, "bh": Enemies.PX_BODY_H, "top": Enemies.PX_FX_TOP,
 		"fw": Enemies.PX_FX_W, "fh": Enemies.PX_FX_H, "body_frames": Enemies.PX_FRAME_COUNT,
+		"idle_frames": 2, "idle_step": PX_IDLE_STEP,
 		"cast_holds": [], "cast_fire": 6, "blink": false,
 	}
 
@@ -817,10 +818,12 @@ func _start_px_idle(uid: String, art: TextureRect) -> void:
 	if VideoSettings.is_reduce_motion():
 		_set_px_pose(art, 0, 1, false)
 		return
-	if int(art.get_meta("px_frame", 0)) > 1 or int(art.get_meta("px_variant", 1)) != 1:
+	var dims: Dictionary = _px_dims_of(art)
+	var idle_count: int = clampi(int(dims.get("idle_frames", 2)), 2, int(dims.body_frames))
+	if int(art.get_meta("px_frame", 0)) >= idle_count or int(art.get_meta("px_variant", 1)) != 1:
 		_set_px_pose(art, 0, 1, false)
 	var tw: Tween = art.create_tween().set_loops()
-	tw.tween_interval(PX_IDLE_STEP)
+	tw.tween_interval(maxf(0.05, float(dims.get("idle_step", PX_IDLE_STEP))))
 	tw.tween_callback(_toggle_px_idle.bind(uid))
 	_px_idle_tweens[uid] = tw
 	art.set_meta("px_blink_at", Time.get_ticks_msec() + randi_range(2500, 6000))
@@ -832,10 +835,11 @@ func _toggle_px_idle(uid: String) -> void:
 		return
 	var cur: int = int(art.get_meta("px_frame", 0))
 	var dims: Dictionary = _px_dims_of(art)
+	var idle_count: int = clampi(int(dims.get("idle_frames", 2)), 2, int(dims.body_frames))
 	var blink_on: bool = dims.get("blink", false) == true
 	if blink_on and cur >= 8:
 		return
-	var nxt: int = 0 if cur == 1 else 1
+	var nxt: int = (cur + 1) % idle_count
 	_set_px_pose(art, nxt, 1, false)
 	if nxt != 0 or VideoSettings.is_reduce_motion():
 		return
@@ -906,9 +910,10 @@ func _play_px_cast(uid: String, art: TextureRect, variant: int, delay: float, se
 	if holds_raw is Array and not (holds_raw as Array).is_empty():
 		holds = holds_raw
 	var fire: int = int(dims.get("cast_fire", 6))
+	var cast_start: int = int(dims.get("idle_frames", 2))
 	var i: int = 0
 	while i < holds.size():
-		var frame: int = 2 + i
+		var frame: int = cast_start + i
 		var hold: float = float(holds[i])
 		tw.tween_callback(_set_px_pose.bind(art, frame, variant, true))
 		if frame == fire:
