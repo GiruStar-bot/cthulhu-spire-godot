@@ -2296,9 +2296,11 @@ func _vfx_feet_of(uid: String) -> Vector2:
 func _tentacle_px_scale(uid: String) -> float:
 	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
 	if art == null or not is_instance_valid(art) or art.size.y < 8.0:
-		return 3.0
-	var raw: int = int(round(art.size.y * 0.78 / float(TENTACLE_FRAME.y)))
-	return float(clampi(raw, 2, 4))
+		return 4.0
+	## 旧式は art.h * 0.78 / 88 を 2〜4 にクランプし、狂信者では 3 だった。
+	## 係数を 1.41 にして約 5（約1.6倍）にし、3〜6 に収める。接地は足元のまま。
+	var raw: int = int(round(art.size.y * 1.41 / float(TENTACLE_FRAME.y)))
+	return float(clampi(raw, 3, 6))
 
 
 func _arm_tentacle_hit_hold(target_id) -> void:
