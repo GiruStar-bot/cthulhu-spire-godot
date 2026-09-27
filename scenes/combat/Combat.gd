@@ -93,6 +93,7 @@ const PX_CARD_REVEAL_FACE_Y := {
 	"colour": 0.20,
 	"serpent": 0.17,
 	"migo": 0.27,
+	"byakhee": 0.21,
 }
 ## 上部へ抜け始めるカード粒のコマ。水波・矛などの本体効果は動かさない。
 const PX_CARD_REVEAL_FX_START := {
@@ -1256,6 +1257,8 @@ func _spawn_px_reveal_cards(uid: String) -> void:
 	var origin := Vector2((art.size.x - total_w) * 0.5, (art.size.y - card_size.y) * 0.5)
 	if str(foe.get("defId", "")) == "migo":
 		origin.y = art.size.y * 0.43 - card_size.y * 0.5
+	elif str(foe.get("defId", "")) == "byakhee":
+		origin.y = art.size.y * 0.40 - card_size.y * 0.5
 	var face_ratio: float = float(PX_CARD_REVEAL_FACE_Y.get(str(foe.get("defId", "")), 0.22))
 	var face_origin := Vector2(origin.x, art.size.y * face_ratio - card_size.y * 0.5)
 	for i in n:
