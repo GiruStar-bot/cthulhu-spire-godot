@@ -341,7 +341,10 @@ func _commit_end_turn() -> void:
 	var had_enemy_hit := "hurt_from_enemy" in turn_sfx or "hurt" in turn_sfx
 	if int(player.hp) < hp_before and not had_enemy_hit:
 		AudioManager.play_sfx("hurt_self")
-	_check_result()
+	## 触手・火球のとどめを保留中なら、数字が出るまで勝敗を出さない。
+	## _play_card 側と同じガード。ここが無いと forceEnd 経由で先に確定してしまう。
+	if not _result_wait_hit:
+		_check_result()
 
 
 func _player_can_act() -> bool:
