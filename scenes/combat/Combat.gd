@@ -21,6 +21,11 @@ const FX_ARROW := preload("res://art/pixel/fx/fx_arrow.png")
 const TENTACLE_STRIKE := preload("res://scenes/combat/TentacleStrike.gd")
 const TENTACLE_SHEET := preload("res://art/pixel/fx/tentacle_ground.png")
 const TENTACLE_FRAME := Vector2i(72, 88)
+const FIREBALL_SHOT := preload("res://scenes/combat/FireballShot.gd")
+const FIREBALL_SHEET := preload("res://art/pixel/fx/fireball.png")
+const FIREBALL_FRAME := Vector2i(40, 40)
+const FIREBALL_SCALE := 3.0
+const FIREBALL_FLIGHT := 0.32
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
@@ -108,9 +113,12 @@ var _shield_tween: Tween
 var _hurt_flash: ColorRect
 var _hurt_tween: Tween
 var _vfx_layer: Node2D
-## 触手カードだけ、敵へのダメージ数字を「伸びきって当たるコマ」まで保留する。
+## 触手・火球は、当たる瞬間まで敵へのダメージ数字を保留する。
 var _held_floater_ids: Dictionary = {}
 var _tentacle_hit_timeout: Tween = null
+var _fireball_hit_timeout: Tween = null
+## プレイした手札の位置。refresh が正気度の出発点を消す前に控える。
+var _fireball_from: Vector2 = Vector2(-1.0, -1.0)
 var _draw_in_tweens: Dictionary = {}
 
 
@@ -136,6 +144,7 @@ func _exit_tree() -> void:
 	_px_committed = true
 	_cancel_px_reveal_hold()
 	_cancel_tentacle_hit_timeout()
+	_cancel_fireball_hit_timeout()
 	var settings: VideoSettings = VideoSettings.get_instance()
 	if settings.changed.is_connected(_on_px_reduce_motion):
 		settings.changed.disconnect(_on_px_reduce_motion)
@@ -218,6 +227,7 @@ func _play_card(card_uid: String, target_id) -> void:
 	var selected_card = _find_hand(card_uid)
 	var card_type := str(Cards.get_card(str(selected_card.defId)).get("type", "skill")) if selected_card else "skill"
 	_sanity_drop_from = _hand_card_center(card_uid)
+	_fireball_from = _sanity_drop_from
 	var played: Dictionary = CombatLogic.play_card(state, player, card_uid, target_id, Callable(GameState, "_rand"))
 	if played.get("error"):
 		message_label.text = str(played.error)
@@ -228,11 +238,15 @@ func _play_card(card_uid: String, target_id) -> void:
 	var hp_before: int = int(player.hp)
 	var definition: Dictionary = Cards.get_card(def_id) if def_id != "" else {}
 	var vfx_kind: String = str(definition.get("vfx", "impact"))
-	## 触手は当たるコマまで効果音とダメージ数字を遅らせる。計算自体は上の play_card で済んでいる。
+	## 触手と火球は当たる瞬間まで効果音とダメージ数字を遅らせる。計算自体は上の play_card で済んでいる。
 	var delay_tentacle: bool = vfx_kind == "tentacle_ground" and not VideoSettings.is_reduce_motion()
+	var delay_fireball: bool = vfx_kind == "fireball" and not VideoSettings.is_reduce_motion()
 	if delay_tentacle:
 		_arm_tentacle_hit_hold(target_id)
 		_arm_tentacle_hit_timeout()
+	elif delay_fireball:
+		_arm_tentacle_hit_hold(target_id)
+		_arm_fireball_hit_timeout()
 	else:
 		# カード固有 SFX（ねこの手・電撃銃など）を優先。なければ vfx / skill
 		AudioManager.play_sfx(AudioManager.resolve_card_sfx(def_id, card_type, vfx_kind))
@@ -2194,6 +2208,12 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 		for uid in uids:
 			_fx_tentacle_ground(str(uid))
 		return
+	if kind == "fireball":
+		if VideoSettings.is_reduce_motion():
+			return
+		for uid2 in uids:
+			_fx_fireball_to(str(uid2))
+		return
 
 
 func _vfx_target_uids(definition: Dictionary, target_id) -> Array:
@@ -2390,3 +2410,49 @@ func _fx_arrow_land(spr: Sprite2D, dest: Vector2, fit: float) -> void:
 	if spr != null and is_instance_valid(spr):
 		spr.queue_free()
 	_fx_impact_at(dest, fit)
+
+
+func _arm_fireball_hit_timeout() -> void:
+	_cancel_fireball_hit_timeout()
+	var tw: Tween = create_tween()
+	tw.tween_interval(0.7)
+	tw.tween_callback(_on_fireball_hit_timeout)
+	_fireball_hit_timeout = tw
+
+
+func _cancel_fireball_hit_timeout() -> void:
+	if _fireball_hit_timeout != null and is_instance_valid(_fireball_hit_timeout) and _fireball_hit_timeout.is_valid():
+		_fireball_hit_timeout.kill()
+	_fireball_hit_timeout = null
+
+
+func _on_fireball_hit() -> void:
+	if not is_inside_tree():
+		return
+	AudioManager.play_sfx("vfx_impact")
+	_cancel_fireball_hit_timeout()
+	_flush_held_floaters()
+
+
+func _on_fireball_hit_timeout() -> void:
+	_fireball_hit_timeout = null
+	_flush_held_floaters()
+
+
+func _fx_fireball_from() -> Vector2:
+	_ensure_vfx_layer()
+	if _fireball_from.x >= 0.0 and _fireball_from.y >= 0.0:
+		## 手札の中心だとカード絵に隠れる。上端の少し上から飛ばす。
+		return _vfx_layer.to_local(_fireball_from) + Vector2(0.0, -CARD_SIZE.y * 0.55)
+	return Vector2(size.x * 0.5, size.y * 0.78)
+
+
+func _fx_fireball_to(uid: String) -> void:
+	_ensure_vfx_layer()
+	var shot = FIREBALL_SHOT.new()
+	## ダメージ数字（FloaterLayer z=15）より後ろ、敵の前。
+	shot.z_index = -2
+	_vfx_layer.add_child(shot)
+	shot.setup(FIREBALL_SHEET, FIREBALL_FRAME, FIREBALL_SCALE)
+	shot.struck.connect(_on_fireball_hit)
+	shot.launch(_fx_fireball_from(), _vfx_center_of(uid), FIREBALL_FLIGHT)

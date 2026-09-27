@@ -1831,7 +1831,7 @@ const CARDS := {
 		"upgradedEffects": [{"t": "damage", "n": 30}],
 	},
 	"fireball": {
-		"id": "fireball", "name": "火球", "type": "attack", "aiTag": "attack", "vfx": "impact",
+		"id": "fireball", "name": "火球", "type": "attack", "aiTag": "attack", "vfx": "fireball",
 		"archetype": "fire", "subArchetypes": ["fire", "arcane"],
 		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared", "vanishOnUse": true,
 		"text": "敵単体に6ダメージ。",
