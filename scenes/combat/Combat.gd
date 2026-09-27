@@ -39,16 +39,20 @@ const DRAW_IN_STAGGER := 0.04
 const DRAW_IN_STAGGER_CAP := 8
 const DRAW_IN_SCALE := 0.42
 const DRAW_IN_ROT_OFFSET := -16.0
-## 拡大版（202x302、PR #120時点）は圧迫感が強いとのフィードバックで112x168へ差し戻し。
-const CARD_SIZE := Vector2(112, 168)
+## 112x168（PR #121で差し戻し済み）に対し、操作しやすさ優先でもう一段階だけ拡大（約1.15倍）。
+const CARD_SIZE := Vector2(130, 193)
 ## 敵の顔の上に出す予告。手札とは別サイズ。幅が足りなければ _spawn_px_reveal_cards が縮める。
 const PREVIEW_CARD_SIZE := Vector2(112, 160)
-## 手札の下端と、扇の反りで上にはみ出す分。
+## 手札の下端と、扇の反りで上にはみ出す分。カード高さに比例して増える。
 const HAND_BOTTOM_INSET := 8.0
-const HAND_ARC_SLACK := 38.0
-## body_budget/bh に掛ける調整。手札112x168時、1280×720 の敵本体を約2.2倍に抑える。
+const HAND_ARC_SLACK := 44.0
+## body_budget/bh に掛ける調整。手札130x193時、1280×720 の敵本体を約2.2倍に抑える。
 ## 画面や2体並びで収まらない分は、後段の上端・横幅制限でさらに縮める。
-const ENEMY_SCALE_TRIM := 0.77
+const ENEMY_SCALE_TRIM := 0.81
+## 敵の足元が手札の上端より下へ潜ってよい量（px）と、本体高さに対する上限割合。
+## 足元〜すねが手札の陰に入る程度にとどめ、顔・胴は隠さない。
+const ENEMY_FEET_HAND_OVERLAP := 60.0
+const ENEMY_FEET_OVERLAP_BODY_MAX := 0.2
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 176.0
 const ENEMY_PLATE_W_DUAL := 148.0
@@ -1507,6 +1511,24 @@ func _pick_foe(pos: Vector2) -> String:
 	return ""
 
 
+## 状態異常アイコン（ブロック・筋力・弱体・毒・封印）の同時付与数。1つでもあれば
+## status_row（HFlowContainer）が1〜2段になる分、box の高さを確保する必要がある。
+func _enemy_status_icon_count(e: Dictionary) -> int:
+	var n: int = 0
+	if int(e.get("block", 0)) > 0:
+		n += 1
+	if int(e.get("strength", 0)) > 0:
+		n += 1
+	if int(e.get("weak", 0)) > 0:
+		n += 1
+	if int(e.get("poison", 0)) > 0:
+		n += 1
+	var sealed = e.get("sealed", "")
+	if sealed != null and str(sealed) != "" and str(sealed) != "<null>":
+		n += 1
+	return n
+
+
 func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) -> VBoxContainer:
 	var plate := VBoxContainer.new()
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1514,8 +1536,16 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	var plate_w: float = ENEMY_PLATE_W_DUAL if compact else ENEMY_PLATE_W
 	plate.custom_minimum_size = Vector2(plate_w, 0)
 
+	## status_row は HFlowContainer で幅が足りないと2段に折り返す。box は Panel で
+	## 子の最小サイズを自動追従しないため、固定高さのままだと折り返し時に中身
+	## （体力バーを含む）が枠の外へ描画上はみ出す（クランプはratio計算側だけで、
+	## レイアウトの高さ超過はここでは防げない）。1つでも付いたら2段を見込んで
+	## 高さを底上げする（多くても余白が少し増えるだけで、はみ出しよりましな方に倒す）。
+	var status_count: int = _enemy_status_icon_count(e)
+	var base_h: float = 64.0 if compact else 72.0
+	var status_reserve: float = 0.0 if status_count <= 0 else (44.0 if compact else 40.0)
 	var box := Panel.new()
-	box.custom_minimum_size = Vector2(plate_w, 64 if compact else 72)
+	box.custom_minimum_size = Vector2(plate_w, base_h + status_reserve)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.055, 0.05, 0.045, 0.94)
@@ -1531,8 +1561,8 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	col.offset_left = 8
 	col.offset_right = -8
-	col.offset_top = 6
-	col.offset_bottom = -6
+	col.offset_top = 6.0 if not compact else 4.0
+	col.offset_bottom = -6.0 if not compact else -4.0
 	col.add_theme_constant_override("separation", 2)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -1731,6 +1761,9 @@ func _finish_draw_in(uid: String) -> void:
 			card.position = fan_pos
 			card.rotation_degrees = fan_rot
 			card.scale = Vector2.ONE
+			## 引き始めの時点で決めた透明度（base_a）のまま終わると、飛んでいる間に
+			## 敵の演出が終わって使用可能になったカードが薄いまま残る。今の状態に合わせ直す。
+			card.modulate.a = 0.56 if card.disabled else 1.0
 			if not card.disabled:
 				card.mouse_filter = Control.MOUSE_FILTER_STOP
 			return
@@ -1774,6 +1807,17 @@ func _build_chrome() -> void:
 	_discard_btn.pressed.connect(func(): _open_pile("discard"))
 	_discard_btn.z_index = PILE_BUTTON_Z
 	add_child(_discard_btn)
+	## HUD の高さは状態異常の数で変わるので、山札・捨て札ボタンはその下端に付いていく。
+	hud_panel.resized.connect(_place_pile_buttons)
+	_place_pile_buttons()
+
+
+func _place_pile_buttons() -> void:
+	if _draw_btn == null or _discard_btn == null:
+		return
+	var y: float = hud_panel.position.y + hud_panel.size.y + 8.0
+	_draw_btn.position.y = y
+	_discard_btn.position.y = y
 
 
 func _apply_hand_frame() -> void:
@@ -1784,10 +1828,10 @@ func _apply_hand_frame() -> void:
 		hand_row.offset_right = -152.0
 	if hand_tray != null:
 		hand_tray.offset_bottom = -4.0
-		hand_tray.offset_top = -(CARD_SIZE.y + HAND_BOTTOM_INSET + 44.0)
+		hand_tray.offset_top = -(CARD_SIZE.y + HAND_BOTTOM_INSET + HAND_ARC_SLACK + 6.0)
 		hand_tray.offset_right = -144.0
 	if message_label != null:
-		message_label.offset_bottom = -(CARD_SIZE.y + HAND_BOTTOM_INSET + 32.0)
+		message_label.offset_bottom = -(CARD_SIZE.y + HAND_BOTTOM_INSET + HAND_ARC_SLACK - 6.0)
 		message_label.offset_top = message_label.offset_bottom - 26.0
 		message_label.z_index = 40
 	var plate: Control = get_node_or_null("MessagePlate") as Control
@@ -1931,16 +1975,21 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		var float_y_px: float = 0.0
 		if art.has_meta("float_y"):
 			float_y_px = float(art.get_meta("float_y"))
-		## ENEMY_GROUND_* は手札より下に潜る。足元はその上端で止める（それ以上は下げない）。
-		px_feet_y = minf(nominal_feet, feet_cap) + float_y_px
-		var body_budget: float = maxf(bh, px_feet_y - float_y_px - ENEMY_PX_TOP_MARGIN)
+		## 倍率は従来どおり「手札の上端で足元を止めた位置」で決める（ENEMY_SCALE_TRIM の調整を保つ）。
+		var scale_feet_y: float = minf(nominal_feet, feet_cap) + float_y_px
+		var body_budget: float = maxf(bh, scale_feet_y - float_y_px - ENEMY_PX_TOP_MARGIN)
 		## 整数段は使わない。上端余白を満たす最大高さと横幅の小さい方に、調整係数を掛ける。
 		var fit_scale: float = minf(body_budget / bh, art_box.x / maxf(1.0, bw))
 		px_scale = maxf(1.0, fit_scale * ENEMY_SCALE_TRIM)
-		var max_fit: float = (px_feet_y - float_y_px - ENEMY_PX_TOP_MARGIN) / bh
+		var max_fit: float = (scale_feet_y - float_y_px - ENEMY_PX_TOP_MARGIN) / bh
 		if px_scale > max_fit:
 			px_scale = maxf(1.0, max_fit)
 		drawn = Vector2(bw * px_scale, bh * px_scale)
+		## 立ち位置は本来の足場（nominal_feet）を優先し、手札の上端より下へ
+		## ENEMY_FEET_HAND_OVERLAP ぶんまでは潜らせる（足元が手札の陰に入るのは許容）。
+		## 重なり量は本体高さの ENEMY_FEET_OVERLAP_BODY_MAX 割合でも頭打ちにし、胴から上は隠さない。
+		var overlap_cap: float = minf(ENEMY_FEET_HAND_OVERLAP, drawn.y * ENEMY_FEET_OVERLAP_BODY_MAX)
+		px_feet_y = minf(nominal_feet, feet_cap + overlap_cap) + float_y_px
 	else:
 		var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
 		drawn = tex_size * fitted
