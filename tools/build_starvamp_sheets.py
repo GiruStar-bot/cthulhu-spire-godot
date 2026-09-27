@@ -12,21 +12,21 @@ INK = (25, 14, 34, 255)
 SOURCE_GRID = SOURCE / "starvamp_pixel_poses.png"
 POSE_CROPS = (
     (0, 0, 548, 805),
-    (548, 0, 1095, 805),
+    (548, 0, 1094, 805),
     (0, 805, 548, 1437),
-    (548, 805, 1095, 1437),
+    (548, 805, 1094, 1437),
 )
 
 
 def native(grid: Image.Image, crop: tuple[int, int, int, int]) -> Image.Image:
-    """Reduce a complete pose to a 48x63 drawing grid."""
+    """Reduce a complete pose to an 80x105 drawing grid."""
     panel = grid.crop(crop)
     alpha = panel.getchannel("A").point(lambda value: 255 if value >= 128 else 0)
     bounds = alpha.getbbox()
     if bounds is None:
         raise ValueError(f"Empty Starvamp pose: {crop}")
     panel = panel.crop(bounds)
-    scale = min(45 / panel.width, 59 / panel.height)
+    scale = min(75 / panel.width, 98 / panel.height)
     width, height = round(panel.width * scale), round(panel.height * scale)
     matte = Image.new("RGB", panel.size, INK[:3])
     matte.paste(panel.convert("RGB"), mask=panel.getchannel("A"))
@@ -35,8 +35,8 @@ def native(grid: Image.Image, crop: tuple[int, int, int, int]) -> Image.Image:
     shape = shape.point(lambda value: 255 if value >= 120 else 0)
     sprite = color.convert("RGBA")
     sprite.putalpha(shape)
-    tiny = Image.new("RGBA", (48, 63))
-    tiny.alpha_composite(sprite, ((48 - width) // 2, 63 - height - 2))
+    tiny = Image.new("RGBA", (80, 105))
+    tiny.alpha_composite(sprite, ((80 - width) // 2, 105 - height - 3))
     return tiny
 
 
@@ -47,7 +47,7 @@ def palette_for(images: list[Image.Image]) -> Image.Image:
                        in image.get_flattened_data() if a)
     samples = Image.new("RGB", (len(visible), 1))
     samples.putdata(visible)
-    return samples.quantize(colors=10, method=Image.Quantize.MEDIANCUT)
+    return samples.quantize(colors=26, method=Image.Quantize.MEDIANCUT)
 
 
 def palette_map(image: Image.Image, palette: Image.Image) -> Image.Image:
@@ -75,7 +75,7 @@ def effect(frame: int, cards: Image.Image) -> Image.Image:
 
 def main() -> None:
     # Complete poses preserve the wing membranes and shoulder attachment.
-    # Ten shared colors on a 48x63 grid keep the body visibly pixelated.
+    # A shared 26-color palette on an 80x105 grid matches other enemy sprites.
     grid = Image.open(SOURCE_GRID).convert("RGBA")
     sources = [native(grid, crop) for crop in POSE_CROPS]
     palette = palette_for(sources)
