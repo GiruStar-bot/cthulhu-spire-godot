@@ -9,19 +9,19 @@ signal drag_began(card_uid: String)
 ## 属性フレームが無いカード（属性なし等）の共通枠。状態異常カードは枠なしの細い縁取りのまま。
 const FRAME_DEFAULT := ["res://art/pixel/ui/frame_card_9.png", 12]
 const FRAME_BY_ARCHETYPE := {
-	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 14],
+	"greatold": ["res://art/pixel/ui/frame_card_greatold_9.png", 12],
 	"elder": ["res://art/pixel/ui/frame_card_elder_9.png", 12],
-	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
-	"all": ["res://art/pixel/ui/frame_card_all_9.png", 16],
+	"outer": ["res://art/pixel/ui/frame_card_outer_9.png", 12],
+	"all": ["res://art/pixel/ui/frame_card_all_9.png", 12],
 	"knight": ["res://art/pixel/ui/frame_card_knight_9.png", 12],
-	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 11],
-	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 13],
+	"magic": ["res://art/pixel/ui/frame_card_magic_9.png", 12],
+	"wind": ["res://art/pixel/ui/frame_card_wind_9.png", 12],
 	"fire": ["res://art/pixel/ui/frame_card_fire_9.png", 12],
-	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 20],
-	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 11],
-	"water": ["res://art/pixel/ui/frame_card_water_9.png", 19],
+	"earth": ["res://art/pixel/ui/frame_card_earth_9.png", 12],
+	"bastet": ["res://art/pixel/ui/frame_card_bastet_9.png", 12],
+	"water": ["res://art/pixel/ui/frame_card_water_9.png", 12],
 	## 戯神ちゃん（混沌）に専用枠は無い。見た目だけ外宇宙枠を使う。
-	"chaos": ["res://art/pixel/ui/frame_card_outer_9.png", 16],
+	"chaos": ["res://art/pixel/ui/frame_card_outer_9.png", 12],
 }
 ## styles.css glow-greatold / glow-elder / glow-outer の drop-shadow 色。
 ## 発光は加算合成なので、棚色のような暗い色だとほぼ見えない。枠のハイライトに寄せて明るくしてある。
