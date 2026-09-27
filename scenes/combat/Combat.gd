@@ -2566,7 +2566,6 @@ func _reveal_held_outcome() -> void:
 	_refresh_enemies()
 	_refresh_hud()
 	if wait:
-		_refresh_log()
 		_check_result()
 
 
