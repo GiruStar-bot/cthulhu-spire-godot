@@ -64,6 +64,13 @@ const ENEMIES := {
 		"name": "翼ある飢え",
 		"art": "res://art/pixel/byakhee.png",
 		"poster": "res://art/pixel/byakhee.png",
+		"sprite": "res://art/pixel/enemies_px/byakhee",
+		"px": {
+			"body_w": 112, "body_h": 168, "fx_top": 48, "body_frames": 15,
+			"idle_frames": 6, "idle_step": 0.20,
+			"cast_holds": [0.12, 0.16, 0.17, 0.19, 0.22, 0.24, 0.18, 0.17, 0.20],
+			"cast_fire": 11,
+		},
 		"biome": "void",
 		"maxHp": 38,
 		"tier": "elite",
