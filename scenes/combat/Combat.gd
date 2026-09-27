@@ -60,6 +60,23 @@ const PX_CAST_HOLDS: Array = [0.10, 0.18, 0.22, 0.20, 0.16, 0.26]
 const PX_CARD_REVEAL_HOLD := 0.8
 const PX_CARD_REVEAL_IN := 0.14
 const PX_CARD_REVEAL_OUT := 0.18
+const PX_CARD_REVEAL_TRAVEL := 0.24
+## 各シートの顔（星から来た色は頭部の光）の中心。本体高さに対する比率。
+const PX_CARD_REVEAL_FACE_Y := {
+	"acolyte": 0.20,
+	"fanatic": 0.19,
+	"priest": 0.18,
+	"drowned": 0.23,
+	"coral": 0.25,
+	"starveling": 0.21,
+	"colour": 0.20,
+	"serpent": 0.17,
+}
+## 上部へ抜け始めるカード粒のコマ。水波・矛などの本体効果は動かさない。
+const PX_CARD_REVEAL_FX_START := {
+	"acolyte": 5, "fanatic": 7, "priest": 4, "drowned": 7,
+	"coral": 9, "starveling": 9, "colour": 14,
+}
 
 @onready var hud_panel: VitalsHud = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
@@ -102,6 +119,7 @@ var _px_frame6_uids: Dictionary = {}
 var _px_frame6_need: int = 0
 var _px_reveal_cards: Array = []
 var _px_reveal_hold: Tween = null
+var _px_face_fx_cache: Dictionary = {}
 var _prev_hp: int = -1
 var _prev_sanity: int = -1
 var _prev_block: int = -1
@@ -735,6 +753,7 @@ func _apply_enemy_portrait(art: TextureRect, def: Dictionary) -> void:
 		if fx_2 == null:
 			fx_2 = fx_1
 		art.set_meta("px_sprite", true)
+		art.set_meta("px_enemy_id", str(def.get("id", "")))
 		art.set_meta("px_body_1", body_1)
 		art.set_meta("px_body_2", body_2)
 		art.set_meta("px_frame", 0)
@@ -806,6 +825,53 @@ func _assign_px_region(rect: TextureRect, sheet: Texture2D, frame: int, frame_w:
 	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
+func _face_px_fx_frame(art: TextureRect, sheet: Texture2D, frame: int, dims: Dictionary) -> Texture2D:
+	var width: int = int(dims.fw)
+	var height: int = int(dims.fh)
+	var last: int = int(sheet.get_width() / width) - 1
+	var enemy_id: String = str(art.get_meta("px_enemy_id", ""))
+	var start: int = int(PX_CARD_REVEAL_FX_START.get(enemy_id, last - 1))
+	if frame < start:
+		return null
+	var ratio: float = float(PX_CARD_REVEAL_FACE_Y.get(enemy_id, 0.22))
+	var key: String = "%d:%d:%s" % [sheet.get_instance_id(), frame, enemy_id]
+	if _px_face_fx_cache.has(key):
+		return _px_face_fx_cache[key] as Texture2D
+	var source_image: Image = sheet.get_image()
+	if source_image == null or source_image.is_empty():
+		return null
+	var image: Image = source_image.get_region(Rect2i(frame * width, 0, width, height))
+	var positions: Array[Vector2i] = []
+	var colors: Array[Color] = []
+	var min_y: int = height
+	var max_y: int = -1
+	var left: int = 36 if enemy_id == "coral" else 0
+	for y in mini(60, height):
+		for x in range(left, width):
+			var color: Color = image.get_pixel(x, y)
+			if color.a <= 0.0:
+				continue
+			positions.append(Vector2i(x, y))
+			colors.append(color)
+			min_y = mini(min_y, y)
+			max_y = maxi(max_y, y)
+	if positions.is_empty():
+		return null
+	var destination: float = float(dims.top) + float(dims.bh) * ratio
+	var shift: int = roundi(destination - float(min_y + max_y) * 0.5)
+	for i in positions.size():
+		var p: Vector2i = positions[i]
+		image.set_pixelv(p, Color.TRANSPARENT)
+	for i in positions.size():
+		var p: Vector2i = positions[i]
+		var target_y: int = p.y + shift
+		if target_y >= 0 and target_y < height:
+			image.set_pixel(p.x, target_y, colors[i])
+	var shifted: Texture2D = ImageTexture.create_from_image(image)
+	_px_face_fx_cache[key] = shifted
+	return shifted
+
+
 func _set_px_pose(art: TextureRect, frame: int, variant: int, show_fx: bool) -> void:
 	if art == null or not is_instance_valid(art):
 		return
@@ -829,7 +895,12 @@ func _set_px_pose(art: TextureRect, frame: int, variant: int, show_fx: bool) -> 
 	var fx_sheet: Texture2D = art.get_meta("px_fx_%d" % use_variant, null) as Texture2D
 	if show_fx and fx_sheet != null:
 		fx.visible = true
-		_assign_px_region(fx, fx_sheet, index, int(dims.fw), int(dims.fh))
+		var face_fx: Texture2D = _face_px_fx_frame(art, fx_sheet, index, dims)
+		if face_fx != null:
+			fx.texture = face_fx
+			fx.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		else:
+			_assign_px_region(fx, fx_sheet, index, int(dims.fw), int(dims.fh))
 	else:
 		fx.visible = false
 
@@ -1176,6 +1247,8 @@ func _spawn_px_reveal_cards(uid: String) -> void:
 	var card_size: Vector2 = base * fit
 	var total_w: float = card_size.x * float(n) + gap * float(maxi(0, n - 1))
 	var origin := Vector2((art.size.x - total_w) * 0.5, (art.size.y - card_size.y) * 0.5)
+	var face_ratio: float = float(PX_CARD_REVEAL_FACE_Y.get(str(foe.get("defId", "")), 0.22))
+	var face_origin := Vector2(origin.x, art.size.y * face_ratio - card_size.y * 0.5)
 	for i in n:
 		var def_id: String = str(ids[i])
 		var definition: Dictionary = Cards.get_card(def_id)
@@ -1197,6 +1270,8 @@ func _spawn_px_reveal_cards(uid: String) -> void:
 		var tw: Tween = preview.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tw.tween_property(preview, "modulate:a", 1.0, PX_CARD_REVEAL_IN)
 		tw.parallel().tween_property(preview, "scale", Vector2.ONE, PX_CARD_REVEAL_IN)
+		tw.parallel().tween_property(preview, "position",
+			face_origin + Vector2(float(i) * (card_size.x + gap), 0.0), PX_CARD_REVEAL_TRAVEL)
 		_px_reveal_cards.append(preview)
 
 
