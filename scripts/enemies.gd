@@ -91,6 +91,12 @@ const ENEMIES := {
 		"name": "飢えし仔",
 		"art": "res://art/pixel/starveling.png",
 		"poster": "res://art/pixel/starveling.png",
+		"sprite": "res://art/pixel/enemies_px/starveling",
+		"px": {
+			"body_w": 112, "body_h": 168, "fx_top": 48, "body_frames": 11,
+			"cast_holds": [0.10, 0.18, 0.24, 0.13, 0.22, 0.16, 0.17, 0.19, 0.22],
+			"cast_fire": 6,
+		},
 		"biome": "reef",
 		"maxHp": 86,
 		"tier": "elite",
