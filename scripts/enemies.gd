@@ -25,6 +25,7 @@ const ENEMIES := {
 			"cast_fire": 4, "blink": true,
 		},
 		"biome": "shrine",
+		"spawn_biomes": ["reef", "street"],
 		"maxHp": 32,
 		"archetype": "fanatic",
 	},
@@ -40,6 +41,7 @@ const ENEMIES := {
 			"cast_fire": 8,
 		},
 		"biome": "shrine",
+		"spawn_biomes": ["reef", "street"],
 		"maxHp": 42,
 		"tier": "elite",
 		"archetype": "fanatic",
@@ -56,6 +58,7 @@ const ENEMIES := {
 			"cast_fire": 6,
 		},
 		"biome": "reef",
+		"spawn_biomes": ["reef", "street"],
 		"maxHp": 44,
 		"archetype": "poison",
 	},
@@ -65,6 +68,7 @@ const ENEMIES := {
 		"art": "res://art/pixel/byakhee.png",
 		"poster": "res://art/pixel/byakhee.png",
 		"biome": "void",
+		"spawn_biomes": ["void"],
 		"maxHp": 38,
 		"tier": "elite",
 		"archetype": "outer",
@@ -82,6 +86,7 @@ const ENEMIES := {
 			"cast_fire": 6,
 		},
 		"biome": "reef",
+		"spawn_biomes": ["reef", "street"],
 		"maxHp": 48,
 		"tier": "elite",
 		"archetype": "knight",
@@ -98,6 +103,7 @@ const ENEMIES := {
 			"cast_fire": 6,
 		},
 		"biome": "reef",
+		"spawn_biomes": ["street", "fold", "throne"],
 		"maxHp": 86,
 		"tier": "elite",
 		"archetype": "water",
@@ -114,6 +120,7 @@ const ENEMIES := {
 			"cast_fire": 6,
 		},
 		"biome": "mu",
+		"spawn_biomes": ["mu", "fold", "throne"],
 		"maxHp": 54,
 		"archetype": "water",
 	},
@@ -123,6 +130,7 @@ const ENEMIES := {
 		"art": "res://art/pixel/spawn.png",
 		"poster": "res://art/pixel/spawn.png",
 		"biome": "mu",
+		"spawn_biomes": ["mu", "fold", "throne"],
 		"maxHp": 62,
 		"archetype": "outer",
 	},
@@ -139,6 +147,7 @@ const ENEMIES := {
 			"cast_fire": 8,
 		},
 		"biome": "void",
+		"spawn_biomes": ["void"],
 		"maxHp": 40,
 		"archetype": "outer",
 		"floats": true,
@@ -156,6 +165,7 @@ const ENEMIES := {
 			"cast_fire": 11,
 		},
 		"biome": "colour",
+		"spawn_biomes": ["void"],
 		"maxHp": 48,
 		"archetype": "outer",
 		"floats": true,
@@ -166,6 +176,7 @@ const ENEMIES := {
 		"art": "res://art/pixel/starvamp.png",
 		"poster": "res://art/pixel/starvamp.png",
 		"biome": "void",
+		"spawn_biomes": ["void"],
 		"maxHp": 56,
 		"tier": "elite",
 		"archetype": "outer",
@@ -177,6 +188,7 @@ const ENEMIES := {
 		"art": "res://art/pixel/shan.png",
 		"poster": "res://art/pixel/shan.png",
 		"biome": "void",
+		"spawn_biomes": ["void"],
 		"maxHp": 36,
 		"archetype": "outer",
 		"floats": true,
@@ -377,6 +389,22 @@ static func px_dims(def: Dictionary) -> Dictionary:
 		"cast_fire": int(p.get("cast_fire", 6)),
 		"blink": blink_on,
 	}
+
+
+## "biome" は戦闘背景の選択用。通常戦闘・精鋭でどの階層バイオームに出るかは
+## "spawn_biomes"（reef / street / mu / fold / throne / void）で決め、1戦闘の敵は必ず同じバイオームにそろえる。
+static func spawns_in(enemy_id: String, spawn_biome: String) -> bool:
+	var def: Dictionary = ENEMIES.get(enemy_id, {})
+	var biomes: Array = def.get("spawn_biomes", [])
+	return biomes.has(spawn_biome)
+
+
+static func filter_spawn_biome(ids: Array, spawn_biome: String) -> Array:
+	var out: Array = []
+	for enemy_id in ids:
+		if spawns_in(str(enemy_id), spawn_biome):
+			out.append(enemy_id)
+	return out
 
 
 const BOSS_IDS := ["priest", "choir", "nurse", "flock", "herald", "ithaqua", "dagon", "nyar", "iha", "yog_sothoth"]

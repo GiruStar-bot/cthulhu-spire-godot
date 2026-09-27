@@ -1582,33 +1582,30 @@ static func encounter_ids(kind: String, floor: int, rand: Callable, bias: Array 
 		return ["priest"]
 	if kind == "combat" and rand.call() < 0.03:
 		return ["treasure_wanderer"]
-	var VOID := ["migo", "shan", "starvamp", "colour"]
+	## 外宇宙の割り込みは、発動したらその戦闘を void の敵だけで組む（階層の敵とは混ぜない）。
+	var void_pool: Array = Enemies.filter_spawn_biome(["migo", "shan", "starvamp", "colour", "byakhee"], "void")
 	var void_chance := 0.38 if floor >= 50 else (0.28 if floor >= 16 else (0.18 if floor >= 8 else 0.0))
 	if void_chance and rand.call() < void_chance:
 		if kind == "elite":
-			return ["starvamp"] if rand.call() < 0.5 else [Mulberry32.pick_rand(VOID, rand), Mulberry32.pick_rand(["migo", "shan"], rand)]
+			return ["starvamp"] if rand.call() < 0.5 else [Mulberry32.pick_rand(void_pool, rand), Mulberry32.pick_rand(["migo", "shan"], rand)]
 		if rand.call() < (0.45 if floor >= 40 else 0.22):
-			return [Mulberry32.pick_rand(VOID, rand), Mulberry32.pick_rand(VOID, rand)]
-		return [Mulberry32.pick_rand(VOID, rand)]
+			return [Mulberry32.pick_rand(void_pool, rand), Mulberry32.pick_rand(void_pool, rand)]
+		return [Mulberry32.pick_rand(void_pool, rand)]
+	## それ以外は階層のバイオーム（Biomes.biome_for_floor）に属する敵だけで組む。
+	var floor_biome: String = Biomes.biome_for_floor(floor)
 	if kind == "elite":
 		if floor >= 70:
-			return ["spawn", "serpent"] if rand.call() < 0.5 else ["starveling", "byakhee"]
+			return ["spawn", "serpent"] if rand.call() < 0.5 else ["starveling", "serpent"]
 		if floor >= 40:
 			return ["spawn"] if rand.call() < 0.5 else ["serpent"]
 		if floor >= 20:
 			return ["starveling"]
-		return [Mulberry32.pick_rand(["coral", "byakhee", "fanatic"], rand)]
+		return [Mulberry32.pick_rand(Enemies.filter_spawn_biome(["coral", "fanatic"], floor_biome), rand)]
 	var pool: Array
 	if floor >= 80:
 		pool = ["spawn", "serpent", "starveling"]
-	elif floor >= 60:
-		pool = ["spawn", "serpent", "byakhee"]
 	elif floor >= 40:
-		pool = ["serpent", "spawn", "coral"]
-	elif floor >= 20:
-		## 狂信者は精鋭（20階未満で珊瑚・翼ある飢えと三択）にしか居らず、20階で消えていた。
-		## 侍祭と同じく40階未満の通常戦闘にも出す。
-		pool = ["acolyte", "fanatic", "drowned", "coral", "byakhee"]
+		pool = ["serpent", "spawn"]
 	else:
 		pool = ["acolyte", "fanatic", "drowned", "coral"]
 	var double := 0.5 if floor >= 40 else (0.35 if floor >= 12 else 0.12)
@@ -1617,6 +1614,7 @@ static func encounter_ids(kind: String, floor: int, rand: Callable, bias: Array 
 			var extra: Array = Enemies.combat_ids_for_archetype(str(arch))
 			for enemy_id in extra:
 				pool.append(enemy_id)
+	pool = Enemies.filter_spawn_biome(pool, floor_biome)
 	if rand.call() < double:
 		return [Mulberry32.pick_rand(pool, rand), Mulberry32.pick_rand(pool, rand)]
 	return [Mulberry32.pick_rand(pool, rand)]

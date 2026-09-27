@@ -56,12 +56,13 @@ const ENEMY_FEET_OVERLAP_BODY_MAX := 0.2
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 150.0
 const ENEMY_PLATE_W_DUAL := 128.0
-const ENEMY_PLATE_GAP := 8.0
 const ENEMY_PLATE_H_MIN := 40.0
 ## プレート上端を敵本体の上から何割の高さに置くか（人型でおおよそ腰）。
 const ENEMY_PLATE_BODY_Y := 0.45
-## 2体並びでプレートを絵の内側へ食い込ませる割合（プレート幅に対して）。
-const ENEMY_PLATE_DUAL_TUCK := 0.1
+## プレート左端を敵の絵の左から何割の位置に置くか（右腰に少し重なる程度）。
+const ENEMY_PLATE_HIP_X := 0.6
+## 敵の絵の矩形のうち、左右それぞれこの割合は透明な余白として HUD との重なり判定から外す。
+const ENEMY_ART_SIDE_PAD := 0.2
 const ENEMY_CUTOUT_W := 688.0
 const ENEMY_CUTOUT_H := 640.0
 const ENEMY_CUTOUT_W_DUAL := 640.0
@@ -1895,6 +1896,36 @@ func _layout_enemies() -> void:
 		return
 	for i in n:
 		_layout_enemy_stage(stages[i] as Control, i, n, area)
+	if n >= 2:
+		_keep_pair_clear_of_hud(stages)
+
+
+## 2体並びは左右対称に置く。左の敵が左上の HUD（山札・捨て札ボタンを含む）に
+## 重なるときは、2体を同じ量だけ中央へ寄せる（片方だけ押して右に偏らせない）。
+func _keep_pair_clear_of_hud(stages: Array) -> void:
+	if hud_panel == null or not is_instance_valid(hud_panel):
+		return
+	var left_stage: Control = stages[0] as Control
+	var art: Control = left_stage.get_node_or_null("Art") as Control
+	if art == null or art.get_meta("dissolving", false):
+		return
+	var blockers: Array = [hud_panel.get_global_rect()]
+	for btn in [_draw_btn, _discard_btn]:
+		if btn != null and is_instance_valid(btn):
+			blockers.append((btn as Control).get_global_rect())
+	## 絵の矩形は左右に透明な余白を含むので、胴が描かれている中央部分だけで判定する。
+	var art_rect: Rect2 = art.get_global_rect()
+	var side_pad: float = art_rect.size.x * ENEMY_ART_SIDE_PAD
+	art_rect = art_rect.grow_individual(-side_pad, 0.0, -side_pad, 0.0)
+	var shift: float = 0.0
+	for r in blockers:
+		var block: Rect2 = r
+		if block.intersects(art_rect):
+			shift = maxf(shift, block.end.x + 4.0 - art_rect.position.x)
+	if shift <= 0.0:
+		return
+	(stages[0] as Control).position.x += shift
+	(stages[stages.size() - 1] as Control).position.x -= shift
 
 
 func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) -> void:
@@ -1983,34 +2014,9 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	if plate != null:
 		var plate_w: float = ENEMY_PLATE_W_DUAL if count >= 2 else ENEMY_PLATE_W
 		var plate_h: float = maxf(ENEMY_PLATE_H_MIN, plate.get_combined_minimum_size().y)
-		var plate_x: float
-		if count == 1:
-			var gap: float = ENEMY_PLATE_GAP
-			art_pos.x = (slot_w - drawn.x) * 0.5
-			plate_x = art_pos.x + drawn.x + gap
-			var overflow: float = plate_x + plate_w - slot_w
-			if overflow > 0.0:
-				art_pos.x -= overflow
-				plate_x -= overflow
-			if art_pos.x < 0.0:
-				art_pos.x = 0.0
-				plate_x = drawn.x + gap
-		else:
-			art_pos.x = (slot_w - drawn.x) * 0.5
-			if index == 0 and hud_panel != null and is_instance_valid(hud_panel):
-				var hud_right: float = hud_panel.get_global_rect().end.x + 4.0
-				var stage_x: float = stage.position.x
-				if enemy_row != null:
-					stage_x += enemy_row.get_global_rect().position.x
-				if stage_x + art_pos.x < hud_right:
-					art_pos.x = hud_right - stage_x
-			## 左の敵は左側、右の敵は右側（画面の外側）に出す。2枚のプレートが中央で
-			## ぶつからず、絵の縁に少しだけ掛けて胴の中心は隠さない。
-			if index == 0:
-				plate_x = art_pos.x - plate_w * (1.0 - ENEMY_PLATE_DUAL_TUCK)
-			else:
-				plate_x = art_pos.x + drawn.x - plate_w * ENEMY_PLATE_DUAL_TUCK
-			plate_x = clampf(plate_x, 4.0, slot_w - plate_w - 4.0)
+		## 単体・2体とも、その敵の右腰あたりに少し重ねる（どの敵のプレートか分かるように）。
+		var plate_x: float = art_pos.x + drawn.x * ENEMY_PLATE_HIP_X
+		plate_x = clampf(plate_x, 4.0, slot_w - plate_w - 4.0)
 		## 高さは画面比ではなく敵本体を基準にする（腰のあたり＝本体高さの ENEMY_PLATE_BODY_Y）。
 		## 手札に隠れないよう下端は手札の上端で止め、頭上より上には出さない。
 		var plate_y: float = art_pos.y + drawn.y * ENEMY_PLATE_BODY_Y
