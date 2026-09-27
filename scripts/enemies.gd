@@ -75,6 +75,12 @@ const ENEMIES := {
 		"name": "礁の衛士",
 		"art": "res://art/pixel/coral.png",
 		"poster": "res://art/pixel/coral.png",
+		"sprite": "res://art/pixel/enemies_px/coral",
+		"px": {
+			"body_w": 112, "body_h": 168, "fx_top": 48, "body_frames": 11,
+			"cast_holds": [0.12, 0.16, 0.18, 0.24, 0.18, 0.17, 0.18, 0.19, 0.22],
+			"cast_fire": 6,
+		},
 		"biome": "reef",
 		"maxHp": 48,
 		"tier": "elite",
