@@ -2,12 +2,12 @@ extends Control
 
 ## CombatView.tsx の操作フローを再現する戦闘コントローラ。
 ## 手札はドラッグ&ドロップでプレイ（原作 resolveDrop / isAboveHand / pickFoe 相当）。
-## HUD/ログは原作の石枠パネル。敵は全身＋右に使用カードとステータスパネル。
+## HUDは原作の石枠パネル。戦闘ログは出さない。敵は全身＋右に使用カードとステータスパネル。
 ## ゲームロジック（_play_card / _end_turn 等）は変更しない。
 
 const COMBAT_CARD := preload("res://scenes/combat/CombatCard.gd")
 const PIXEL_BUTTON := preload("res://scenes/ui/PixelButton.tscn")
-## 山札・捨て札ボタンの描画順。HudPanel/LogPanel（z=30）と揃え、敵の立ち絵（EnemyRow z=1）より手前に出す
+## 山札・捨て札ボタンの描画順。HudPanel（z=30）と揃え、敵の立ち絵（EnemyRow z=1）より手前に出す
 const PILE_BUTTON_Z := 30
 const DISSOLVE_SHADER := preload("res://scenes/combat/enemy_dissolve.gdshader")
 const HIT_FLASH_SHADER := preload("res://scenes/combat/enemy_hit_flash.gdshader")
@@ -39,8 +39,15 @@ const DRAW_IN_STAGGER := 0.04
 const DRAW_IN_STAGGER_CAP := 8
 const DRAW_IN_SCALE := 0.42
 const DRAW_IN_ROT_OFFSET := -16.0
-const CARD_SIZE := Vector2(112, 168)
+const CARD_SIZE := Vector2(202, 302)
+## 敵の顔の上に出す予告。手札とは別サイズ。幅が足りなければ _spawn_px_reveal_cards が縮める。
 const PREVIEW_CARD_SIZE := Vector2(112, 160)
+## 手札の下端と、扇の反りで上にはみ出す分。
+const HAND_BOTTOM_INSET := 8.0
+const HAND_ARC_SLACK := 44.0
+## body_budget/bh に掛ける調整。手札が 302px だと 1280×720 の収まる上限がすでに約 2.5 なので 1.0。
+## もっと小さくするときは 0.85 前後。1152×648 は入らない分を後段で縮める。
+const ENEMY_SCALE_TRIM := 1.0
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 176.0
 const ENEMY_PLATE_W_DUAL := 148.0
@@ -83,9 +90,8 @@ const PX_CARD_REVEAL_FX_START := {
 
 @onready var hud_panel: VitalsHud = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
-@onready var log_scroll: ScrollContainer = $LogPanel/LogScroll
-@onready var log_label: Label = $LogPanel/LogScroll/LogLabel
-@onready var log_panel: Panel = $LogPanel
+## ログパネルは廃止。正気度の2段目触手だけ、旧ログの右上に足場を残す。
+@onready var sanity_corner: Control = $SanityCorner
 @onready var message_label: Label = $MessageLabel
 @onready var enemy_row: Control = $EnemyRow
 @onready var hand_row: Control = $HandRow
@@ -153,8 +159,6 @@ var _draw_in_tweens: Dictionary = {}
 func _ready() -> void:
 	_build_chrome()
 	_ensure_sanity_fx()
-	if log_scroll:
-		log_scroll.resized.connect(_fit_log_label)
 	if enemy_row and not enemy_row.resized.is_connected(_layout_enemies):
 		enemy_row.resized.connect(_layout_enemies)
 	if hand_row and not hand_row.resized.is_connected(_layout_fan):
@@ -162,7 +166,6 @@ func _ready() -> void:
 	VideoSettings.get_instance().changed.connect(_on_px_reduce_motion)
 	_begin_combat()
 	_refresh()
-	call_deferred("_fit_log_label")
 	call_deferred("_layout_enemies")
 
 
@@ -476,7 +479,6 @@ func _refresh() -> void:
 	if state.is_empty():
 		return
 	_refresh_hud()
-	_refresh_log()
 	if _drag_uid == "":
 		_refresh_enemies()
 		_refresh_hand()
@@ -520,52 +522,6 @@ func _refresh_hud() -> void:
 	if _discard_btn:
 		_discard_btn.text = "捨て札: %d" % int((state.get("discard", []) as Array).size())
 	hud_label.visible = false
-
-
-func _refresh_log() -> void:
-	var log_lines: Array = state.get("log", [])
-	var lines: PackedStringArray = PackedStringArray()
-	for i in log_lines.size():
-		var line: String = str(log_lines[i])
-		## 真の result は即時だが、とどめの数字が出るまで勝敗の一文だけ隠す。
-		if _result_wait_hit and _is_deferred_result_log(line):
-			continue
-		lines.append(line)
-	var start: int = maxi(0, lines.size() - 5)
-	var recent: PackedStringArray = PackedStringArray()
-	for j in range(start, lines.size()):
-		recent.append(lines[j])
-	if recent.is_empty():
-		log_label.text = "まだ記録がない。"
-	else:
-		log_label.text = "\n".join(recent)
-	_fit_log_label()
-	call_deferred("_scroll_log_to_end")
-
-
-func _is_deferred_result_log(line: String) -> bool:
-	return line == "回廊は、しばらく静かだ。" or line == "肉体が、折れた。" or line == "正気が、0になった。器がひび割れる。"
-
-
-func _fit_log_label() -> void:
-	if log_label == null or log_scroll == null or not is_instance_valid(log_label):
-		return
-	var w: float = maxf(8.0, log_scroll.size.x)
-	log_label.custom_minimum_size.x = w
-	log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-
-func _scroll_log_to_end() -> void:
-	_apply_log_scroll()
-	## 行数が増えた直後は最小サイズがまだ古い。次のアイドルでもう一度末尾へ寄せる。
-	call_deferred("_apply_log_scroll")
-
-
-func _apply_log_scroll() -> void:
-	if log_scroll == null or not is_instance_valid(log_scroll):
-		return
-	log_scroll.scroll_vertical = int(log_scroll.get_v_scroll_bar().max_value)
 
 
 func _refresh_enemies() -> void:
@@ -1656,20 +1612,8 @@ func _layout_fan(new_uids: Array = []) -> void:
 	if area.x < 8.0 or area.y < 8.0:
 		return
 	var origin := Vector2(area.x * 0.5, area.y - 4.0)
-	var overlap: float = 0.0
-	if n > 1:
-		if n <= 4:
-			overlap = -8.0
-		elif n <= 6:
-			overlap = -24.0
-		elif n <= 8:
-			overlap = -40.0
-		elif n <= 10:
-			overlap = -56.0
-		else:
-			overlap = -68.0
+	var spacing: float = _hand_spacing(n, area.x)
 	var step_angle: float = 0.0 if n <= 1 else minf(5.0, 24.0 / float(maxi(1, n - 1)))
-	var spacing: float = CARD_SIZE.x + overlap
 	var draw_offset := _draw_pile_offset_in_hand_row()
 	var new_index: int = 0
 	for i in n:
@@ -1699,6 +1643,28 @@ func _layout_fan(new_uids: Array = []) -> void:
 		else:
 			card.position = final_pos
 			card.rotation_degrees = rot
+
+
+func _hand_spacing(n: int, area_w: float) -> float:
+	var overlap: float = 0.0
+	if n > 1:
+		var base: float = -68.0
+		if n <= 4:
+			base = -8.0
+		elif n <= 6:
+			base = -24.0
+		elif n <= 8:
+			base = -40.0
+		elif n <= 10:
+			base = -56.0
+		overlap = base * (CARD_SIZE.x / 112.0)
+	var spacing: float = CARD_SIZE.x + overlap
+	if n > 1:
+		var max_span: float = maxf(CARD_SIZE.x, area_w - 8.0)
+		var span: float = CARD_SIZE.x + spacing * float(n - 1)
+		if span > max_span:
+			spacing = (max_span - CARD_SIZE.x) / float(n - 1)
+	return spacing
 
 
 func _draw_pile_offset_in_hand_row() -> Vector2:
@@ -1774,9 +1740,9 @@ func _build_chrome() -> void:
 		return
 	_chrome_ready = true
 	hud_label.visible = false
+	_apply_hand_frame()
 	_ensure_fx()
 	_ensure_vfx_layer()
-	_decorate_panel(log_panel)
 	hud_panel.bind({
 		"player_name": GameState.player_name,
 		"floor_text": "",
@@ -1809,19 +1775,24 @@ func _build_chrome() -> void:
 	add_child(_discard_btn)
 
 
-func _decorate_panel(panel: Panel) -> void:
-	VitalsHud.attach_panel_frame(panel)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.065, 0.055, 0.92)
-	var inset: int = VitalsHud.FRAME_CONTENT_INSET
-	style.content_margin_left = inset
-	style.content_margin_right = inset
-	style.content_margin_top = inset
-	style.content_margin_bottom = inset
-	panel.add_theme_stylebox_override("panel", style)
-	# StyleBoxFlat.content_margin does not inset Controls — pad LogScroll inside the stone frame.
-	if panel == log_panel and log_scroll != null:
-		VitalsHud.apply_framed_content_inset(log_scroll, inset)
+func _apply_hand_frame() -> void:
+	var hand_h: float = CARD_SIZE.y + HAND_ARC_SLACK
+	if hand_row != null:
+		hand_row.offset_bottom = -HAND_BOTTOM_INSET
+		hand_row.offset_top = -(HAND_BOTTOM_INSET + hand_h)
+		hand_row.offset_right = -160.0
+	if hand_tray != null:
+		hand_tray.offset_bottom = -4.0
+		hand_tray.offset_top = -(CARD_SIZE.y + HAND_BOTTOM_INSET + 36.0)
+		hand_tray.offset_right = -160.0
+	if message_label != null:
+		message_label.offset_bottom = -(CARD_SIZE.y + HAND_BOTTOM_INSET + 12.0)
+		message_label.offset_top = message_label.offset_bottom - 28.0
+		message_label.z_index = 40
+	var plate: Control = get_node_or_null("MessagePlate") as Control
+	if plate != null:
+		plate.offset_bottom = message_label.offset_bottom + 2.0
+		plate.offset_top = message_label.offset_top - 2.0
 
 
 func _open_pile(which: String) -> void:
@@ -1843,15 +1814,20 @@ func _open_pile(which: String) -> void:
 	title.add_theme_font_size_override("font_size", 16)
 	title.add_theme_color_override("font_color", Color.WHITE)
 	overlay.add_child(title)
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = 24
+	scroll.offset_top = 56
+	scroll.offset_right = -24
+	scroll.offset_bottom = -64
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	overlay.add_child(scroll)
 	var wrap := HFlowContainer.new()
-	wrap.set_anchors_preset(Control.PRESET_FULL_RECT)
-	wrap.offset_left = 24
-	wrap.offset_top = 56
-	wrap.offset_right = -24
-	wrap.offset_bottom = -64
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.custom_minimum_size.x = maxf(240.0, size.x - 48.0)
 	wrap.add_theme_constant_override("h_separation", 8)
 	wrap.add_theme_constant_override("v_separation", 8)
-	overlay.add_child(wrap)
+	scroll.add_child(wrap)
 	for card in cards:
 		var d: Dictionary = Cards.get_card(str(card.defId))
 		var preview: CombatCard = COMBAT_CARD.new()
@@ -1942,7 +1918,7 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 	var art_box := Vector2(maxf(64.0, max_w), maxf(64.0, max_h))
 
 	var drawn: Vector2
-	var px_step: int = 1
+	var px_scale: float = 1.0
 	var px_feet_y: float = -1.0
 	if art.get_meta("px_sprite", false):
 		var dims: Dictionary = _px_dims_of(art)
@@ -1957,20 +1933,13 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		## ENEMY_GROUND_* は手札より下に潜る。足元はその上端で止める（それ以上は下げない）。
 		px_feet_y = minf(nominal_feet, feet_cap) + float_y_px
 		var body_budget: float = maxf(bh, px_feet_y - float_y_px - ENEMY_PX_TOP_MARGIN)
-		## 倍率は本体の高さだけ。fh で割ると大司祭が 3→2 に一段落ちた。
-		## 候補は手札までの実高さに加え旧ボス枠も見るので、入るなら 3 倍が残る。
-		var candidate_h: float = maxf(body_budget, minf(view.y * 0.78, ENEMY_BOSS_H))
-		px_step = maxi(1, int(floor(minf(art_box.x / bw, candidate_h / bh))))
-		var drops: int = 0
-		while px_step > 1 and drops < 6:
-			## 頭上FXの余白（fx_top）まで画面内に強制すると、本体は入るのに 2 倍へ落ちる。
-			## 余白は見切れてよい。本体の上端だけを残す。
-			var body_top: float = px_feet_y - bh * float(px_step)
-			if body_top >= ENEMY_PX_TOP_MARGIN - 0.5:
-				break
-			px_step -= 1
-			drops += 1
-		drawn = Vector2(bw * float(px_step), bh * float(px_step))
+		## 整数段は使わない。上端余白を満たす最大高さと横幅の小さい方に、調整係数を掛ける。
+		var fit_scale: float = minf(body_budget / bh, art_box.x / maxf(1.0, bw))
+		px_scale = maxf(1.0, fit_scale * ENEMY_SCALE_TRIM)
+		var max_fit: float = (px_feet_y - float_y_px - ENEMY_PX_TOP_MARGIN) / bh
+		if px_scale > max_fit:
+			px_scale = maxf(1.0, max_fit)
+		drawn = Vector2(bw * px_scale, bh * px_scale)
 	else:
 		var fitted: float = minf(art_box.x / tex_size.x, art_box.y / tex_size.y)
 		drawn = tex_size * fitted
@@ -2001,6 +1970,13 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		else:
 			## 原作 .enemy-vitals は figure 上に重ねる。絵の幅を奪わない。
 			art_pos.x = (slot_w - drawn.x) * 0.5
+			if index == 0 and hud_panel != null and is_instance_valid(hud_panel):
+				var hud_right: float = hud_panel.get_global_rect().end.x + 4.0
+				var stage_x: float = stage.position.x
+				if enemy_row != null:
+					stage_x += enemy_row.get_global_rect().position.x
+				if stage_x + art_pos.x < hud_right:
+					art_pos.x = hud_right - stage_x
 			var plate_x: float = art_pos.x + drawn.x * 0.52
 			if index == 1:
 				plate_x = art_pos.x + drawn.x * 0.48 - plate_w
@@ -2012,15 +1988,15 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 			_place_unanchored(plate, Vector2(plate_x, plate_y), Vector2(plate_w, plate_h))
 	_place_unanchored(art, art_pos, drawn)
 	if art.get_meta("px_sprite", false):
-		_place_px_fx(art, px_step)
+		_place_px_fx(art, px_scale)
 
 
-func _place_px_fx(art: TextureRect, step: int) -> void:
+func _place_px_fx(art: TextureRect, step: float) -> void:
 	var fx: TextureRect = art.get_node_or_null("Fx") as TextureRect
 	if fx == null:
 		return
 	var dims: Dictionary = _px_dims_of(art)
-	var s: float = float(maxi(1, step))
+	var s: float = maxf(1.0, step)
 	fx.position = Vector2(0.0, -float(dims.top) * s)
 	fx.size = Vector2(float(dims.fw) * s, float(dims.fh) * s)
 	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2107,8 +2083,8 @@ func _ensure_sanity_fx() -> void:
 	_sanity_fx = SanityFx.new()
 	add_child(_sanity_fx)
 	_sanity_fx.hit_shown.connect(_on_sanity_hit_shown)
-	## 低い正気度の触手：段階1＝ターン終了ボタン、2＝ログ、3＝HUD
-	_sanity_fx.set_tendril_panels({"end_turn": end_turn_button, "log": log_panel, "hud": hud_panel})
+	## 低い正気度の触手：段階1＝ターン終了ボタン、2＝右上の足場（旧ログの角）、3＝HUD
+	_sanity_fx.set_tendril_panels({"end_turn": end_turn_button, "log": sanity_corner, "hud": hud_panel})
 
 
 ## 正気度の減少を理由別に読んで演出する。CombatLogic が c.sanityLossPaid / c.sanityLossHit に
