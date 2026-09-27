@@ -96,6 +96,7 @@ const PX_CARD_REVEAL_FACE_Y := {
 	"byakhee": 0.21,
 	"spawn": 0.10,
 	"shan": 0.10,
+	"starvamp": 0.13,
 }
 ## 上部へ抜け始めるカード粒のコマ。水波・矛などの本体効果は動かさない。
 const PX_CARD_REVEAL_FX_START := {
@@ -1265,6 +1266,8 @@ func _spawn_px_reveal_cards(uid: String) -> void:
 		origin.y = art.size.y * 0.29 - card_size.y * 0.5
 	elif str(foe.get("defId", "")) == "shan":
 		origin.y = art.size.y * 0.43 - card_size.y * 0.5
+	elif str(foe.get("defId", "")) == "starvamp":
+		origin.y = art.size.y * 0.60 - card_size.y * 0.5
 	var face_ratio: float = float(PX_CARD_REVEAL_FACE_Y.get(str(foe.get("defId", "")), 0.22))
 	var face_origin := Vector2(origin.x, art.size.y * face_ratio - card_size.y * 0.5)
 	for i in n:
