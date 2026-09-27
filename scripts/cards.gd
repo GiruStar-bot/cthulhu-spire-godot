@@ -1657,7 +1657,7 @@ const CARDS := {
 		"upgradedEffects": [{"t": "sanity", "n": -4}, {"t": "draw", "n": 3}],
 	},
 	"tentacle": {
-		"id": "tentacle", "name": "触手", "type": "attack", "aiTag": "attack", "vfx": "impact",
+		"id": "tentacle", "name": "触手", "type": "attack", "aiTag": "attack", "vfx": "tentacle_ground",
 		"archetype": "water",
 		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度1を失う。敵単体に11ダメージ。",
