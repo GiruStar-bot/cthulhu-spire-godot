@@ -189,6 +189,13 @@ const ENEMIES := {
 		"name": "星の吸血獣",
 		"art": "res://art/pixel/starvamp.png",
 		"poster": "res://art/pixel/starvamp.png",
+		"sprite": "res://art/pixel/enemies_px/starvamp",
+		"px": {
+			"body_w": 128, "body_h": 168, "fx_top": 48, "body_frames": 15,
+			"idle_frames": 6, "idle_step": 0.23,
+			"cast_holds": [0.16, 0.18, 0.23, 0.19, 0.24, 0.20, 0.18, 0.20, 0.25],
+			"cast_fire": 10,
+		},
 		"biome": "void",
 		"spawn_biomes": ["void"],
 		"maxHp": 56,
