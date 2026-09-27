@@ -54,9 +54,15 @@ const ENEMY_SCALE_TRIM := 0.81
 const ENEMY_FEET_HAND_OVERLAP := 60.0
 const ENEMY_FEET_OVERLAP_BODY_MAX := 0.2
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
-const ENEMY_PLATE_W := 176.0
-const ENEMY_PLATE_W_DUAL := 148.0
-const ENEMY_PLATE_GAP := 8.0
+const ENEMY_PLATE_W := 150.0
+const ENEMY_PLATE_W_DUAL := 128.0
+const ENEMY_PLATE_H_MIN := 40.0
+## プレート上端を敵本体の上から何割の高さに置くか（人型でおおよそ腰）。
+const ENEMY_PLATE_BODY_Y := 0.45
+## プレート左端を敵の絵の左から何割の位置に置くか（右腰に少し重なる程度）。
+const ENEMY_PLATE_HIP_X := 0.6
+## 敵の絵の矩形のうち、左右それぞれこの割合は透明な余白として HUD との重なり判定から外す。
+const ENEMY_ART_SIDE_PAD := 0.2
 const ENEMY_CUTOUT_W := 688.0
 const ENEMY_CUTOUT_H := 640.0
 const ENEMY_CUTOUT_W_DUAL := 640.0
@@ -497,13 +503,8 @@ func _refresh() -> void:
 func _refresh_hud() -> void:
 	if not _chrome_ready:
 		_build_chrome()
-	var pname: String = GameState.player_name
-	var current_floor: int = int(GameState.floor)
-	var floor_text: String = "%s · %s · %s" % [Floors.floor_band(current_floor), Floors.layer_label(current_floor), Floors.floor_kind_label(str(GameState.floor_kind), current_floor)]
 	var sealed_raw = state.get("sealed")
 	hud_panel.bind({
-		"player_name": pname,
-		"floor_text": floor_text,
 		"hp": _shown_player_hp if _shown_player_hp >= 0 else int(player.hp),
 		"max_hp": int(player.maxHp),
 		"sanity": int(player.sanity),
@@ -518,7 +519,6 @@ func _refresh_hud() -> void:
 		"sealed": sealed_raw,
 		"powers": state.get("powers", []),
 		"shells": GameState.shells,
-		"show_header": true,
 		"show_energy": true,
 		"show_status": true,
 		"show_shells": true,
@@ -1514,82 +1514,68 @@ func _pick_foe(pos: Vector2) -> String:
 	return ""
 
 
-## 状態異常アイコン（ブロック・筋力・弱体・毒・封印）の同時付与数。1つでもあれば
-## status_row（HFlowContainer）が1〜2段になる分、box の高さを確保する必要がある。
-func _enemy_status_icon_count(e: Dictionary) -> int:
-	var n: int = 0
-	if int(e.get("block", 0)) > 0:
-		n += 1
-	if int(e.get("strength", 0)) > 0:
-		n += 1
-	if int(e.get("weak", 0)) > 0:
-		n += 1
-	if int(e.get("poison", 0)) > 0:
-		n += 1
-	var sealed = e.get("sealed", "")
-	if sealed != null and str(sealed) != "" and str(sealed) != "<null>":
-		n += 1
-	return n
-
-
 func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) -> VBoxContainer:
 	var plate := VBoxContainer.new()
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_theme_constant_override("separation", 3 if compact else 4)
+	plate.add_theme_constant_override("separation", 0)
 	var plate_w: float = ENEMY_PLATE_W_DUAL if compact else ENEMY_PLATE_W
 	plate.custom_minimum_size = Vector2(plate_w, 0)
 
-	## status_row は HFlowContainer で幅が足りないと2段に折り返す。box は Panel で
-	## 子の最小サイズを自動追従しないため、固定高さのままだと折り返し時に中身
-	## （体力バーを含む）が枠の外へ描画上はみ出す（クランプはratio計算側だけで、
-	## レイアウトの高さ超過はここでは防げない）。1つでも付いたら2段を見込んで
-	## 高さを底上げする（多くても余白が少し増えるだけで、はみ出しよりましな方に倒す）。
-	var status_count: int = _enemy_status_icon_count(e)
-	var base_h: float = 64.0 if compact else 72.0
-	var status_reserve: float = 0.0 if status_count <= 0 else (44.0 if compact else 40.0)
-	var box := Panel.new()
-	box.custom_minimum_size = Vector2(plate_w, base_h + status_reserve)
+	## PanelContainer は中身（状態アイコンの折り返しを含む）の高さに自動で合わせるので、
+	## 固定高さの Panel のように体力バーが枠外へはみ出さない。
+	var box := PanelContainer.new()
+	box.custom_minimum_size = Vector2(plate_w, 0)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.055, 0.05, 0.045, 0.94)
 	style.border_color = Color(0.42, 0.36, 0.26, 1)
 	style.set_border_width_all(2)
-	style.content_margin_left = 8 if not compact else 6
-	style.content_margin_right = 8 if not compact else 6
-	style.content_margin_top = 6 if not compact else 4
-	style.content_margin_bottom = 6 if not compact else 4
+	style.content_margin_left = 6 if not compact else 5
+	style.content_margin_right = 6 if not compact else 5
+	style.content_margin_top = 4 if not compact else 3
+	style.content_margin_bottom = 5 if not compact else 4
 	box.add_theme_stylebox_override("panel", style)
 
 	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	col.offset_left = 8
-	col.offset_right = -8
-	col.offset_top = 6.0 if not compact else 4.0
-	col.offset_bottom = -6.0 if not compact else -4.0
-	col.add_theme_constant_override("separation", 2)
+	col.add_theme_constant_override("separation", 1)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
+	## 名前と体力の数値を1行にまとめて、行数を減らす。
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 4)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var name_label := Label.new()
 	name_label.text = str(def.get("name", e.defId))
-	name_label.add_theme_font_size_override("font_size", 12 if compact else 13)
+	name_label.add_theme_font_size_override("font_size", 11 if compact else 12)
 	name_label.add_theme_color_override("font_color", Color.WHITE)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.clip_text = true
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(name_label)
+	head.add_child(name_label)
+	var hp_now: int = _shown_hp_of(e)
+	var hp_label := Label.new()
+	hp_label.text = "%d/%d" % [hp_now, int(e.maxHp)]
+	hp_label.add_theme_font_size_override("font_size", 10)
+	hp_label.add_theme_color_override("font_color", Color("b8ad96"))
+	hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(hp_label)
+	col.add_child(head)
 
 	var action_label := Label.new()
 	action_label.text = _enemy_action_text(e)
-	action_label.add_theme_font_size_override("font_size", 11)
+	action_label.add_theme_font_size_override("font_size", 10)
 	action_label.add_theme_color_override("font_color", Color("d4a84b"))
+	action_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(action_label)
 
 	var track := ColorRect.new()
-	track.custom_minimum_size = Vector2(0, 6)
+	track.custom_minimum_size = Vector2(0, 5)
 	track.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	track.color = Color("161512")
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fill := ColorRect.new()
-	var hp_now: int = _shown_hp_of(e)
 	var ratio: float = 0.0
 	if int(e.maxHp) > 0:
 		ratio = clampf(float(hp_now) / float(e.maxHp), 0.0, 1.0)
@@ -1600,16 +1586,9 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	track.add_child(fill)
 	col.add_child(track)
 
-	var hp_label := Label.new()
-	hp_label.text = "%d/%d" % [hp_now, int(e.maxHp)]
-	hp_label.add_theme_font_size_override("font_size", 10)
-	hp_label.add_theme_color_override("font_color", Color("b8ad96"))
-	hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(hp_label)
-
 	var status_row := HFlowContainer.new()
-	status_row.add_theme_constant_override("h_separation", 6)
-	status_row.add_theme_constant_override("v_separation", 2)
+	status_row.add_theme_constant_override("h_separation", 5)
+	status_row.add_theme_constant_override("v_separation", 1)
 	status_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if int(e.get("block", 0)) > 0:
 		status_row.add_child(VitalsHud.make_icon_stat(VitalsHud.ICON_BLOCK, str(int(e.block)), Color("ede4d0")))
@@ -1781,13 +1760,10 @@ func _build_chrome() -> void:
 	_ensure_fx()
 	_ensure_vfx_layer()
 	hud_panel.bind({
-		"player_name": GameState.player_name,
-		"floor_text": "",
 		"hp": 0,
 		"max_hp": 1,
 		"sanity": 0,
 		"max_sanity": 1,
-		"show_header": true,
 		"show_energy": true,
 		"show_status": true,
 		"show_shells": true,
@@ -1920,6 +1896,36 @@ func _layout_enemies() -> void:
 		return
 	for i in n:
 		_layout_enemy_stage(stages[i] as Control, i, n, area)
+	if n >= 2:
+		_keep_pair_clear_of_hud(stages)
+
+
+## 2体並びは左右対称に置く。左の敵が左上の HUD（山札・捨て札ボタンを含む）に
+## 重なるときは、2体を同じ量だけ中央へ寄せる（片方だけ押して右に偏らせない）。
+func _keep_pair_clear_of_hud(stages: Array) -> void:
+	if hud_panel == null or not is_instance_valid(hud_panel):
+		return
+	var left_stage: Control = stages[0] as Control
+	var art: Control = left_stage.get_node_or_null("Art") as Control
+	if art == null or art.get_meta("dissolving", false):
+		return
+	var blockers: Array = [hud_panel.get_global_rect()]
+	for btn in [_draw_btn, _discard_btn]:
+		if btn != null and is_instance_valid(btn):
+			blockers.append((btn as Control).get_global_rect())
+	## 絵の矩形は左右に透明な余白を含むので、胴が描かれている中央部分だけで判定する。
+	var art_rect: Rect2 = art.get_global_rect()
+	var side_pad: float = art_rect.size.x * ENEMY_ART_SIDE_PAD
+	art_rect = art_rect.grow_individual(-side_pad, 0.0, -side_pad, 0.0)
+	var shift: float = 0.0
+	for r in blockers:
+		var block: Rect2 = r
+		if block.intersects(art_rect):
+			shift = maxf(shift, block.end.x + 4.0 - art_rect.position.x)
+	if shift <= 0.0:
+		return
+	(stages[0] as Control).position.x += shift
+	(stages[stages.size() - 1] as Control).position.x -= shift
 
 
 func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) -> void:
@@ -2007,38 +2013,17 @@ func _layout_enemy_stage(stage: Control, index: int, count: int, area: Vector2) 
 		art_pos.y = px_feet_y - drawn.y
 	if plate != null:
 		var plate_w: float = ENEMY_PLATE_W_DUAL if count >= 2 else ENEMY_PLATE_W
-		var plate_h: float = maxf(140.0 if count >= 2 else 220.0, plate.get_combined_minimum_size().y)
-		if count == 1:
-			var gap: float = ENEMY_PLATE_GAP
-			art_pos.x = (slot_w - drawn.x) * 0.5
-			var plate_x: float = art_pos.x + drawn.x + gap
-			var overflow: float = plate_x + plate_w - slot_w
-			if overflow > 0.0:
-				art_pos.x -= overflow
-				plate_x -= overflow
-			if art_pos.x < 0.0:
-				art_pos.x = 0.0
-				plate_x = drawn.x + gap
-			_place_unanchored(plate, Vector2(plate_x, area.y * 0.14), Vector2(plate_w, plate_h))
-		else:
-			## 原作 .enemy-vitals は figure 上に重ねる。絵の幅を奪わない。
-			art_pos.x = (slot_w - drawn.x) * 0.5
-			if index == 0 and hud_panel != null and is_instance_valid(hud_panel):
-				var hud_right: float = hud_panel.get_global_rect().end.x + 4.0
-				var stage_x: float = stage.position.x
-				if enemy_row != null:
-					stage_x += enemy_row.get_global_rect().position.x
-				if stage_x + art_pos.x < hud_right:
-					art_pos.x = hud_right - stage_x
-			var plate_x: float = art_pos.x + drawn.x * 0.52
-			if index == 1:
-				plate_x = art_pos.x + drawn.x * 0.48 - plate_w
-			if plate_x < 4.0:
-				plate_x = 4.0
-			if plate_x + plate_w > slot_w - 4.0:
-				plate_x = slot_w - plate_w - 4.0
-			var plate_y: float = maxf(8.0, area.y * 0.16)
-			_place_unanchored(plate, Vector2(plate_x, plate_y), Vector2(plate_w, plate_h))
+		var plate_h: float = maxf(ENEMY_PLATE_H_MIN, plate.get_combined_minimum_size().y)
+		## 単体・2体とも、その敵の右腰あたりに少し重ねる（どの敵のプレートか分かるように）。
+		var plate_x: float = art_pos.x + drawn.x * ENEMY_PLATE_HIP_X
+		plate_x = clampf(plate_x, 4.0, slot_w - plate_w - 4.0)
+		## 高さは画面比ではなく敵本体を基準にする（腰のあたり＝本体高さの ENEMY_PLATE_BODY_Y）。
+		## 手札に隠れないよう下端は手札の上端で止め、頭上より上には出さない。
+		var plate_y: float = art_pos.y + drawn.y * ENEMY_PLATE_BODY_Y
+		var bottom_cap: float = _px_hand_feet_limit(area.y) - 4.0
+		plate_y = minf(plate_y, bottom_cap - plate_h)
+		plate_y = maxf(plate_y, maxf(8.0, art_pos.y))
+		_place_unanchored(plate, Vector2(plate_x, plate_y), Vector2(plate_w, plate_h))
 	_place_unanchored(art, art_pos, drawn)
 	if art.get_meta("px_sprite", false):
 		_place_px_fx(art, px_scale)
