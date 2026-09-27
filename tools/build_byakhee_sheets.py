@@ -13,7 +13,6 @@ INK = "#201428"
 VOID = "#0c0b17"
 PLUM = "#5b3c70"
 VIOLET = "#a17bc6"
-PALE = "#e7cafd"
 EYE = "#ade5da"
 EYE_FIRE = "#d8fff2"
 
@@ -87,7 +86,7 @@ def rift(draw: ImageDraw.ImageDraw, rx: int, ry: int, rim: str) -> None:
     draw.line(points + [points[0]], fill=rim, width=2)
 
 
-def effect_frame(frame: int) -> Image.Image:
+def effect_frame(frame: int, cards: Image.Image) -> Image.Image:
     """The actual enemy card appears through this tear at FIRE_FRAME."""
     fx = Image.new("RGBA", (WIDTH, HEIGHT + TOP))
     draw = ImageDraw.Draw(fx)
@@ -105,60 +104,59 @@ def effect_frame(frame: int) -> Image.Image:
         for x, y in ((43, 55), (69, 56), (47, 77), (65, 76)):
             point(draw, x, y, PLUM)
     elif frame == 10:
-        rift(draw, 10, 13, PALE)
+        rift(draw, 10, 13, VIOLET)
         line(draw, [(46, 67), (40, 62), (38, 56)], VIOLET)
         line(draw, [(66, 67), (72, 62), (74, 56)], VIOLET)
-        for x, y in ((54, 53), (60, 77), (42, 73), (70, 72)):
-            point(draw, x, y, PALE)
     elif frame == FIRE_FRAME:
-        # The split and eye flash share the real-card spawn frame.
+        # The violet tear splits behind the shared gold-and-teal card pixels.
         for side in (-1, 1):
             x = 56 + side * 14
             draw.line([(56 + side * 3, 53 + TOP), (x, 56 + TOP),
                        (x + side * 8, 65 + TOP), (x, 78 + TOP),
-                       (x + side * 11, 84 + TOP)], fill=PALE, width=2)
+                       (x + side * 11, 84 + TOP)], fill=VIOLET, width=2)
             line(draw, [(56 + side * 4, 57), (x + side * 3, 66),
                         (x + side * 9, 76)], VIOLET)
-            line(draw, [(x + side * 10, 52), (x + side * 17, 46)], PALE)
-        for x, y in ((24, 56), (88, 57), (21, 78), (91, 80),
-                     (54, 45), (60, 47), (32, 91), (80, 91)):
-            point(draw, x, y, PALE)
-    elif frame == 12:
-        for x, y in ((31, 51), (81, 53), (24, 73), (88, 72),
-                     (50, 37), (63, 39)):
-            point(draw, x, y, PALE if x % 2 else VIOLET)
-        line(draw, [(28, 73), (23, 65), (26, 58)], VIOLET)
-        line(draw, [(84, 73), (89, 65), (86, 58)], VIOLET)
-    elif frame == 13:
-        for x, y in ((43, 49), (69, 48), (52, 32), (61, 34)):
-            point(draw, x, y, PLUM)
+    if 10 <= frame <= 14:
+        # Same source frames 5..9 used by coral, starveling, serpent and colour.
+        source = frame - 5
+        card = cards.crop((source * 96, 0, (source + 1) * 96, 204))
+        bounds = card.getbbox()
+        if bounds:
+            card = card.crop(bounds)
+            center_y = {10: 115, 11: 108, 12: 94, 13: 82, 14: 82}[frame]
+            fx.alpha_composite(card, (56 - card.width // 2,
+                                      center_y - card.height // 2))
     return fx
 
 
 def main() -> None:
     idle = native("idle.png")
-    asym = native("idle_asym.png")
-    up = native("wings_up.png")
+    mid = native("wing_mid.png")
+    peak = native("wing_peak.png")
     half = native("cast_half.png")
     full = native("cast_full.png")
-    palette = shared_palette([idle, asym, up, half, full])
-    idle, asym, up, half, full = [
-        palette_map(image, palette) for image in (idle, asym, up, half, full)
+    palette = shared_palette([idle, mid, peak, half, full])
+    idle, mid, peak, half, full = [
+        palette_map(image, palette) for image in (idle, mid, peak, half, full)
     ]
-    # Each pose is a complete redraw: the large moving wing shadows stay attached.
-    poses = [idle, asym, up, up, asym, idle,
-             idle, up, half, full, full, full, full, half, idle]
+    # Paired wings travel down -> level -> high -> level -> down in each beat.
+    poses = [idle, mid, peak, mid, idle, idle,
+             idle, mid, peak, mid, half, full, full, half, idle]
+    hover = [0, -1, -2, -1, 0, 0, 0, -1, -2, -1, 0, 0, 0, 0, 0]
     body = Image.new("RGBA", (WIDTH * FRAMES, HEIGHT))
     fx_sheet = Image.new("RGBA", (WIDTH * FRAMES, HEIGHT + TOP))
     contact = Image.new("RGBA", (WIDTH * FRAMES, HEIGHT + TOP), (7, 20, 24, 255))
     previews = []
+    cards = Image.open(PIXELS / "fanatic_fx_1.png").convert("RGBA")
     for frame, pose in enumerate(poses):
-        sprite = pose.copy()
+        sprite = Image.new("RGBA", (WIDTH, HEIGHT))
+        sprite.alpha_composite(pose, (0, hover[frame]))
         eyes = ImageDraw.Draw(sprite)
         for x in (47, 64):
-            eyes.point((x, 36), fill=EYE_FIRE if frame == FIRE_FRAME else EYE)
+            eyes.point((x, 36 + hover[frame]),
+                       fill=EYE_FIRE if frame == FIRE_FRAME else EYE)
         body.alpha_composite(sprite, (frame * WIDTH, 0))
-        fx = effect_frame(frame)
+        fx = effect_frame(frame, cards)
         fx_sheet.alpha_composite(fx, (frame * WIDTH, 0))
         preview = Image.new("RGBA", (WIDTH, HEIGHT + TOP), (7, 20, 24, 255))
         preview.alpha_composite(sprite, (0, TOP))
@@ -173,7 +171,7 @@ def main() -> None:
     previews[FIRE_FRAME - 1].resize((448, 864), Image.Resampling.NEAREST).save(
         SOURCE / "byakhee_rift_preview.png")
     durations = [190, 170, 220, 180, 190, 210,
-                 120, 160, 170, 190, 220, 240, 180, 170, 200]
+                 120, 160, 170, 190, 220, 240, 180, 170, 800]
     gif = [frame.resize((336, 648), Image.Resampling.NEAREST).convert("RGB")
            for frame in previews]
     gif[0].save(SOURCE / "byakhee_preview.gif", save_all=True,
