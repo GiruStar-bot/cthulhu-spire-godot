@@ -26,6 +26,7 @@ const FIREBALL_SHOT := preload("res://scenes/combat/FireballShot.gd")
 const FIREBALL_SHEET := preload("res://art/pixel/fx/fireball.png")
 const FIREBALL_FRAME := Vector2i(40, 40)
 const FIREBALL_SCALE := 3.0
+const FIREBALL_START_SCALE := 12.0
 const FIREBALL_FLIGHT := 0.32
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
@@ -223,13 +224,19 @@ func _on_end_turn_pressed() -> void:
 	_end_turn()
 
 
-func _play_card(card_uid: String, target_id) -> void:
+func _play_card(card_uid: String, target_id, from_global: Vector2 = Vector2(-1.0, -1.0)) -> void:
 	if _px_acting or resolving or state.get("phase") != "player" or state.get("result") != "ongoing":
 		return
 	var selected_card = _find_hand(card_uid)
 	var card_type := str(Cards.get_card(str(selected_card.defId)).get("type", "skill")) if selected_card else "skill"
-	_sanity_drop_from = _hand_card_center(card_uid)
-	_fireball_from = _sanity_drop_from
+	## ドラッグ解放座標があればそれを使う。クリック再生だけ手札の並び位置に戻る。
+	if from_global.x >= 0.0 and from_global.y >= 0.0:
+		_sanity_drop_from = from_global
+		_fireball_from = from_global
+	else:
+		var hand_center: Vector2 = _hand_card_center(card_uid)
+		_sanity_drop_from = hand_center
+		_fireball_from = hand_center + Vector2(0.0, -CARD_SIZE.y * 0.55)
 	var played: Dictionary = CombatLogic.play_card(state, player, card_uid, target_id, Callable(GameState, "_rand"))
 	if played.get("error"):
 		message_label.text = str(played.error)
@@ -1380,7 +1387,7 @@ func _finish_drag() -> void:
 	var ok: bool = drop.get("ok") and true
 	if not ok:
 		return
-	_play_card(card_uid, drop.get("target_id"))
+	_play_card(card_uid, drop.get("target_id"), pos)
 
 
 func _clear_drag() -> void:
@@ -2473,8 +2480,7 @@ func _on_fireball_hit_timeout() -> void:
 func _fx_fireball_from() -> Vector2:
 	_ensure_vfx_layer()
 	if _fireball_from.x >= 0.0 and _fireball_from.y >= 0.0:
-		## 手札の中心だとカード絵に隠れる。上端の少し上から飛ばす。
-		return _vfx_layer.to_local(_fireball_from) + Vector2(0.0, -CARD_SIZE.y * 0.55)
+		return _vfx_layer.to_local(_fireball_from)
 	return Vector2(size.x * 0.5, size.y * 0.78)
 
 
@@ -2484,6 +2490,6 @@ func _fx_fireball_to(uid: String) -> void:
 	## ダメージ数字（FloaterLayer z=15）より後ろ、敵の前。
 	shot.z_index = -2
 	_vfx_layer.add_child(shot)
-	shot.setup(FIREBALL_SHEET, FIREBALL_FRAME, FIREBALL_SCALE)
+	shot.setup(FIREBALL_SHEET, FIREBALL_FRAME, FIREBALL_START_SCALE)
 	shot.struck.connect(_on_fireball_hit)
-	shot.launch(_fx_fireball_from(), _vfx_center_of(uid), FIREBALL_FLIGHT)
+	shot.launch(_fx_fireball_from(), _vfx_center_of(uid), FIREBALL_FLIGHT, FIREBALL_START_SCALE, FIREBALL_SCALE)

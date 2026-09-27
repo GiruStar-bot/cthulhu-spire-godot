@@ -37,15 +37,20 @@ func setup(sheet: Texture2D, frame_size: Vector2i, scale_px: float) -> void:
 	visible = false
 
 
-func launch(from_pos: Vector2, to_pos: Vector2, duration: float) -> void:
+func launch(from_pos: Vector2, to_pos: Vector2, duration: float, from_scale: float, to_scale: float) -> void:
 	position = from_pos
+	scale = Vector2(from_scale, from_scale)
 	visible = true
 	_mode = 1
 	_t = 0.0
 	_hit_sent = false
 	_set_frame(0)
+	var dur: float = maxf(0.05, duration)
 	var tw: Tween = create_tween()
-	tw.tween_property(self, "position", to_pos, maxf(0.05, duration)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.set_parallel(true)
+	tw.tween_property(self, "position", to_pos, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_property(self, "scale", Vector2(to_scale, to_scale), dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.set_parallel(false)
 	tw.tween_callback(_on_arrive)
 
 
