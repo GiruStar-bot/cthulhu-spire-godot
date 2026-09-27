@@ -139,7 +139,7 @@ const ENEMIES := {
 		"sprite": "res://art/pixel/enemies_px/spawn",
 		"px": {
 			"body_w": 112, "body_h": 168, "fx_top": 48, "body_frames": 13,
-			"idle_frames": 4, "idle_step": 0.22,
+			"idle_frames": 4, "idle_step": 0.32,
 			"cast_holds": [0.16, 0.18, 0.23, 0.14, 0.21, 0.18, 0.17, 0.19, 0.24],
 			"cast_fire": 8,
 		},

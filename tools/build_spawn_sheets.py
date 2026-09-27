@@ -58,32 +58,38 @@ def native_base() -> Image.Image:
     return palette
 
 
-def belly_pose(base: Image.Image, breathe: int, crouch: int) -> Image.Image:
-    """Whole-row integer movement keeps arms joined and feet planted."""
+def body_pose(base: Image.Image, breathe: int, crouch: int) -> Image.Image:
+    """Deform the entire silhouette as one grounded key pose.
+
+    The head and shoulders rise with the inhalation, while the shoulders
+    broaden and the belly swells. During the wind-up, all three compress
+    together. The knees transition into unmoving feet at ground contact.
+    """
     result = Image.new("RGBA", (W, H))
     for y in range(H):
-        # A slow swelling centered on the abdomen, fading toward shoulders
-        # and feet. The cast compresses the same area by two native pixels.
-        weight = max(0.0, 1.0 - abs(y - 110) / 50.0)
-        reach = round((breathe - crouch) * weight)
+        upper_weight = min(1.0, max(0.0, (150 - y) / 40.0))
+        shoulder_weight = max(0.0, 1.0 - abs(y - 78) / 41.0)
+        belly_weight = max(0.0, 1.0 - abs(y - 111) / 43.0)
+        vertical = round((0.8 * breathe - 1.2 * crouch) * upper_weight)
+        widen = round((0.75 * breathe - 0.45 * crouch) * shoulder_weight
+                      + (1.25 * breathe - 1.0 * crouch) * belly_weight)
+        source_y = min(H - 1, max(0, y + vertical))
         for x in range(W):
-            if not reach or not 66 <= y <= 151:
-                result.putpixel((x, y), base.getpixel((x, y)))
-                continue
-            sample_x = round(56 + (x - 56) * (1.0 - reach / 55.0))
+            sample_x = round(56 + (x - 56) * (1.0 - widen / 55.0))
             if 0 <= sample_x < W:
-                result.putpixel((x, y), base.getpixel((sample_x, y)))
+                result.putpixel((x, y), base.getpixel((sample_x, source_y)))
     return result
 
 
-def open_maw(image: Image.Image, base: Image.Image, extra: int) -> None:
+def open_maw(image: Image.Image, pose: Image.Image,
+             extra: int, head_shift: int) -> None:
     """Open the existing shaded mouth without replacing its rim or teeth."""
     if not extra:
         return
     # The oval includes the original cheek and tooth shading. Masking its
     # outer edge avoids the rectangular cut-out visible in a scaled patch.
-    left, top, right, bottom = 37, 27, 76, 70
-    patch = base.crop((left, top, right, bottom))
+    left, top, right, bottom = 37, 27 + head_shift, 76, 70 + head_shift
+    patch = pose.crop((left, top, right, bottom))
     width, height = patch.size
     enlarged = patch.resize((width + extra * 2, height + extra * 2),
                             Image.Resampling.NEAREST)
@@ -124,15 +130,16 @@ def main() -> None:
     base = native_base()
     shared = Image.open(PIXELS / "fanatic_fx_1.png").convert("RGBA")
     # Two uneven breaths, then a held compression before the mouth snaps open.
-    breaths = [0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    breaths = [0, 1, 2, 1, 0, 0, 0, 0, 2, 1, 1, 0, 0]
     crouches = [0, 0, 0, 0, 0, 1, 2, 2, 0, 0, 0, 0, 0]
     openings = [0, 0, 0, 0, 0, 0, 1, 3, 5, 5, 3, 1, 0]
     body_sheet = Image.new("RGBA", (W * FRAMES, H))
     fx_sheet = Image.new("RGBA", (W * FRAMES, H + TOP))
     previews = []
     for frame in range(FRAMES):
-        body = belly_pose(base, breaths[frame], crouches[frame])
-        open_maw(body, base, openings[frame])
+        body = body_pose(base, breaths[frame], crouches[frame])
+        head_shift = -round(0.8 * breaths[frame] - 1.2 * crouches[frame])
+        open_maw(body, body.copy(), openings[frame], head_shift)
         body_sheet.alpha_composite(body, (frame * W, 0))
         vfx = effect(frame, shared)
         fx_sheet.alpha_composite(vfx, (frame * W, 0))
@@ -152,7 +159,7 @@ def main() -> None:
            for p in previews]
     gif[0].save(SOURCE / "spawn_preview.gif", save_all=True,
                 append_images=gif[1:],
-                duration=[240, 210, 260, 220, 180, 170, 230,
+                duration=[320, 320, 320, 320, 180, 170, 230,
                           140, 220, 180, 170, 190, 650],
                 loop=0, optimize=False)
 
