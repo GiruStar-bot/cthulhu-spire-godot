@@ -49,6 +49,12 @@ const ENEMIES := {
 		"name": "溺れた眷属",
 		"art": "res://art/pixel/drowned.png",
 		"poster": "res://art/pixel/drowned.png",
+		"sprite": "res://art/pixel/enemies_px/drowned",
+		"px": {
+			"body_w": 112, "body_h": 168, "fx_top": 48, "body_frames": 10,
+			"cast_holds": [0.12, 0.15, 0.18, 0.22, 0.16, 0.18, 0.16, 0.20],
+			"cast_fire": 6,
+		},
 		"biome": "reef",
 		"maxHp": 44,
 		"archetype": "poison",
