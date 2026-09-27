@@ -107,6 +107,12 @@ const ENEMIES := {
 		"name": "ムーの蛇人",
 		"art": "res://art/pixel/serpent.png",
 		"poster": "res://art/pixel/serpent.png",
+		"sprite": "res://art/pixel/enemies_px/serpent",
+		"px": {
+			"body_w": 112, "body_h": 168, "fx_top": 48, "body_frames": 11,
+			"cast_holds": [0.12, 0.19, 0.22, 0.17, 0.22, 0.17, 0.18, 0.19, 0.23],
+			"cast_fire": 6,
+		},
 		"biome": "mu",
 		"maxHp": 54,
 		"archetype": "water",
