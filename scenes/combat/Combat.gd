@@ -39,15 +39,16 @@ const DRAW_IN_STAGGER := 0.04
 const DRAW_IN_STAGGER_CAP := 8
 const DRAW_IN_SCALE := 0.42
 const DRAW_IN_ROT_OFFSET := -16.0
-const CARD_SIZE := Vector2(202, 302)
+## 拡大版（202x302、PR #120時点）は圧迫感が強いとのフィードバックで112x168へ差し戻し。
+const CARD_SIZE := Vector2(112, 168)
 ## 敵の顔の上に出す予告。手札とは別サイズ。幅が足りなければ _spawn_px_reveal_cards が縮める。
 const PREVIEW_CARD_SIZE := Vector2(112, 160)
 ## 手札の下端と、扇の反りで上にはみ出す分。
 const HAND_BOTTOM_INSET := 8.0
-const HAND_ARC_SLACK := 44.0
-## body_budget/bh に掛ける調整。手札が 302px だと 1280×720 の収まる上限がすでに約 2.5 なので 1.0。
-## もっと小さくするときは 0.85 前後。1152×648 は入らない分を後段で縮める。
-const ENEMY_SCALE_TRIM := 1.0
+const HAND_ARC_SLACK := 38.0
+## body_budget/bh に掛ける調整。手札112x168時、1280×720 の敵本体を約2.2倍に抑える。
+## 画面や2体並びで収まらない分は、後段の上端・横幅制限でさらに縮める。
+const ENEMY_SCALE_TRIM := 0.77
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 176.0
 const ENEMY_PLATE_W_DUAL := 148.0
@@ -1780,14 +1781,14 @@ func _apply_hand_frame() -> void:
 	if hand_row != null:
 		hand_row.offset_bottom = -HAND_BOTTOM_INSET
 		hand_row.offset_top = -(HAND_BOTTOM_INSET + hand_h)
-		hand_row.offset_right = -160.0
+		hand_row.offset_right = -152.0
 	if hand_tray != null:
 		hand_tray.offset_bottom = -4.0
-		hand_tray.offset_top = -(CARD_SIZE.y + HAND_BOTTOM_INSET + 36.0)
-		hand_tray.offset_right = -160.0
+		hand_tray.offset_top = -(CARD_SIZE.y + HAND_BOTTOM_INSET + 44.0)
+		hand_tray.offset_right = -144.0
 	if message_label != null:
-		message_label.offset_bottom = -(CARD_SIZE.y + HAND_BOTTOM_INSET + 12.0)
-		message_label.offset_top = message_label.offset_bottom - 28.0
+		message_label.offset_bottom = -(CARD_SIZE.y + HAND_BOTTOM_INSET + 32.0)
+		message_label.offset_top = message_label.offset_bottom - 26.0
 		message_label.z_index = 40
 	var plate: Control = get_node_or_null("MessagePlate") as Control
 	if plate != null:
