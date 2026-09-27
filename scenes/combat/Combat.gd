@@ -46,9 +46,9 @@ const PREVIEW_CARD_SIZE := Vector2(112, 160)
 ## 手札の下端と、扇の反りで上にはみ出す分。
 const HAND_BOTTOM_INSET := 8.0
 const HAND_ARC_SLACK := 38.0
-## body_budget/bh に掛ける調整。手札を112x168へ差し戻すと 1280×720 の収まる上限が約2.5倍。
-## もっと小さくするときは 0.85 前後。1152×648 は入らない分を後段で縮める。
-const ENEMY_SCALE_TRIM := 0.87
+## body_budget/bh に掛ける調整。手札112x168時、1280×720 の敵本体を約2.2倍に抑える。
+## 画面や2体並びで収まらない分は、後段の上端・横幅制限でさらに縮める。
+const ENEMY_SCALE_TRIM := 0.77
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 176.0
 const ENEMY_PLATE_W_DUAL := 148.0
