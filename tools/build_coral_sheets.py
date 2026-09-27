@@ -96,6 +96,9 @@ def main() -> None:
     idle_breath.alpha_composite(idle, (0, -1))
     body = Image.new("RGBA", (SIZE[0] * FRAMES, SIZE[1]))
     fx = Image.new("RGBA", (SIZE[0] * FRAMES, SIZE[1] + TOP))
+    contact = Image.new("RGBA", (SIZE[0] * FRAMES, SIZE[1] + TOP),
+                        (7, 20, 24, 255))
+    previews = []
     poses = [idle, idle_breath, idle, raised, raised, raised,
              impact, impact, impact, raised, idle]
     card_sheet = Image.open(PIXELS / "fanatic_fx_1.png").convert("RGBA")
@@ -116,8 +119,23 @@ def main() -> None:
                 effect.alpha_composite(card, (56 - card.width // 2,
                                               center_y - card.height // 2))
         fx.alpha_composite(effect, (frame * SIZE[0], 0))
+        preview = Image.new("RGBA", (SIZE[0], SIZE[1] + TOP),
+                            (7, 20, 24, 255))
+        preview.alpha_composite(pose, (0, TOP))
+        preview.alpha_composite(effect)
+        contact.alpha_composite(preview, (frame * SIZE[0], 0))
+        previews.append(preview)
     body.save(PIXELS / "coral_body_1.png")
     fx.save(PIXELS / "coral_fx_1.png")
+    contact.save(SOURCE / "coral_contact_preview.png")
+    previews[6].resize((448, 864), Image.Resampling.NEAREST).save(
+        SOURCE / "coral_fire_preview.png")
+    gif = [frame.resize((336, 648), Image.Resampling.NEAREST).convert("RGB")
+           for frame in previews]
+    gif[0].save(SOURCE / "coral_preview.gif", save_all=True,
+                append_images=gif[1:],
+                duration=[500, 500, 120, 180, 220, 180, 220, 180, 180, 190, 300],
+                loop=0, optimize=False)
 
 
 if __name__ == "__main__":
