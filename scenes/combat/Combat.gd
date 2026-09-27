@@ -18,6 +18,9 @@ const SHOCK_SPARK := Color(0.78, 0.42, 0.95, 1.0)
 const FX_IMPACT := preload("res://art/pixel/fx/fx_impact.png")
 const FX_SLASH := preload("res://art/pixel/fx/fx_slash.png")
 const FX_ARROW := preload("res://art/pixel/fx/fx_arrow.png")
+const TENTACLE_STRIKE := preload("res://scenes/combat/TentacleStrike.gd")
+const TENTACLE_SHEET := preload("res://art/pixel/fx/tentacle_ground.png")
+const TENTACLE_FRAME := Vector2i(72, 88)
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
@@ -105,6 +108,9 @@ var _shield_tween: Tween
 var _hurt_flash: ColorRect
 var _hurt_tween: Tween
 var _vfx_layer: Node2D
+## 触手カードだけ、敵へのダメージ数字を「伸びきって当たるコマ」まで保留する。
+var _held_floater_ids: Dictionary = {}
+var _tentacle_hit_timeout: Tween = null
 var _draw_in_tweens: Dictionary = {}
 
 
@@ -129,6 +135,7 @@ func _exit_tree() -> void:
 	_px_acting = false
 	_px_committed = true
 	_cancel_px_reveal_hold()
+	_cancel_tentacle_hit_timeout()
 	var settings: VideoSettings = VideoSettings.get_instance()
 	if settings.changed.is_connected(_on_px_reduce_motion):
 		settings.changed.disconnect(_on_px_reduce_motion)
@@ -221,8 +228,14 @@ func _play_card(card_uid: String, target_id) -> void:
 	var hp_before: int = int(player.hp)
 	var definition: Dictionary = Cards.get_card(def_id) if def_id != "" else {}
 	var vfx_kind: String = str(definition.get("vfx", "impact"))
-	# カード固有 SFX（ねこの手・電撃銃など）を優先。なければ vfx / skill
-	AudioManager.play_sfx(AudioManager.resolve_card_sfx(def_id, card_type, vfx_kind))
+	## 触手は当たるコマまで効果音とダメージ数字を遅らせる。計算自体は上の play_card で済んでいる。
+	var delay_tentacle: bool = vfx_kind == "tentacle_ground" and not VideoSettings.is_reduce_motion()
+	if delay_tentacle:
+		_arm_tentacle_hit_hold(target_id)
+		_arm_tentacle_hit_timeout()
+	else:
+		# カード固有 SFX（ねこの手・電撃銃など）を優先。なければ vfx / skill
+		AudioManager.play_sfx(AudioManager.resolve_card_sfx(def_id, card_type, vfx_kind))
 	targeting_uid = ""
 	var hand_before: int = int(state.hand.size()) if state.get("hand") else 0
 	GameState.apply_player_hook(player)
@@ -1183,6 +1196,8 @@ func _show_new_floaters() -> void:
 	for floater in state.get("floaters", []):
 		var id: String = str(floater.get("id", ""))
 		if id == "" or _shown_floaters.has(id):
+			continue
+		if _held_floater_ids.has(id):
 			continue
 		_shown_floaters[id] = true
 		_spawn_floater(floater)
@@ -2172,6 +2187,13 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 	if kind == "impact":
 		for uid in uids:
 			_fx_impact_on(str(uid))
+		return
+	if kind == "tentacle_ground":
+		if VideoSettings.is_reduce_motion():
+			return
+		for uid in uids:
+			_fx_tentacle_ground(str(uid))
+		return
 
 
 func _vfx_target_uids(definition: Dictionary, target_id) -> Array:
@@ -2202,6 +2224,103 @@ func _vfx_center_of(uid: String) -> Vector2:
 		var rect: Rect2 = art.get_global_rect()
 		return _vfx_layer.to_local(rect.position + rect.size * 0.5)
 	return Vector2(size.x * 0.5, size.y * 0.42)
+
+
+func _vfx_feet_of(uid: String) -> Vector2:
+	_ensure_vfx_layer()
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art != null and is_instance_valid(art):
+		var rect: Rect2 = art.get_global_rect()
+		return _vfx_layer.to_local(rect.position + Vector2(rect.size.x * 0.5, rect.size.y))
+	return Vector2(size.x * 0.5, size.y * 0.62)
+
+
+func _tentacle_px_scale(uid: String) -> float:
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art == null or not is_instance_valid(art) or art.size.y < 8.0:
+		return 3.0
+	var raw: int = int(round(art.size.y * 0.78 / float(TENTACLE_FRAME.y)))
+	return float(clampi(raw, 2, 4))
+
+
+func _arm_tentacle_hit_hold(target_id) -> void:
+	_held_floater_ids = {}
+	var who: String = ""
+	if target_id != null:
+		who = str(target_id)
+	else:
+		var living: Array = CombatLogic.living(state)
+		if not living.is_empty():
+			who = str(living[0].get("uid", ""))
+	if who == "":
+		return
+	for floater in state.get("floaters", []):
+		var id: String = str(floater.get("id", ""))
+		if id == "" or _shown_floaters.has(id):
+			continue
+		if str(floater.get("who", "")) != who:
+			continue
+		if str(floater.get("kind", "")) != "dmg":
+			continue
+		_held_floater_ids[id] = true
+
+
+func _arm_tentacle_hit_timeout() -> void:
+	_cancel_tentacle_hit_timeout()
+	var tw: Tween = create_tween()
+	tw.tween_interval(1.2)
+	tw.tween_callback(_on_tentacle_hit_timeout)
+	_tentacle_hit_timeout = tw
+
+
+func _cancel_tentacle_hit_timeout() -> void:
+	if _tentacle_hit_timeout != null and is_instance_valid(_tentacle_hit_timeout) and _tentacle_hit_timeout.is_valid():
+		_tentacle_hit_timeout.kill()
+	_tentacle_hit_timeout = null
+
+
+func _on_tentacle_struck() -> void:
+	if not is_inside_tree():
+		return
+	AudioManager.play_sfx("vfx_impact")
+	_release_tentacle_hit()
+
+
+func _on_tentacle_hit_timeout() -> void:
+	_tentacle_hit_timeout = null
+	_flush_held_floaters()
+
+
+func _release_tentacle_hit() -> void:
+	_cancel_tentacle_hit_timeout()
+	_flush_held_floaters()
+
+
+func _flush_held_floaters() -> void:
+	if _held_floater_ids.is_empty():
+		return
+	var pending: Dictionary = _held_floater_ids
+	_held_floater_ids = {}
+	for floater in state.get("floaters", []):
+		var id: String = str(floater.get("id", ""))
+		if id == "" or not pending.has(id) or _shown_floaters.has(id):
+			continue
+		_shown_floaters[id] = true
+		_spawn_floater(floater)
+
+
+func _fx_tentacle_ground(uid: String) -> void:
+	_ensure_vfx_layer()
+	var scale_px: float = _tentacle_px_scale(uid)
+	var strike = TENTACLE_STRIKE.new()
+	## VfxLayer(z=16) より少し下げ、ダメージ数字（FloaterLayer z=15）の後ろ・敵の前に出す。
+	strike.z_index = -2
+	_vfx_layer.add_child(strike)
+	strike.setup(TENTACLE_SHEET, TENTACLE_FRAME, scale_px)
+	## 素材の接地線は下端から 2px。足元に乗せる。
+	strike.position = _vfx_feet_of(uid) + Vector2(0.0, 2.0 * scale_px)
+	strike.struck.connect(_on_tentacle_struck)
+	strike.play()
 
 
 func _vfx_fit(uid: String) -> float:
