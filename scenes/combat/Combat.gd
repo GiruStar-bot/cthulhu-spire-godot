@@ -28,6 +28,8 @@ const FIREBALL_FRAME := Vector2i(40, 40)
 const FIREBALL_SCALE := 3.0
 const FIREBALL_START_SCALE := 12.0
 const FIREBALL_FLIGHT := 0.32
+## とどめの数字を見せてから、溶解と勝敗メッセージを出すまでの間。
+const HELD_DEATH_REVEAL := 0.32
 const RESULT_WIN_DELAY := 0.92
 const RESULT_FLEE_DELAY := 0.92
 const RESULT_LOSE_DELAY := 0.56
@@ -138,6 +140,11 @@ var _vfx_layer: Node2D
 var _held_floater_ids: Dictionary = {}
 var _tentacle_hit_timeout: Tween = null
 var _fireball_hit_timeout: Tween = null
+## 保留中の被弾だけ、バーに出すHP。真の hp は即時のまま。
+var _shown_enemy_hp: Dictionary = {}
+var _shown_player_hp: int = -1
+var _result_wait_hit: bool = false
+var _held_reveal_tween: Tween = null
 ## プレイした手札の位置。refresh が正気度の出発点を消す前に控える。
 var _fireball_from: Vector2 = Vector2(-1.0, -1.0)
 var _draw_in_tweens: Dictionary = {}
@@ -166,6 +173,7 @@ func _exit_tree() -> void:
 	_cancel_px_reveal_hold()
 	_cancel_tentacle_hit_timeout()
 	_cancel_fireball_hit_timeout()
+	_cancel_held_reveal()
 	var settings: VideoSettings = VideoSettings.get_instance()
 	if settings.changed.is_connected(_on_px_reduce_motion):
 		settings.changed.disconnect(_on_px_reduce_motion)
@@ -255,6 +263,10 @@ func _play_card(card_uid: String, target_id, from_global: Vector2 = Vector2(-1.0
 		var hand_center: Vector2 = _hand_card_center(card_uid)
 		_sanity_drop_from = hand_center
 		_fireball_from = hand_center + Vector2(0.0, -CARD_SIZE.y * 0.55)
+	var hp_snap: Dictionary = {}
+	for snap_e in state.get("enemies", []):
+		hp_snap[str(snap_e.get("uid", ""))] = int(snap_e.get("hp", 0))
+	var player_hp_snap: int = int(player.hp)
 	var played: Dictionary = CombatLogic.play_card(state, player, card_uid, target_id, Callable(GameState, "_rand"))
 	if played.get("error"):
 		message_label.text = str(played.error)
@@ -277,6 +289,7 @@ func _play_card(card_uid: String, target_id, from_global: Vector2 = Vector2(-1.0
 	else:
 		# カード固有 SFX（ねこの手・電撃銃など）を優先。なければ vfx / skill
 		AudioManager.play_sfx(AudioManager.resolve_card_sfx(def_id, card_type, vfx_kind))
+	_apply_hit_hold_display(hp_snap, player_hp_snap)
 	targeting_uid = ""
 	var hand_before: int = int(state.hand.size()) if state.get("hand") else 0
 	GameState.apply_player_hook(player)
@@ -291,7 +304,8 @@ func _play_card(card_uid: String, target_id, from_global: Vector2 = Vector2(-1.0
 	if state.get("forceEnd") and state.get("result") == "ongoing":
 		_end_turn()
 		return
-	_check_result()
+	if not _result_wait_hit:
+		_check_result()
 
 
 func _end_turn() -> void:
@@ -327,7 +341,10 @@ func _commit_end_turn() -> void:
 	var had_enemy_hit := "hurt_from_enemy" in turn_sfx or "hurt" in turn_sfx
 	if int(player.hp) < hp_before and not had_enemy_hit:
 		AudioManager.play_sfx("hurt_self")
-	_check_result()
+	## 触手・火球のとどめを保留中なら、数字が出るまで勝敗を出さない。
+	## _play_card 側と同じガード。ここが無いと forceEnd 経由で先に確定してしまう。
+	if not _result_wait_hit:
+		_check_result()
 
 
 func _player_can_act() -> bool:
@@ -441,13 +458,17 @@ func _check_result() -> void:
 			_refresh()
 		AudioManager.play_sfx("win")
 		message_label.text = "回廊は、しばらく静かだ。"
+		## 触手は画面中央の一文を覆う。勝敗の文言だけ演出より手前に出す。
+		message_label.z_index = 40
 		get_tree().create_timer(RESULT_WIN_DELAY).timeout.connect(func(): GameState.win_combat(get_tree()))
 	elif result == "fled":
 		message_label.text = "敵が逃げ去った。"
+		message_label.z_index = 40
 		get_tree().create_timer(RESULT_FLEE_DELAY).timeout.connect(func(): GameState.resolve_flee(get_tree()))
 	else:
 		AudioManager.play_sfx("lose")
 		message_label.text = "肉体が、折れた。" if int(player.hp) <= 0 else "正気が、0になった。"
+		message_label.z_index = 40
 		get_tree().create_timer(RESULT_LOSE_DELAY).timeout.connect(func(): GameState.lose_combat(get_tree()))
 
 
@@ -475,7 +496,7 @@ func _refresh_hud() -> void:
 	hud_panel.bind({
 		"player_name": pname,
 		"floor_text": floor_text,
-		"hp": int(player.hp),
+		"hp": _shown_player_hp if _shown_player_hp >= 0 else int(player.hp),
 		"max_hp": int(player.maxHp),
 		"sanity": int(player.sanity),
 		"max_sanity": int(player.maxSanity),
@@ -503,16 +524,27 @@ func _refresh_hud() -> void:
 
 func _refresh_log() -> void:
 	var log_lines: Array = state.get("log", [])
-	var recent: Array = log_lines.slice(maxi(0, log_lines.size() - 5), log_lines.size())
 	var lines: PackedStringArray = PackedStringArray()
-	for i in recent.size():
-		lines.append(str(recent[i]))
-	if lines.is_empty():
+	for i in log_lines.size():
+		var line: String = str(log_lines[i])
+		## 真の result は即時だが、とどめの数字が出るまで勝敗の一文だけ隠す。
+		if _result_wait_hit and _is_deferred_result_log(line):
+			continue
+		lines.append(line)
+	var start: int = maxi(0, lines.size() - 5)
+	var recent: PackedStringArray = PackedStringArray()
+	for j in range(start, lines.size()):
+		recent.append(lines[j])
+	if recent.is_empty():
 		log_label.text = "まだ記録がない。"
 	else:
-		log_label.text = "\n".join(lines)
+		log_label.text = "\n".join(recent)
 	_fit_log_label()
 	call_deferred("_scroll_log_to_end")
+
+
+func _is_deferred_result_log(line: String) -> bool:
+	return line == "回廊は、しばらく静かだ。" or line == "肉体が、折れた。" or line == "正気が、0になった。器がひび割れる。"
 
 
 func _fit_log_label() -> void:
@@ -525,6 +557,12 @@ func _fit_log_label() -> void:
 
 
 func _scroll_log_to_end() -> void:
+	_apply_log_scroll()
+	## 行数が増えた直後は最小サイズがまだ古い。次のアイドルでもう一度末尾へ寄せる。
+	call_deferred("_apply_log_scroll")
+
+
+func _apply_log_scroll() -> void:
 	if log_scroll == null or not is_instance_valid(log_scroll):
 		return
 	log_scroll.scroll_vertical = int(log_scroll.get_v_scroll_bar().max_value)
@@ -533,13 +571,13 @@ func _scroll_log_to_end() -> void:
 func _refresh_enemies() -> void:
 	var living: int = 0
 	for e in state.get("enemies", []):
-		if int(e.hp) > 0:
+		if _enemy_still_shown(e):
 			living += 1
 	var dual: bool = living >= 2
 	var seen: Dictionary = {}
 	for e in state.get("enemies", []):
 		var uid: String = str(e.uid)
-		var dead: bool = int(e.hp) <= 0
+		var dead: bool = int(e.hp) <= 0 and not _shown_enemy_hp.has(uid)
 		seen[uid] = true
 		if dead and str(_death_fx_done.get(uid, "")) == "gone":
 			var leftover: Control = _find_enemy_stage(uid)
@@ -1561,9 +1599,10 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	track.color = Color("161512")
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fill := ColorRect.new()
+	var hp_now: int = _shown_hp_of(e)
 	var ratio: float = 0.0
 	if int(e.maxHp) > 0:
-		ratio = clampf(float(e.hp) / float(e.maxHp), 0.0, 1.0)
+		ratio = clampf(float(hp_now) / float(e.maxHp), 0.0, 1.0)
 	fill.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	fill.anchor_right = ratio
 	fill.color = Color("8b1e1e")
@@ -1572,7 +1611,7 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	col.add_child(track)
 
 	var hp_label := Label.new()
-	hp_label.text = "%d/%d" % [int(e.hp), int(e.maxHp)]
+	hp_label.text = "%d/%d" % [hp_now, int(e.maxHp)]
 	hp_label.add_theme_font_size_override("font_size", 10)
 	hp_label.add_theme_color_override("font_color", Color("b8ad96"))
 	hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2443,6 +2482,116 @@ func _flush_held_floaters() -> void:
 			continue
 		_shown_floaters[id] = true
 		_spawn_floater(floater)
+	var any_lethal: bool = false
+	var held_uids: Array = _shown_enemy_hp.keys()
+	for uid_v in held_uids:
+		var uid: String = str(uid_v)
+		if _true_enemy_hp(uid) <= 0:
+			_shown_enemy_hp[uid] = 0
+			any_lethal = true
+		else:
+			_shown_enemy_hp.erase(uid)
+	_shown_player_hp = -1
+	_refresh_hud()
+	_refresh_enemies()
+	if any_lethal or _result_wait_hit:
+		_arm_held_reveal()
+
+
+func _apply_hit_hold_display(hp_snap: Dictionary, player_hp_snap: int) -> void:
+	_shown_enemy_hp = {}
+	_shown_player_hp = -1
+	_result_wait_hit = false
+	if _held_floater_ids.is_empty():
+		return
+	var who_player: bool = false
+	var whos: Dictionary = {}
+	for floater in state.get("floaters", []):
+		var id: String = str(floater.get("id", ""))
+		if not _held_floater_ids.has(id):
+			continue
+		var who: String = str(floater.get("who", ""))
+		if who == "player":
+			who_player = true
+		elif who != "":
+			whos[who] = true
+	for who_v in whos.keys():
+		var who: String = str(who_v)
+		if hp_snap.has(who):
+			_shown_enemy_hp[who] = int(hp_snap[who])
+	if who_player:
+		_shown_player_hp = player_hp_snap
+	_result_wait_hit = _hit_should_gate_result()
+
+
+func _hit_should_gate_result() -> bool:
+	var result: String = str(state.get("result", "ongoing"))
+	if result == "ongoing" or _held_floater_ids.is_empty():
+		return false
+	if result == "win":
+		return true
+	if result != "lose":
+		return false
+	for floater in state.get("floaters", []):
+		var id: String = str(floater.get("id", ""))
+		if not _held_floater_ids.has(id):
+			continue
+		if str(floater.get("who", "")) != "player":
+			continue
+		if str(floater.get("kind", "")) != "dmg":
+			continue
+		return int(player.hp) <= 0
+	return false
+
+
+func _shown_hp_of(e: Dictionary) -> int:
+	var uid: String = str(e.get("uid", ""))
+	if _shown_enemy_hp.has(uid):
+		return int(_shown_enemy_hp[uid])
+	return int(e.get("hp", 0))
+
+
+func _enemy_still_shown(e: Dictionary) -> bool:
+	var uid: String = str(e.get("uid", ""))
+	if _shown_enemy_hp.has(uid):
+		return true
+	return int(e.get("hp", 0)) > 0
+
+
+func _true_enemy_hp(uid: String) -> int:
+	for e in state.get("enemies", []):
+		if str(e.get("uid", "")) == uid:
+			return int(e.get("hp", 0))
+	return 0
+
+
+func _arm_held_reveal() -> void:
+	_cancel_held_reveal()
+	var tw: Tween = create_tween()
+	tw.tween_interval(HELD_DEATH_REVEAL)
+	tw.tween_callback(_reveal_held_outcome)
+	_held_reveal_tween = tw
+
+
+func _cancel_held_reveal() -> void:
+	if _held_reveal_tween != null and is_instance_valid(_held_reveal_tween) and _held_reveal_tween.is_valid():
+		_held_reveal_tween.kill()
+	_held_reveal_tween = null
+
+
+func _reveal_held_outcome() -> void:
+	_held_reveal_tween = null
+	_shown_enemy_hp = {}
+	_shown_player_hp = -1
+	var wait: bool = _result_wait_hit
+	_result_wait_hit = false
+	if not is_inside_tree():
+		return
+	_refresh_enemies()
+	_refresh_hud()
+	if wait:
+		_refresh_log()
+		_check_result()
 
 
 func _fx_tentacle_ground(uid: String) -> void:
