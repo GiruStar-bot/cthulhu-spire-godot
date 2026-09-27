@@ -1,8 +1,7 @@
 """Build Starvamp's slow bat wingbeat and shared-card cast sheets."""
 
-from collections import deque
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,53 +9,35 @@ PIXELS = ROOT / "art/pixel/enemies_px"
 SOURCE = PIXELS / "source/starvamp"
 W, H, TOP, FRAMES, FIRE = 128, 168, 48, 15, 10
 INK = (25, 14, 34, 255)
+SOURCE_GRID = SOURCE / "starvamp_pixel_poses.png"
+POSE_CROPS = (
+    (0, 0, 548, 805),
+    (548, 0, 1095, 805),
+    (0, 805, 548, 1437),
+    (548, 805, 1095, 1437),
+)
 
 
-def cutout(image: Image.Image) -> Image.Image:
-    """Remove the generated black backdrop from all separated body parts."""
-    rgb = image.convert("RGB")
-    mask = Image.new("L", (W, H))
-    for y in range(H):
-        for x in range(W):
-            if max(rgb.getpixel((x, y))) >= 73:
-                mask.putpixel((x, y), 255)
-    # Keep wings, feet and tube mouth even where dark joints separate them.
-    # Close small gaps between membranes and their dark ribs.
-    mask = mask.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.MinFilter(5))
-    outside = {(x, y) for x in range(W) for y in (0, H - 1)}
-    outside.update((x, y) for y in range(H) for x in (0, W - 1))
-    seen = set(outside)
-    queue = deque(outside)
-    while queue:
-        x, y = queue.popleft()
-        for nx, ny in ((x - 1, y), (x + 1, y),
-                       (x, y - 1), (x, y + 1)):
-            if (0 <= nx < W and 0 <= ny < H and (nx, ny) not in seen
-                    and mask.getpixel((nx, ny)) == 0):
-                seen.add((nx, ny))
-                queue.append((nx, ny))
-    for y in range(H):
-        for x in range(W):
-            if (x, y) not in seen:
-                mask.putpixel((x, y), 255)
-    bordered = mask.filter(ImageFilter.MaxFilter(3))
-    result = rgb.convert("RGBA")
-    result.putalpha(bordered)
-    for y in range(H):
-        for x in range(W):
-            if bordered.getpixel((x, y)) and not mask.getpixel((x, y)):
-                result.putpixel((x, y), INK)
-    return result
-
-
-def native(name: str, height_scale: float = 1.0,
-           top_shift: int = 0) -> Image.Image:
-    original = Image.open(SOURCE / name).convert("RGB")
-    scaled_h = round(H * height_scale)
-    scaled = original.resize((112, scaled_h), Image.Resampling.NEAREST)
-    aligned = Image.new("RGB", (W, H), (0, 0, 0))
-    aligned.paste(scaled, (8, top_shift))
-    return cutout(aligned)
+def native(grid: Image.Image, crop: tuple[int, int, int, int]) -> Image.Image:
+    """Reduce a complete pose to a 48x63 drawing grid."""
+    panel = grid.crop(crop)
+    alpha = panel.getchannel("A").point(lambda value: 255 if value >= 128 else 0)
+    bounds = alpha.getbbox()
+    if bounds is None:
+        raise ValueError(f"Empty Starvamp pose: {crop}")
+    panel = panel.crop(bounds)
+    scale = min(45 / panel.width, 59 / panel.height)
+    width, height = round(panel.width * scale), round(panel.height * scale)
+    matte = Image.new("RGB", panel.size, INK[:3])
+    matte.paste(panel.convert("RGB"), mask=panel.getchannel("A"))
+    color = matte.resize((width, height), Image.Resampling.LANCZOS)
+    shape = panel.getchannel("A").resize((width, height), Image.Resampling.LANCZOS)
+    shape = shape.point(lambda value: 255 if value >= 120 else 0)
+    sprite = color.convert("RGBA")
+    sprite.putalpha(shape)
+    tiny = Image.new("RGBA", (48, 63))
+    tiny.alpha_composite(sprite, ((48 - width) // 2, 63 - height - 2))
+    return tiny
 
 
 def palette_for(images: list[Image.Image]) -> Image.Image:
@@ -66,7 +47,7 @@ def palette_for(images: list[Image.Image]) -> Image.Image:
                        in image.get_flattened_data() if a)
     samples = Image.new("RGB", (len(visible), 1))
     samples.putdata(visible)
-    return samples.quantize(colors=36, method=Image.Quantize.MEDIANCUT)
+    return samples.quantize(colors=10, method=Image.Quantize.MEDIANCUT)
 
 
 def palette_map(image: Image.Image, palette: Image.Image) -> Image.Image:
@@ -93,15 +74,14 @@ def effect(frame: int, cards: Image.Image) -> Image.Image:
 
 
 def main() -> None:
-    # The high-wing body dips; the downstroke lifts the whole body.
-    # Complete poses preserve membrane shading and shoulder attachment.
-    sources = [native("wings_mid.png"),
-               native("wings_high.png", 1.00, -7),
-               native("wings_low.png"),
-               native("cast_fold.png")]
+    # Complete poses preserve the wing membranes and shoulder attachment.
+    # Ten shared colors on a 48x63 grid keep the body visibly pixelated.
+    grid = Image.open(SOURCE_GRID).convert("RGBA")
+    sources = [native(grid, crop) for crop in POSE_CROPS]
     palette = palette_for(sources)
     mid, high, low, fold = [
-        palette_map(source, palette) for source in sources]
+        palette_map(source, palette).resize((W, H), Image.Resampling.NEAREST)
+        for source in sources]
     for name, pose in zip(("wings_mid", "wings_high", "wings_low",
                            "cast_fold"), (mid, high, low, fold)):
         pose.save(SOURCE / f"{name}_native.png")
