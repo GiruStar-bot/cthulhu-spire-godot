@@ -131,6 +131,13 @@ const ENEMIES := {
 		"name": "ミーゴ",
 		"art": "res://art/pixel/migo.png",
 		"poster": "res://art/pixel/migo.png",
+		"sprite": "res://art/pixel/enemies_px/migo",
+		"px": {
+			"body_w": 112, "body_h": 168, "fx_top": 48, "body_frames": 12,
+			"idle_frames": 4, "idle_step": 0.22,
+			"cast_holds": [0.12, 0.15, 0.17, 0.22, 0.20, 0.16, 0.16, 0.21],
+			"cast_fire": 8,
+		},
 		"biome": "void",
 		"maxHp": 40,
 		"archetype": "outer",
