@@ -26,7 +26,7 @@ const NYAR_DRIFT_PX := 36.0
 const HEAD_Y_FRAC := 0.18
 const HEAD_GAP_FRAC := 0.14
 const BUBBLE_SCREEN_MARGIN := 16.0
-const FRAME_PATCH_MARGIN := 19
+const FRAME_PATCH_MARGIN := 12
 
 signal proceeded
 
