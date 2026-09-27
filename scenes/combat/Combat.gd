@@ -29,7 +29,6 @@ const DRAW_IN_SCALE := 0.42
 const DRAW_IN_ROT_OFFSET := -16.0
 const CARD_SIZE := Vector2(112, 168)
 const PREVIEW_CARD_SIZE := Vector2(112, 160)
-const PREVIEW_CARD_SIZE_DUAL := Vector2(76, 114)
 const FALLBACK_TEX := "res://art/pixel/ui/card_back.png"
 const ENEMY_PLATE_W := 176.0
 const ENEMY_PLATE_W_DUAL := 148.0
@@ -48,6 +47,10 @@ const ENEMY_BOSS_HP := 150
 const PX_IDLE_STEP := 0.5
 const PX_CAST_STAGGER := 0.2
 const PX_CAST_HOLDS: Array = [0.10, 0.18, 0.22, 0.20, 0.16, 0.26]
+## 全ドット敵の発動コマが揃ってから、効果を入れるまでの間。
+const PX_CARD_REVEAL_HOLD := 0.8
+const PX_CARD_REVEAL_IN := 0.14
+const PX_CARD_REVEAL_OUT := 0.18
 
 @onready var hud_panel: VitalsHud = $HudPanel
 @onready var hud_label: Label = $HudPanel/HudLabel
@@ -87,6 +90,8 @@ var _px_seq: int = 0
 var _px_cast_open: Dictionary = {}
 var _px_frame6_uids: Dictionary = {}
 var _px_frame6_need: int = 0
+var _px_reveal_cards: Array = []
+var _px_reveal_hold: Tween = null
 var _prev_hp: int = -1
 var _prev_sanity: int = -1
 var _prev_block: int = -1
@@ -123,6 +128,7 @@ func _exit_tree() -> void:
 	_px_seq += 1
 	_px_acting = false
 	_px_committed = true
+	_cancel_px_reveal_hold()
 	var settings: VideoSettings = VideoSettings.get_instance()
 	if settings.changed.is_connected(_on_px_reduce_motion):
 		settings.changed.disconnect(_on_px_reduce_motion)
@@ -248,7 +254,9 @@ func _end_turn() -> void:
 func _commit_end_turn() -> void:
 	if _px_committed or not is_inside_tree():
 		return
+	_cancel_px_reveal_hold()
 	_px_committed = true
+	_fade_px_reveal_cards()
 	targeting_uid = ""
 	AudioManager.play_sfx("step")
 	var hp_before: int = int(player.hp)
@@ -919,8 +927,9 @@ func _on_px_frame6(uid: String, seq: int) -> void:
 	if _px_frame6_uids.has(uid):
 		return
 	_px_frame6_uids[uid] = true
+	_spawn_px_reveal_cards(uid)
 	if _px_frame6_need > 0 and _px_frame6_uids.size() >= _px_frame6_need:
-		_commit_end_turn()
+		_schedule_px_reveal_commit(seq)
 
 
 func _on_px_cast_done(uid: String, seq: int) -> void:
@@ -941,6 +950,7 @@ func _abandon_px_cast(uid: String) -> void:
 	if not _px_frame6_uids.has(uid) and not _px_committed:
 		_px_frame6_uids[uid] = true
 		if _px_frame6_need > 0 and _px_frame6_uids.size() >= _px_frame6_need:
+			_cancel_px_reveal_hold()
 			_commit_end_turn()
 	if _px_cast_open.is_empty() and _px_acting and is_inside_tree():
 		_px_acting = false
@@ -968,6 +978,7 @@ func _on_px_reduce_motion(enabled: bool) -> void:
 		for uid2 in cast_ids:
 			_kill_px_cast(str(uid2))
 		_px_cast_open.clear()
+		_cancel_px_reveal_hold()
 		for uid3 in _enemy_art_by_uid.keys():
 			var art: TextureRect = _enemy_art_by_uid[uid3] as TextureRect
 			if art != null and is_instance_valid(art) and art.get_meta("px_sprite", false):
@@ -1085,21 +1096,82 @@ func _enemy_action_text(e: Dictionary) -> String:
 	return "%sを使用" % "・".join(names)
 
 
-func _make_upcoming_cards(e: Dictionary, compact: bool = false) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 6 if compact else 8)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var card_size: Vector2 = PREVIEW_CARD_SIZE_DUAL if compact else PREVIEW_CARD_SIZE
-	for id in _upcoming_card_ids(e):
-		var definition: Dictionary = Cards.get_card(str(id))
-		var fake: Dictionary = {"uid": "", "defId": str(id)}
+func _schedule_px_reveal_commit(seq: int) -> void:
+	_cancel_px_reveal_hold()
+	var tw: Tween = create_tween()
+	tw.tween_interval(PX_CARD_REVEAL_HOLD)
+	tw.tween_callback(_on_px_reveal_hold_done.bind(seq))
+	_px_reveal_hold = tw
+
+
+func _on_px_reveal_hold_done(seq: int) -> void:
+	_px_reveal_hold = null
+	if seq != _px_seq or not is_inside_tree() or _px_committed:
+		return
+	_commit_end_turn()
+
+
+func _cancel_px_reveal_hold() -> void:
+	if _px_reveal_hold != null and is_instance_valid(_px_reveal_hold) and _px_reveal_hold.is_valid():
+		_px_reveal_hold.kill()
+	_px_reveal_hold = null
+
+
+func _spawn_px_reveal_cards(uid: String) -> void:
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art == null or not is_instance_valid(art) or not art.get_meta("px_sprite", false):
+		return
+	var foe: Dictionary = {}
+	for e in state.get("enemies", []):
+		if str(e.get("uid", "")) == uid:
+			foe = e
+			break
+	var ids: Array = _upcoming_card_ids(foe)
+	if ids.is_empty():
+		return
+	var n: int = ids.size()
+	var base: Vector2 = PREVIEW_CARD_SIZE
+	var gap: float = 6.0
+	var budget: float = maxf(64.0, art.size.x * 0.92)
+	var row_w: float = base.x * float(n) + gap * float(maxi(0, n - 1))
+	var fit: float = 1.0 if row_w <= budget else budget / row_w
+	var card_size: Vector2 = base * fit
+	var total_w: float = card_size.x * float(n) + gap * float(maxi(0, n - 1))
+	var origin := Vector2((art.size.x - total_w) * 0.5, (art.size.y - card_size.y) * 0.5)
+	for i in n:
+		var def_id: String = str(ids[i])
+		var definition: Dictionary = Cards.get_card(def_id)
+		var fake: Dictionary = {"uid": "pxreveal_%s_%d" % [uid, i], "defId": def_id}
 		var preview: CombatCard = COMBAT_CARD.new()
 		preview.custom_minimum_size = card_size
 		preview.size = card_size
+		preview.position = origin + Vector2(float(i) * (card_size.x + gap), 0.0)
+		preview.pivot_offset = card_size * 0.5
+		preview.z_index = 20
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		preview.set_meta("px_reveal", true)
+		preview.set_meta("px_reveal_uid", uid)
+		art.add_child(preview)
 		preview.configure(fake, definition, true, false, false)
-		row.add_child(preview)
-	return row
+		preview.scale = Vector2(0.85, 0.85)
+		preview.modulate.a = 0.0
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tw: Tween = preview.create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(preview, "modulate:a", 1.0, PX_CARD_REVEAL_IN)
+		tw.parallel().tween_property(preview, "scale", Vector2.ONE, PX_CARD_REVEAL_IN)
+		_px_reveal_cards.append(preview)
+
+
+func _fade_px_reveal_cards() -> void:
+	var pending: Array = _px_reveal_cards
+	_px_reveal_cards = []
+	for node in pending:
+		var card: CanvasItem = node as CanvasItem
+		if card == null or not is_instance_valid(card):
+			continue
+		var tw: Tween = card.create_tween()
+		tw.tween_property(card, "modulate:a", 0.0, PX_CARD_REVEAL_OUT)
+		tw.tween_callback(card.queue_free)
 
 
 func _show_new_floaters() -> void:
@@ -1299,7 +1371,6 @@ func _make_enemy_plate(e: Dictionary, def: Dictionary, compact: bool = false) ->
 	plate.add_theme_constant_override("separation", 3 if compact else 4)
 	var plate_w: float = ENEMY_PLATE_W_DUAL if compact else ENEMY_PLATE_W
 	plate.custom_minimum_size = Vector2(plate_w, 0)
-	plate.add_child(_make_upcoming_cards(e, compact))
 
 	var box := Panel.new()
 	box.custom_minimum_size = Vector2(plate_w, 64 if compact else 72)
