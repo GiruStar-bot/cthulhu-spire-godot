@@ -16,9 +16,22 @@ func _run() -> void:
 	for stage in [1, 2, 3]:
 		var modal := CthughaEventModal.new()
 		modal.setup(stage)
+		modal.set("_finished", true)
 		root.add_child(modal)
 		assert(modal.get_child_count() > 0)
 		modal.queue_free()
 	await process_frame
+	var sequence := CthughaEventModal.new()
+	sequence.setup(1)
+	root.add_child(sequence)
+	await create_timer(3.0).timeout
+	var choices: HBoxContainer = sequence.get("_choices") as HBoxContainer
+	assert(choices.get_child_count() == 2)
+	var picked: Array[String] = []
+	sequence.choice_selected.connect(func(choice_id: String) -> void: picked.append(choice_id))
+	(choices.get_child(0) as Button).pressed.emit()
+	await create_timer(2.0).timeout
+	assert(picked == ["accept_fireballs"])
+	sequence.queue_free()
 	print("CTHUGHA_SMOKE_OK")
 	quit()

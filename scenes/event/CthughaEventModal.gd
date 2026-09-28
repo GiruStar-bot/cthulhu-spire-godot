@@ -1,13 +1,18 @@
 class_name CthughaEventModal
 extends CanvasLayer
 
-## クトゥグァの三段階イベント。入力本文は保存・送信しない。
+## 戦闘で使うドット敵を神殿の足場に立たせ、話者の横で共通の吹き出しを一行ずつ再生する。
+## 自由入力の本文は保存・送信しない。
 signal choice_selected(choice_id: String)
 
 const SHRINE_BG := "res://art/pixel/bg/shrine.jpg"
-const PRIEST_ART := "res://art/pixel/priest.png"
-const FANATIC_ART := "res://art/pixel/fanatic.png"
-const ACOLYTE_ART := "res://art/pixel/acolyte.png"
+const TYPE_MS := 45
+const LINE_HOLD_SEC := 0.65
+const BUBBLE_FADE_SEC := 0.18
+const ACTOR_SCALE_SINGLE := 2.15
+const ACTOR_SCALE_GROUP := 1.95
+const ACTOR_FEET_RATIO := 0.76
+const BUBBLE_MARGIN := 18.0
 
 const PEOPLE_WORDS: Array[String] = ["上司", "同僚", "彼女", "彼氏", "友達", "家族", "親", "あいつ", "人間関係", "ぼっち", "孤独", "嫌われ", "いじめ", "職場"]
 const LIFE_WORDS: Array[String] = ["お金", "金が", "金欠", "貧乏", "生活", "仕事", "働き", "給料", "家賃", "欲しい", "足りない", "無い", "ない"]
@@ -15,11 +20,18 @@ const ANGER_WORDS: Array[String] = ["殺したい", "ころしたい", "死ん�
 
 var _stage: int = 1
 var _root: Control
-var _content: VBoxContainer
-var _line: Label
+var _actors: Dictionary = {}
+var _heads: Dictionary = {}
+var _idle_frames: Dictionary = {}
+var _bubble: SpeechBubble
 var _choices: HBoxContainer
 var _input: LineEdit
-var _locked: bool = false
+var _typing: bool = false
+var _advance_requested: bool = false
+var _busy: bool = false
+var _finished: bool = false
+var _idle_time: float = 0.0
+var _idle_frame: int = -1
 
 
 func setup(stage: int) -> void:
@@ -29,10 +41,31 @@ func setup(stage: int) -> void:
 func _ready() -> void:
 	layer = 80
 	_build()
-	match _stage:
-		1: _show_first()
-		2: _show_second()
-		3: _show_third_question_one()
+	call_deferred("_start")
+
+
+func _process(delta: float) -> void:
+	_idle_time += delta
+	var frame: int = int(_idle_time / 0.5) % 2
+	if frame == _idle_frame:
+		return
+	_idle_frame = frame
+	for actor_id in _actors.keys():
+		var actor: TextureRect = _actors[actor_id] as TextureRect
+		var frames: Array = _idle_frames[actor_id]
+		actor.texture = frames[frame] as Texture2D
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not _typing or _finished:
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_advance_requested = true
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]:
+		_advance_requested = true
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 
 func _build() -> void:
@@ -46,107 +79,211 @@ func _build() -> void:
 	background.texture = load(SHRINE_BG) as Texture2D
 	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	background.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_root.add_child(background)
 
 	var veil := ColorRect.new()
 	veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	veil.color = Color(0.025, 0.012, 0.025, 0.78)
+	veil.color = Color(0.025, 0.012, 0.025, 0.50)
 	_root.add_child(veil)
 
-	_content = VBoxContainer.new()
-	_content.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	_content.offset_left = -430.0
-	_content.offset_right = 430.0
-	_content.offset_top = -295.0
-	_content.offset_bottom = 295.0
-	_content.add_theme_constant_override("separation", 20)
-	_root.add_child(_content)
+	var actor_ids: Array = ["priest"] if _stage == 1 else (["fanatic"] if _stage == 2 else ["fanatic", "priest", "acolyte"])
+	for actor_id in actor_ids:
+		_add_actor(actor_id)
+	_layout_actors()
 
-	var portraits := HBoxContainer.new()
-	portraits.custom_minimum_size.y = 220.0
-	portraits.alignment = BoxContainer.ALIGNMENT_CENTER
-	portraits.add_theme_constant_override("separation", 24)
-	_content.add_child(portraits)
-	if _stage == 3:
-		_add_portrait(portraits, FANATIC_ART)
-	_add_portrait(portraits, PRIEST_ART if _stage != 2 else FANATIC_ART)
-	if _stage == 3:
-		_add_portrait(portraits, ACOLYTE_ART)
-
-	_line = Label.new()
-	_line.custom_minimum_size.y = 145.0
-	_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_line.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_line.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
-	_line.add_theme_font_size_override("font_size", 24)
-	_line.add_theme_color_override("font_color", Color(0.96, 0.91, 0.82))
-	_content.add_child(_line)
+	_bubble = SpeechBubble.new()
+	_bubble.name = "SpeechBubble"
+	_bubble.accent = Color(0.90, 0.40, 0.24)
+	_bubble.visible = false
+	_root.add_child(_bubble)
 
 	_choices = HBoxContainer.new()
+	_choices.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_choices.offset_left = 70.0
+	_choices.offset_right = -70.0
+	_choices.offset_top = -94.0
+	_choices.offset_bottom = -25.0
 	_choices.alignment = BoxContainer.ALIGNMENT_CENTER
-	_choices.add_theme_constant_override("separation", 24)
-	_content.add_child(_choices)
+	_choices.add_theme_constant_override("separation", 22)
+	_root.add_child(_choices)
 
 
-func _add_portrait(row: HBoxContainer, path: String) -> void:
-	var portrait := TextureRect.new()
-	portrait.custom_minimum_size = Vector2(180, 220)
-	portrait.texture = load(path) as Texture2D
-	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	row.add_child(portrait)
+func _add_actor(actor_id: String) -> void:
+	var def: Dictionary = Enemies.get_enemy(actor_id)
+	var sheet_path: String = Enemies.px_sheet_path(str(def.get("sprite", "")), "body", 1)
+	var sheet: Texture2D = ResourceLoader.load(sheet_path, "Texture2D") as Texture2D
+	if sheet == null:
+		push_error("クトゥグァイベントのドット絵を読み込めません: %s" % sheet_path)
+		return
+	var dims: Dictionary = Enemies.px_dims(def)
+	var actor := TextureRect.new()
+	actor.name = actor_id.capitalize() + "Pixel"
+	var frames: Array = [
+		_body_frame(sheet, 0, int(dims.bw), int(dims.bh)),
+		_body_frame(sheet, 1, int(dims.bw), int(dims.bh)),
+	]
+	actor.texture = frames[0] as Texture2D
+	actor.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	actor.stretch_mode = TextureRect.STRETCH_SCALE
+	actor.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	actor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(actor)
+	_actors[actor_id] = actor
+	_idle_frames[actor_id] = frames
 
 
-func _set_choices(options: Array[Dictionary]) -> void:
+func _body_frame(sheet: Texture2D, frame: int, width: int, height: int) -> AtlasTexture:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = sheet
+	atlas.filter_clip = true
+	atlas.region = Rect2(frame * width, 0, width, height)
+	return atlas
+
+
+func _layout_actors() -> void:
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var is_group: bool = _stage == 3
+	var ids: Array = ["priest"] if _stage == 1 else (["fanatic"] if _stage == 2 else ["fanatic", "priest", "acolyte"])
+	var center_fractions: Array = [0.25, 0.50, 0.75] if is_group else [0.50]
+	for index in ids.size():
+		var actor_id: String = ids[index]
+		if not _actors.has(actor_id):
+			continue
+		var actor: TextureRect = _actors[actor_id] as TextureRect
+		var dims: Dictionary = Enemies.px_dims(Enemies.get_enemy(actor_id))
+		var scale_factor: float = minf(ACTOR_SCALE_GROUP if is_group else ACTOR_SCALE_SINGLE, view.y / 720.0 * (ACTOR_SCALE_GROUP if is_group else ACTOR_SCALE_SINGLE))
+		var drawn := Vector2(float(dims.bw), float(dims.bh)) * scale_factor
+		var center_x: float = view.x * center_fractions[index]
+		var feet_y: float = view.y * ACTOR_FEET_RATIO
+		actor.position = Vector2(center_x - drawn.x * 0.5, feet_y - drawn.y)
+		actor.size = drawn
+		_heads[actor_id] = Vector2(center_x, actor.position.y + drawn.y * 0.18)
+
+
+func _start() -> void:
+	if _finished or not is_inside_tree():
+		return
+	match _stage:
+		1: _play_lines([_line("priest", "あなたは世の中に不満がお有りですか？")], _first_choices)
+		2: _play_lines([_line("fanatic", "お、お前さん、大司祭様がいってた新入りか")], _second_choices)
+		3: _play_lines([
+			_line("priest", "お、来ましたね。"),
+			_line("acolyte", "あなたが例の"),
+			_line("fanatic", "そう、こいつ。いろいろ苦労してるらしい"),
+			_line("priest", "あなたに問いたい"),
+			_line("priest", "苦しみはこの世から消え去って欲しいと思われますか"),
+		], _third_choices_one)
+
+
+func _line(speaker: String, text: String) -> Dictionary:
+	return {"speaker": speaker, "text": text}
+
+
+func _play_lines(lines: Array[Dictionary], done: Callable) -> void:
+	if _finished:
+		return
+	_busy = true
+	_clear_choices()
+	for entry in lines:
+		await _say(str(entry.get("speaker", "priest")), str(entry.get("text", "")))
+		if _finished:
+			return
+	_busy = false
+	done.call()
+
+
+func _say(speaker: String, full_text: String) -> void:
+	for actor_id in _actors.keys():
+		(_actors[actor_id] as TextureRect).modulate.a = 1.0 if actor_id == speaker else 0.62
+	_bubble.scale = Vector2.ONE
+	_bubble.fit_to_text(full_text)
+	_bubble.set_text("")
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var bounds := Rect2(Vector2(BUBBLE_MARGIN, BUBBLE_MARGIN), Vector2(view.x - BUBBLE_MARGIN * 2.0, view.y * 0.58))
+	var head: Vector2 = _heads.get(speaker, view * 0.5)
+	_bubble.place_beside(head, 18.0, bounds)
+	## ③の左の狂信者は右側に置くと中央の大司祭を隠すため、吹き出しを外側へ出す。
+	if _stage == 3 and speaker == "fanatic":
+		_bubble.scale = Vector2(0.80, 0.80)
+		_bubble.tail_side = "right"
+		var left_x: float = 8.0
+		var top_y: float = clampf(head.y - _bubble.size.y * _bubble.scale.y * 0.5, BUBBLE_MARGIN, view.y * 0.58 - _bubble.size.y * _bubble.scale.y)
+		_bubble.tail_y_frac = 0.5
+		_bubble.set_anchor_position(Vector2(left_x, top_y))
+		_bubble.queue_redraw()
+	_bubble.modulate.a = 1.0
+	_bubble.visible = true
+	_typing = true
+	_advance_requested = false
+	for index in full_text.length():
+		if _advance_requested or _finished:
+			break
+		_bubble.set_text(full_text.substr(0, index + 1))
+		var audio_manager: Node = get_node_or_null("/root/AudioManager")
+		if audio_manager != null:
+			audio_manager.call("play_sfx", "gift_type")
+		await get_tree().create_timer(float(TYPE_MS) / 1000.0).timeout
+	_typing = false
+	_bubble.set_text(full_text)
+	if _finished:
+		return
+	await get_tree().create_timer(LINE_HOLD_SEC).timeout
+	var fade: Tween = create_tween()
+	fade.tween_property(_bubble, "modulate:a", 0.0, BUBBLE_FADE_SEC)
+	await fade.finished
+	_bubble.visible = false
+
+
+func _clear_choices() -> void:
 	for child in _choices.get_children():
 		_choices.remove_child(child)
 		child.queue_free()
+
+
+func _set_choices(options: Array[Dictionary]) -> void:
+	_clear_choices()
 	for option in options:
 		var button := Button.new()
 		button.text = str(option.get("label", ""))
-		button.custom_minimum_size = Vector2(170, 54)
+		button.custom_minimum_size = Vector2(175, 56)
 		button.add_theme_font_size_override("font_size", 22)
-		button.pressed.connect(option.get("action", Callable()))
+		var action: Callable = option.get("action", Callable())
+		button.pressed.connect(action)
 		_choices.add_child(button)
 
 
 func _finish(choice_id: String) -> void:
-	if _locked:
+	if _finished:
 		return
-	_locked = true
+	_finished = true
 	choice_selected.emit(choice_id)
 
 
-func _show_reply(reply: String, choice_id: String) -> void:
-	_line.text = reply
-	_set_choices([{"label": "進む", "action": func() -> void: _finish(choice_id)}])
-
-
-func _show_first() -> void:
-	_line.text = "大司祭「あなたは世の中に不満がお有りですか？」"
+func _first_choices() -> void:
 	_set_choices([
-		{"label": "はい", "action": func() -> void: _show_reply("大司祭「ではこれを授けましょう」\n火球を3枚受け取った。", "accept_fireballs")},
+		{"label": "はい", "action": func() -> void: _play_lines([_line("priest", "ではこれを授けましょう")], func() -> void: _finish("accept_fireballs"))},
 		{"label": "いいえ", "action": func() -> void: _finish("decline")},
 	])
 
 
-func _show_second() -> void:
-	_line.text = "狂信者「お、お前さん。大司祭様がいってた新入りか？」"
+func _second_choices() -> void:
 	_set_choices([
-		{"label": "はい", "action": _show_input},
-		{"label": "いいえ", "action": func() -> void: _show_reply("狂信者「そうか、お前じゃないのか」", "deny")},
+		{"label": "はい", "action": func() -> void: _play_lines([_line("fanatic", "やっぱお前か"), _line("fanatic", "で、どんな不満を抱いてんだ？")], _show_input)},
+		{"label": "いいえ", "action": func() -> void: _play_lines([_line("fanatic", "そうか、お前じゃないのか")], func() -> void: _finish("deny"))},
 	])
 
 
 func _show_input() -> void:
-	_line.text = "狂信者「やっぱお前か。で、どんな不満を抱いてんだ？」"
 	_input = LineEdit.new()
+	_input.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_input.offset_left = 145.0
+	_input.offset_right = -145.0
+	_input.offset_top = -164.0
+	_input.offset_bottom = -108.0
 	_input.placeholder_text = "今抱いている不満をここに吐く"
 	_input.max_length = 500
-	_input.custom_minimum_size.y = 50.0
-	_content.add_child(_input)
-	_content.move_child(_input, _choices.get_index())
+	_root.add_child(_input)
 	_set_choices([
 		{"label": "話す", "action": _submit_input},
 		{"label": "話したくない", "action": func() -> void: _finish("skip")},
@@ -156,19 +293,34 @@ func _show_input() -> void:
 
 
 func _submit_input() -> void:
-	if _input == null:
+	if _input == null or _busy:
 		return
 	var category: String = classify_complaint(_input.text)
 	_input.queue_free()
 	_input = null
 	match category:
-		"people": _show_reply("狂信者「そうか、苦労してんだな。全部お前が背負い込むのだけはやめた方がいい。また話を聞くぜ」", "speak")
-		"life": _show_reply("狂信者「なるほど。欲しいものが遠くなっていくよな。また不満があったら話を聞くぜ」", "speak")
-		"anger": _show_reply("狂信者「まあ、落ち着けって。俺も人を恨んだことはある。また話を聞くぜ」", "speak")
-		_: _show_reply("狂信者「何いってんだ？」", "fight")
+		"people": _play_lines([
+			_line("fanatic", "そうか、苦労してんだな。"),
+			_line("fanatic", "全部お前が背負いこむのだけはやめた方がいい。"),
+			_line("fanatic", "また、不満吐きたくなったら、話聞くぜ、じゃあな"),
+		], func() -> void: _finish("speak"))
+		"life": _play_lines([
+			_line("fanatic", "なるほど"),
+			_line("fanatic", "今って、欲しいものがどんどん遠くなってってるよな"),
+			_line("fanatic", "それに誰も助けてくれない"),
+			_line("fanatic", "まあしゃーないことだけどな"),
+			_line("fanatic", "またなんか不満があったら、話聞くぜ、じゃあな"),
+		], func() -> void: _finish("speak"))
+		"anger": _play_lines([
+			_line("fanatic", "まあ、落ち着けって"),
+			_line("fanatic", "俺も人を恨んだことはあるが"),
+			_line("fanatic", "どうせ、どうでもよくなると思うぜ"),
+			_line("fanatic", "また、なんかあれば話きくぜ、じゃあな"),
+		], func() -> void: _finish("speak"))
+		_: _play_lines([_line("fanatic", "何いってんだ？")], func() -> void: _finish("fight"))
 
 
-## 人物を含む「許せない」は人間関係として扱う。単独なら攻撃的な回答。
+## 人物を含む「許せない」は人間関係、単独なら攻撃的な回答。
 static func classify_complaint(raw: String) -> String:
 	var value: String = raw.strip_edges().to_lower()
 	if value.is_empty():
@@ -185,37 +337,51 @@ static func classify_complaint(raw: String) -> String:
 	return ""
 
 
-func _show_third_question_one() -> void:
-	_line.text = "大司祭「お、来ましたね」\n侍祭「あなたが例の」\n狂信者「そう、こいつ。いろいろ苦労してるらしい」"
-	_set_choices([{"label": "話を聞く", "action": _show_third_question_one_after_intro}])
-
-
-func _show_third_question_one_after_intro() -> void:
-	_line.text = "大司祭「お、来ましたね。あなたに問いたい。\n苦しみはこの世から消え去って欲しいと思われますか？」"
+func _third_choices_one() -> void:
 	_set_choices([
-		{"label": "思う", "action": _show_third_question_two},
-		{"label": "思わない", "action": func() -> void: _show_reply("大司祭「そうですか、楽観的ですね」\n狂信者「じゃあ、お前さんはここに来ないほうがいいな」", "decline")},
+		{"label": "思う", "action": func() -> void: _play_lines([
+			_line("priest", "なるほど、ではもう一つお聞きしたい"),
+			_line("priest", "苦しみは人にとって必要だと思われますか？"),
+		], _third_choices_two)},
+		{"label": "思わない", "action": _third_decline},
 	])
 
 
-func _show_third_question_two() -> void:
-	_line.text = "大司祭「苦しみは人にとって必要だと思われますか？」"
+func _third_decline() -> void:
+	_play_lines([
+		_line("priest", "そうですか、楽観的ですね"),
+		_line("fanatic", "じゃあ、お前さんはここに来ないほうがいいな"),
+		_line("acolyte", "ええ、お強い人です"),
+	], func() -> void: _finish("decline"))
+
+
+func _third_choices_two() -> void:
 	_set_choices([
-		{"label": "思う", "action": func() -> void: _show_reply("大司祭「そうですか、楽観的ですね」", "decline")},
-		{"label": "必要ではない", "action": _show_third_question_three},
+		{"label": "思う", "action": _third_decline},
+		{"label": "必要ではない", "action": func() -> void: _play_lines([
+			_line("priest", "なんて素晴らしい！ あなたは私が求めていた方です！"),
+			_line("fanatic", "苦しいのってまじどうしようも無えよな"),
+			_line("priest", "では、あなたはこの質問を受ける権利がある"),
+			_line("priest", "人を苦しみから救ってくれるのは『死』のみであるとお思いですか？"),
+		], _third_choices_three)},
 	])
 
 
-func _show_third_question_three() -> void:
-	_line.text = "大司祭「なんて素晴らしい！ あなたは私が求めていた方です！\n人を苦しみから救ってくれるのは『死』のみであるとお思いですか？」"
+func _third_choices_three() -> void:
 	_set_choices([
-		{"label": "思う", "action": _show_ending},
-		{"label": "他にも手段がある", "action": func() -> void: _show_reply("大司祭「そうですか……あなたの世界で苦しみと戦い続けるといいでしょう」", "decline")},
+		{"label": "思う", "action": func() -> void: _play_lines([_line("priest", "そうですか！ あなたはやはり、私の見込んだ方です")], _show_ending)},
+		{"label": "他にも手段がある", "action": func() -> void: _play_lines([
+			_line("priest", "そうですか…"),
+			_line("priest", "では、あなたはあなたの世界で、苦しみと戦い続けるといいでしょう"),
+		], func() -> void: _finish("decline"))},
 	])
 
 
 func _show_ending() -> void:
-	_content.visible = false
+	for actor in _actors.values():
+		(actor as TextureRect).visible = false
+	_bubble.visible = false
+	_clear_choices()
 	var sky := ColorRect.new()
 	sky.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	sky.color = Color(0.005, 0.008, 0.04)
