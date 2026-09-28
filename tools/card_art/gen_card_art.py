@@ -8,6 +8,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import draw_cards, cards_elder, cards_fire, cards_water, cards_wind, cards_wind2, cards_earth, cards_earth2
 import cards_knight2, cards_magic, cards_all, cards_aza, jester_card, card_death, jester_def
+import cards_revise
 from PIL import Image
 
 PACKS = {
@@ -22,6 +23,8 @@ PACKS = {
     "all": cards_all.ARTS,
 }
 ARTS = {k: v for p in PACKS.values() for k, v in p.items()}
+## 2026-09 の描き直し分で上書きする
+ARTS.update(cards_revise.ARTS)
 
 
 def jester_portraits(ui_dir):
