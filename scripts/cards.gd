@@ -1694,30 +1694,28 @@ const CARDS := {
 	"sea_pact": {
 		"id": "sea_pact", "name": "海契約", "type": "skill", "aiTag": "effect",
 		"archetype": "water",
-		"cost": 0, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared", "oncePerTurn": true,
-		"text": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。デッキから「水」カードを2枚手札に加える。1ターンに1度しか使用できない。",
-		"upgradedText": "正気度5を失う。このターン、「水」属性カードの効果を2倍にする。デッキから「水」カードを2枚手札に加える。1ターンに1度しか使用できない。",
+		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
+		"text": "正気度5を失い、このターン「水」カードの効果が2倍になる。",
+		"upgradedText": "正気度5を失い、このターン「水」カードの効果が2倍になる。",
 		"flavor": "", "art": "res://art/pixel/cards/sea_pact.png", "target": "none",
 		"effects": [
 			{"t": "sanity", "n": -5},
 			{"t": "subEffectMul", "sub": "water", "n": 2},
-			{"t": "seekBySubArchetype", "sub": "water", "n": 2},
 		],
 		"upgradedEffects": [
 			{"t": "sanity", "n": -5},
 			{"t": "subEffectMul", "sub": "water", "n": 2},
-			{"t": "seekBySubArchetype", "sub": "water", "n": 2},
 		],
 	},
 	"gill_breathing": {
 		"id": "gill_breathing", "name": "えら呼吸", "type": "skill", "aiTag": "effect",
 		"archetype": "water",
 		"cost": 1, "sell_price": 5, "drop_weight": 10, "pack_weight": 10, "enemy_tier": 1, "owner": "shared",
-		"text": "エネルギーを1得る。",
-		"upgradedText": "エネルギーを1得る。",
+		"text": "デッキから「水」を1枚加え、エナジーを1得る。",
+		"upgradedText": "デッキから「水」を1枚加え、エナジーを1得る。",
 		"flavor": "", "art": "res://art/pixel/cards/gill_breathing.png", "target": "none",
-		"effects": [{"t": "energy", "n": 1}],
-		"upgradedEffects": [{"t": "energy", "n": 1}],
+		"effects": [{"t": "seekBySubArchetype", "sub": "water", "n": 1}, {"t": "energy", "n": 1}],
+		"upgradedEffects": [{"t": "seekBySubArchetype", "sub": "water", "n": 1}, {"t": "energy", "n": 1}],
 	},
 	## ---- 旧支配者・風／ハスター ----
 	"wind_gods_bow": {
@@ -2001,7 +1999,7 @@ const CARDS := {
 	},
 	## ---- 魔導 ----
 	"spellbook": {
-		"id": "spellbook", "name": "呪文書", "type": "skill", "aiTag": "effect",
+		"id": "spellbook", "name": "魔術書", "type": "skill", "aiTag": "effect",
 		"archetype": "magic", "subArchetypes": ["tome"],
 		"cost": 0, "sell_price": 5, "drop_weight": 10, "enemy_tier": 1, "owner": "shared",
 		"text": "正気度6を失う。デッキから「魔術」カードを3枚手札に加える。",
