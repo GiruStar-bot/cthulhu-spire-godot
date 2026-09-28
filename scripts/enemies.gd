@@ -240,6 +240,13 @@ const ENEMIES := {
 		"name": "塩の唱者",
 		"art": "res://art/pixel/choir.png",
 		"poster": "res://art/pixel/choir.png",
+		"sprite": "res://art/pixel/enemies_px/choir",
+		"px": {
+			"body_w": 112, "body_h": 168, "fx_top": 48, "body_frames": 15,
+			"idle_frames": 6, "idle_step": 0.24,
+			"cast_holds": [0.16, 0.21, 0.25, 0.22, 0.24, 0.20, 0.19, 0.18, 0.24],
+			"cast_fire": 10,
+		},
 		"biome": "street",
 		"maxHp": 42,
 		"trait": "choir",
