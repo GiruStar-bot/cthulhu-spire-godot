@@ -11,8 +11,6 @@ const SHARED_UI_FRAMES: Array[String] = [
 	"res://art/pixel/ui/card_back.png",
 	"res://art/pixel/ui/card_back_pack.png",
 	"res://art/pixel/ui/frame_card_9.png",
-	"res://art/pixel/ui/frame_card_common_9.png",
-	"res://art/pixel/ui/frame_card_uncommon_9.png",
 	"res://art/pixel/ui/frame_card_elder_9.png",
 	"res://art/pixel/ui/frame_card_greatold_9.png",
 	"res://art/pixel/ui/frame_card_outer_9.png",
