@@ -7,6 +7,7 @@ extends Control
 @onready var choices_row: HBoxContainer = $ChoicesRow
 
 const DIALOGUE_MODAL := preload("res://scenes/event/DialogueEventModal.gd")
+const CTHUGHA_MODAL := preload("res://scenes/event/CthughaEventModal.gd")
 
 var _choice_ids: Array = ["a", "b"]
 
@@ -14,13 +15,16 @@ var _choice_ids: Array = ["a", "b"]
 func _ready() -> void:
 	var ev: Dictionary = GameState.event if GameState.event is Dictionary else {}
 	if ev.is_empty():
-		ev = Events.pick_event(Callable(GameState, "_rand"))
+		ev = Events.pick_event(Callable(GameState, "_rand"), GameState.cthugha_stage)
 		GameState.event = ev
 	if GameState.toast != "":
 		GameState.toast = ""
 	## presentation: "dialogue" のイベントは、通常の予兆レイアウトを使わず会話モーダルで進める。
 	if str(ev.get("presentation", "")) == "dialogue":
 		_open_dialogue_modal(ev)
+		return
+	if str(ev.get("presentation", "")) == "cthugha":
+		_open_cthugha_modal(ev)
 		return
 	title_label.text = str(ev.get("title", "予兆"))
 	status_label.text = str(ev.get("body", ""))
@@ -44,6 +48,22 @@ func _open_dialogue_modal(ev: Dictionary) -> void:
 	})
 	modal.choice_selected.connect(_on_pick, CONNECT_ONE_SHOT)
 	add_child(modal)
+
+
+func _open_cthugha_modal(ev: Dictionary) -> void:
+	for node_name in ["Eyebrow", "TitleLabel", "StatusLabel", "ChoicesRow"]:
+		var node: CanvasItem = get_node_or_null(node_name) as CanvasItem
+		if node != null:
+			node.visible = false
+	var modal: CthughaEventModal = CTHUGHA_MODAL.new()
+	modal.name = "CthughaEventModal"
+	modal.setup(int(ev.get("stage", 1)))
+	modal.choice_selected.connect(_on_cthugha_pick, CONNECT_ONE_SHOT)
+	add_child(modal)
+
+
+func _on_cthugha_pick(choice_id: String) -> void:
+	GameState.resolve_cthugha_event(get_tree(), choice_id)
 
 
 func _rebuild_choices(choices: Array) -> void:

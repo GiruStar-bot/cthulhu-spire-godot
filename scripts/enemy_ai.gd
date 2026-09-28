@@ -25,7 +25,9 @@ static func roll_enemy_card(def_id: String, rand: Callable) -> Dictionary:
 
 	var build_pool := func(tag: String) -> Array:
 		if use_archetype:
-			return Cards.ai_card_pool(tag, max_tier, def.get("archetype"))
+			var pool: Array = Cards.ai_card_pool(tag, max_tier, def.get("archetype"))
+			pool.append_array(Cards.ai_card_pool_from(def.get("bonus_cards", []), tag))
+			return pool
 		return Cards.ai_card_pool(tag, max_tier)
 
 	var pools: Dictionary

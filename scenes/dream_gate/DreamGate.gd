@@ -75,6 +75,7 @@ func _on_up_pressed() -> void:
 	if _picked:
 		return
 	_picked = true
+	GameState.realm = "waking"
 	GameState.goto_scene(get_tree(), "title")
 
 

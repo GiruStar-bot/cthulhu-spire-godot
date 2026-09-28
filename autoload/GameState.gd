@@ -57,6 +57,10 @@ var seen_rlyeh: bool = false
 var grimoire_read: Array = []
 var shells: int = 0
 var starter_chosen: bool = false
+## クトゥグァ: 0=世界周期中は抽選停止、1〜3=次の場面。ランをまたいで保存する。
+var cthugha_stage: int = 1
+## Dream Islandを経て場面1へ戻ったときに周期を更新するための印。
+var cthugha_dream_visit: bool = false
 
 ## "waking" | "dream"。DreamTitle 外宇宙贈り物フローで "dream" をセットする。
 var realm: String = "waking"
@@ -135,6 +139,8 @@ func _load_profile() -> void:
 	grimoire_read = p.grimoire_read
 	shells = p.shells
 	starter_chosen = p.starter_chosen
+	cthugha_stage = int(p.cthugha_stage)
+	cthugha_dream_visit = p.cthugha_dream_visit == true
 	## 旧セーブにコレクションキーは無い。collection_saved が真のときだけ復元する。
 	if p.get("collection_saved", false) == true:
 		CollectionData.apply_save({
@@ -168,6 +174,8 @@ func _persist_profile() -> void:
 		"grimoire_read": grimoire_read,
 		"shells": shells,
 		"starter_chosen": starter_chosen,
+		"cthugha_stage": cthugha_stage,
+		"cthugha_dream_visit": cthugha_dream_visit,
 		"collection_saved": true,
 		"decks": collection.get("decks", {}),
 		"active_deck": collection.get("active_deck", CollectionData.DEFAULT_DECK_NAME),
@@ -387,7 +395,14 @@ func goto_scene(tree: SceneTree, next_scene: String) -> void:
 func begin(tree: SceneTree) -> void:
 	_load_profile()
 	if realm == "dream":
+		if not cthugha_dream_visit:
+			cthugha_dream_visit = true
+			_persist_profile()
 		unlock_transcend()
+	elif cthugha_dream_visit:
+		cthugha_stage = 1
+		cthugha_dream_visit = false
+		_persist_profile()
 	seed = randi()
 	rng = Mulberry32.new(seed)
 	run_floors = []
@@ -516,7 +531,7 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		village = {}
 		goto_scene(tree, "rest")
 	else:
-		var ev: Dictionary = Events.pick_event(Callable(self, "_rand"))
+		var ev: Dictionary = Events.pick_event(Callable(self, "_rand"), cthugha_stage)
 		event = ev
 		goto_scene(tree, "event")
 
@@ -744,6 +759,50 @@ func resolve_event(tree: SceneTree, choice_id: String) -> void:
 		return
 	if event_id == "eihort":
 		apply_eihort_curse()  ## 返事の台詞は会話モーダル側で見せ済み
+	_persist_profile()
+	event = null
+	finish_advance(tree)
+
+
+## クトゥグァの会話結果。自由入力そのものは保存しない。
+func resolve_cthugha_event(tree: SceneTree, choice_id: String) -> void:
+	var ev: Dictionary = event if event is Dictionary else {}
+	if str(ev.get("id", "")) != "cthugha":
+		return
+	var stage: int = int(ev.get("stage", 1))
+	if stage == 1:
+		if choice_id == "accept_fireballs":
+			for i in 3:
+				CollectionData.add_loot_card("fireball")
+				_add_run_gift_card("fireball")
+			cthugha_stage = 2
+			toast = "火球を3枚受け取った。"
+		else:
+			cthugha_stage = 0
+	elif stage == 2:
+		match choice_id:
+			"speak": cthugha_stage = 3
+			"skip": cthugha_stage = 1
+			"deny": cthugha_stage = 0
+			"fight":
+				cthugha_stage = 1
+				_persist_profile()
+				event = null
+				combat = {"floor": floor, "kind": "combat", "enemy_ids": ["fanatic"]}
+				goto_scene(tree, "combat")
+				return
+	elif stage == 3:
+		if choice_id == "ascend":
+			hp = 0
+			sanity = 0
+			## 正気度0エンド。既存の崩壊と同じくプロフィールを初期化し、夢の島へ直行。
+			Profile.wipe_profile()
+			_load_profile()
+			reset_run()
+			realm = "dream"
+			goto_scene(tree, "dream_title")
+			return
+		cthugha_stage = 0
 	_persist_profile()
 	event = null
 	finish_advance(tree)
