@@ -122,48 +122,6 @@ def armory():
     return cv
 
 
-# ---------------------------------------------------------------------- 詠唱 chant
-def chant():
-    BG = ((8, 8, 16), (14, 14, 28), (20, 22, 40), (28, 32, 56))
-    ROBE = ((74, 66, 104), (54, 48, 82), (38, 34, 60), (24, 20, 40))
-    SKIN = ((196, 176, 196), (156, 136, 164), (116, 98, 128))
-    GLOW = ((210, 250, 255), (120, 210, 250), (60, 140, 210), (30, 70, 120))
-    cv = Canvas(BG[0])
-    vignette_bg(cv, BG, cy=26)
-    # hood and shoulders
-    cv.ellipse(26.5, 20, 13, 15, lambda x, y, u, v, r: band(0.5 + (-u * 0.4 - v * 0.3) * 0.6 + (texture(x, y, 3) - 0.5) * 0.2, ROBE[::-1]), "robe")
-    cv.poly([(10, 26), (43, 26), (50, 59), (3, 59)], lambda x, y: band(0.45 - (x - 26) / 60 + (texture(x, y, 5) - 0.5) * 0.25, ROBE[::-1]), "robe")
-    cv.outline_outside({"robe"}, (6, 6, 12))
-    # the shadowed face inside the hood: only the lower half catches the spell's light
-    cv.ellipse(26.5, 22, 7, 8.5, lambda x, y, u, v, r: (ROBE[3] if v < -0.1 else (SKIN[1] if u < 0.3 else SKIN[2])))
-    cv.ellipse(26.5, 27, 1.8, 1.3, flat((60, 34, 60)))          # mouth, open in the chant
-    cv.set(24, 24, SKIN[0]); cv.set(29, 24, SKIN[2])
-    # hands raised in front, fingers spread
-    for side in (-1, 1):
-        hx = 26.5 + side * 8
-        cv.ellipse(hx, 40, 2.6, 2.2, flat(SKIN[1]), "hand")
-        for k in range(3):
-            cv.set(hx + side * (k - 1), 37, SKIN[0])
-    # a ring of glowing glyphs between the hands (the one focal point)
-    cx, cy, r = 26.5, 40, 8
-    for i in range(48):
-        a = i / 48 * math.pi * 2
-        x, y = cx + math.cos(a) * r, cy + math.sin(a) * r * 0.55
-        cv.set(x, y, GLOW[1])
-    for k in range(8):
-        a = k / 8 * math.pi * 2 + 0.2
-        x, y = cx + math.cos(a) * r, cy + math.sin(a) * r * 0.55
-        cv.set(x, y, GLOW[0]); cv.set(x + 1, y, GLOW[1]); cv.set(x, y - 1, GLOW[1])
-    cv.ellipse(cx, cy, 2, 1.3, flat(GLOW[0]))
-    for k in range(6):                                          # light rising
-        cv.set(cx - 3 + k, cy - 5 - (k % 3), GLOW[2])
-    # cold light on the hands and the hood rim
-    for (x, y) in ((17, 39), (36, 39), (20, 10), (33, 10), (15, 18), (38, 18)):
-        cv.set(x, y, GLOW[3])
-    return cv
-
-
-# ----------------------------------------------------------------- クロスボウ crossbow
 def crossbow():
     FLOOR = ((20, 18, 20), (32, 30, 32), (42, 40, 42), (54, 50, 52))
     cv = Canvas(FLOOR[0])
@@ -398,7 +356,6 @@ def shield():
 
 ARTS = {
     "armory": (armory, 0),
-    "chant": (chant, 0),
     "crossbow": (crossbow, 0),
     "dull_blade_base": (dull_blade, 0),
     "dull_blade_upgraded": (dull_blade_upgraded, 0),

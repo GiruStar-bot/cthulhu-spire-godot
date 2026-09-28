@@ -38,50 +38,12 @@ const ART_FALLBACK := {
 	"res://art/pixel/cards/venom_blade.jpg": "res://art/pixel/cards/corrosive_strike.jpg",
 	"res://art/pixel/cards/corroding_barrage.jpg": "res://art/pixel/cards/corrosive_strike.jpg",
 	"res://art/pixel/cards/toxic_mist.jpg": "res://art/pixel/cards/pus_mist.jpg",
-	"res://art/pixel/cards/pustule_armor.jpg": "res://art/pixel/cards/adapted_scales.png",
 	"res://art/pixel/cards/venom_potency.jpg": "res://art/pixel/cards/pus_mist.jpg",
 	"res://art/pixel/cards/self_poisoning.jpg": "res://art/pixel/cards/bloodpact.jpg",
 }
 
 const CARDS := {
-	"chant": {
-		"id": "chant",
-		"name": "詠唱",
-		"type": "skill",
-		"aiTag": "defense",
-		"archetype": "knight",
-		"cost": 1,
-		"sell_price": 5,
-		"drop_weight": 10,
-		"pack_weight": 26,
-		"enemy_tier": 1,
-		"owner": "cultist",
-		"text": "ブロック6を得る。筋力を2得る。",
-		"upgradedText": "ブロック8を得る。筋力を3得る。",
-		"flavor": "言葉が、自分を知っている。",
-		"art": "res://art/pixel/cards/chant.png",
-		"target": "none",
-		"effects": [
-			{
-				"t": "block",
-				"n": 6,
-			},
-			{
-				"t": "strength",
-				"n": 2,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "block",
-				"n": 8,
-			},
-			{
-				"t": "strength",
-				"n": 3,
-			},
-		],
-	},
+
 	"echo": {
 		"id": "echo",
 		"name": "残響",
@@ -464,44 +426,7 @@ const CARDS := {
 			},
 		],
 	},
-	"adapted_scales": {
-		"id": "adapted_scales",
-		"name": "適応の鱗",
-		"type": "skill",
-		"aiTag": "defense",
-		"archetype": "water",
-		"cost": 1,
-		"sell_price": 5,
-		"drop_weight": 10,
-		"pack_weight": 10,
-		"enemy_tier": 1,
-		"owner": "cultist",
-		"text": "ブロック6を得る。1回復。",
-		"upgradedText": "ブロック8を得る。1回復。",
-		"flavor": "皮膚が、水を覚えている。",
-		"art": "res://art/pixel/cards/adapted_scales.png",
-		"target": "none",
-		"effects": [
-			{
-				"t": "block",
-				"n": 6,
-			},
-			{
-				"t": "heal",
-				"n": 1,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "block",
-				"n": 8,
-			},
-			{
-				"t": "heal",
-				"n": 1,
-			},
-		],
-	},
+
 	## アイホートくんの呪い（子を宿す）が発動した戦闘で、デッキ全体がこれに置き換わる。
 	"hundred_eyed_child": {
 		"id": "hundred_eyed_child",
@@ -2094,11 +2019,6 @@ const _AI_TRANSLATABLE := [
 	"snatchHand",
 ]
 
-const _AI_EXCLUDED_IDS := [
-	"adapted_scales",
-]
-
-
 ## cards.ts getCard()
 static func get_card(id: String) -> Dictionary:
 	if not CARDS.has(id):
@@ -2183,8 +2103,6 @@ static func ai_card_pool(tag: String, max_enemy_tier = null, archetype = null) -
 		if c.get("aiTag") != tag:
 			continue
 		if not _has_translatable_effect(c):
-			continue
-		if str(c.get("id", "")) in _AI_EXCLUDED_IDS:
 			continue
 		if max_enemy_tier != null:
 			var tier: int = int(c.get("enemy_tier", 0))

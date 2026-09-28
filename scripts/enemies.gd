@@ -233,7 +233,7 @@ const ENEMIES := {
 		"archetype": "fanatic",
 		"signatureCardId": "revelation",
 		"cardsPerTurn": 2,
-		"deck": ["revelation", "lash", "bash", "ward", "chant"],
+		"deck": ["revelation", "lash", "bash", "ward", "chorusunity"],
 	},
 	"choir": {
 		"id": "choir",

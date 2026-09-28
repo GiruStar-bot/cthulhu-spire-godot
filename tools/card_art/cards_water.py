@@ -40,37 +40,6 @@ def scale_color(x, y, u, v, tones, sid, sparkle=None, seed=0):
     return mid
 
 
-# ---------------------------------------------------------------- 適応の鱗 adapted_scales
-def adapted_scales():
-    SKIN = [(216, 186, 170), (186, 152, 138), (140, 108, 98), (90, 66, 60)]
-    SC = ((150, 250, 220), (60, 190, 160), (30, 110, 100), (12, 50, 50))
-    cv = Canvas(SEA_BG[0])
-    cv.fill(lambda x, y: ramp(x, y, 0.3 * (1 - abs(x - 26) / 30), SEA_BG))
-    # forearm running from bottom-left up to top-right
-    for y in range(H):
-        c = 22 + (80 - y) * 0.1
-        x0, x1 = c - 17, c + 17
-        for x in range(int(x0), int(x1) + 1):
-            t = (x - x0) / (x1 - x0)            # 0 left edge .. 1 right edge
-            edge_scale = 0.36 + 0.05 * math.sin(y * 0.12)
-            if t < edge_scale:                   # human skin on the left
-                col = SKIN[0] if t > 0.12 else (SKIN[1] if t > 0.05 else SKIN[2])
-                if prand(x, y, 3) < 0.05:
-                    col = SKIN[1]
-            else:
-                u, v, sid = scale_cell(x, y, 6, rot=0.0)
-                col = scale_color(x, y, u, v, SC, sid, sparkle=(220, 255, 240), seed=5)
-                if t < edge_scale + 0.06:        # scales fading in: sparse
-                    col = SKIN[1] if dither(x, y, 0.5) else col
-            cv.set(x, y, col, "arm")
-    cv.outline({"arm"}, SKIN[3])
-    # water droplets on the skin
-    for (x, y) in ((14, 30), (12, 44), (15, 58), (10, 64), (17, 22)):
-        cv.set(x, y, (240, 250, 255)); cv.set(x, y + 1, (160, 190, 200))
-    return cv
-
-
-# --------------------------------------------------------------------- 異本 apocrypha
 def apocrypha():
     ROCK = [(28, 40, 42), (42, 58, 60), (60, 78, 78), (84, 104, 100)]
     COVER = ((110, 210, 196), (50, 140, 132), (28, 88, 86), (12, 40, 42))
@@ -289,7 +258,6 @@ def tentacle():
 
 
 ARTS = {
-    "adapted_scales": (adapted_scales, 10),
     "apocrypha": (apocrypha, 12),
     "gill_breathing": (gill_breathing, 4),
     "mothers_embrace": (mothers_embrace, 13),
