@@ -73,7 +73,7 @@ def wind_gods_bow():
         s = (v + HALF) / (2 * HALF)
         return S0 + D * math.sin(math.pi * (max(0.0, min(1.0, s)) ** p))
 
-    A, K = 4.2, 2 * math.pi / 15.0
+    A, K = 3.0, 2 * math.pi / 17.0
 
     def strands(front):
         v = -HALF + 1
@@ -139,7 +139,7 @@ def wind_gods_bow():
     dot(cv, *T(TIPU + 1, GRIPV), G1)
     # 矢羽：弦の後ろへ流れ出る風
     for sgn in (-1, 1):
-        for length, lift in ((6, 2.0), (8, 3.4), (5, 4.6)):
+        for length, lift in ((6, 2.2), (5, 4.0)):
             t = 0.0
             while t < length:
                 uu = NU + 4 - t
@@ -253,15 +253,14 @@ def muramasa():
             while y >= TIP - 3:
                 t = (END + 1 - y) / (END + 1 - TIP)
                 r = 3.5 + 6.0 * math.sin(math.pi * min(1.0, t * 1.02)) ** 0.8
-                a = y * 0.26 + ph
+                a = y * 0.19 + ph
                 if (math.cos(a) > 0) == front:
                     x = blade_x(max(TIP, min(HABAKI, y))) + r * math.sin(a)
                     if front:
                         dot(cv, x, y, AURA_HI if math.cos(a) > 0.75 else AURA[0], "aura")
                         dot(cv, x + (1 if math.sin(a) > 0 else -1), y + 1, AURA[1], "aura")
                     else:
-                        dot(cv, x, y, AURA[1], "aura")
-                        dot(cv, x, y + 1, AURA[2], "aura")
+                        dot(cv, x, y, AURA[2], "aura")
                 y -= 0.2
     aura(False)
     # 刀身：幅4px。峰（左）暗→地鉄→刃文→刃（右）明。切っ先は斜めに細る
@@ -591,49 +590,54 @@ def gill_breathing():
             if prand(k, y // 3, 2) < 0.8 and dither(int(x), y, 0.5 - y / 90):
                 cv.set(int(x), y, RAY)
     # 泳ぐ姿：右上へ向かって伸びやかに。頭は右上、脚は左下へ流れる
-    T = rot(26, 31, -math.radians(32))
+    Z = 1.45
+    T0 = rot(27, 30, -math.radians(32))
+
+    def T(u, v):
+        return T0(u * Z, v * Z)
 
     def limb(u0, v0, u1, v1, r0, r1, owner="body"):
         n = 24
         for i in range(n + 1):
             t = i / n
             u, v = u0 + (u1 - u0) * t, v0 + (v1 - v0) * t
-            r = r0 + (r1 - r0) * t
+            r = (r0 + (r1 - r0) * t) * Z
             x, y = T(u, v)
             cv.ellipse(x, y, r, r, lambda xx, yy, a, b, rr: SKIN[2] if b < -0.2 else (SKIN[1] if b < 0.5 else SKIN[0]), owner)
 
+    # 奥の腕：体に沿って後ろへかいた直後
+    limb(7, 2.2, 1, 4.6, 1.1, 0.9)
     # 胴（胸→腰）
-    limb(-2, 0, 9, 0, 3.4, 3.6)
-    # 脚：少しずらしてキックの動き
-    limb(-2, -1.4, -14, -3.0, 2.3, 1.4)
-    limb(-2, 1.4, -13, 3.6, 2.3, 1.4)
-    # 腕：前へまっすぐ伸ばす（水をかき分ける）
-    limb(8, -2.4, 19, -4.0, 1.5, 1.1)
-    limb(8, 2.4, 17, 3.0, 1.5, 1.1)
+    limb(-1, 0, 9, 0, 2.6, 2.9)
+    # 脚：開いてキックの途中
+    limb(-1, -1.0, -11, -4.2, 1.8, 1.0)
+    limb(-1, 1.0, -9, 4.4, 1.8, 1.0)
+    # 手前の腕：頭の先へ伸ばして水をつかむ
+    limb(8, -2.0, 18, -5.5, 1.1, 0.8)
     # 頭
-    hx, hy = T(13.5, 0)
-    cv.ellipse(hx, hy, 3.4, 3.2, shade((SKIN[3], SKIN[2], SKIN[1], SKIN[0])), "body")
+    hx, hy = T(12.5, 0.6)
+    cv.ellipse(hx, hy, 2.3 * Z, 2.1 * Z, shade((SKIN[3], SKIN[2], SKIN[1], SKIN[0])), "body")
     cv.outline_outside({"body"}, OUT)
     # 髪は後ろへなびく
     for i in range(10):
         for w in (-1.5, -0.5, 0.5):
-            x, y = T(13 - i * 1.1, w + 0.9 * math.sin(i * 0.8))
+            x, y = T(12 - i * 0.9, 0.6 + w * 0.8 + 0.7 * math.sin(i * 0.8))
             dot(cv, x, y, HAIR[1] if w > -1 else HAIR[0])
     # 脚の先の水かき（ひれ）、背びれ
-    for sgn, (fu, fv) in ((-1, (-14, -3.0)), (1, (-13, 3.6))):
+    for sgn, (fu, fv) in ((-1, (-11, -4.2)), (1, (-9, 4.4))):
         for k in range(5):
             for w in range(-k, k + 1):
                 x, y = T(fu - 1.2 - k * 0.9, fv + w * 0.55)
                 dot(cv, x, y, FIN[1] if w < 0 else FIN[0])
     for k in range(6):
-        x, y = T(1 + k * 1.1, -3.6 - (3 - abs(k - 2.5)) * 0.6)
+        x, y = T(1 + k * 1.1, -2.8 - (3 - abs(k - 2.5)) * 0.5)
         dot(cv, x, y, FIN[1])
     # 首のえら
     for k in range(3):
-        x, y = T(10.2 + k * 0.4, -1.2 + k * 1.1)
+        x, y = T(10.4 + k * 0.3, -0.4 + k * 0.7)
         dot(cv, x, y, GILL)
     # 目
-    ex, ey = T(14.6, -1.2)
+    ex, ey = T(13.6, 0.0)
     dot(cv, ex, ey, (230, 250, 240))
     # 泡（口元から後ろへ）
     for i, (du, dv, r) in enumerate(((17, -3.5, 1.0), (19, -6, 1.4), (22, -9, 1.2), (5, -8, 1.6), (-6, -9, 1.2), (-10, 7, 1.0))):
@@ -647,11 +651,10 @@ def goddess_blessing():
     BG = [(10, 10, 24), (16, 18, 40), (24, 26, 56)]
     STONE = [(70, 56, 40), (120, 98, 66), (170, 142, 96), (210, 184, 130)]
     LAPIS = [(20, 40, 100), (40, 76, 160)]
-    CAT = [(18, 18, 24), (40, 40, 50), (70, 70, 84), (110, 110, 126)]
+    CAT = [(52, 50, 60), (96, 92, 104), (140, 136, 148), (190, 186, 196)]
     EYE = (220, 200, 90)
     ARM = [(70, 42, 30), (112, 70, 46), (156, 104, 70), (190, 138, 96)]
     GOLD = [(140, 100, 30), (214, 170, 70), (250, 224, 140)]
-    GLOW = [(60, 60, 120), (40, 40, 90)]
     OUT = (6, 6, 12)
     cv = Canvas(BG[0])
     for y in range(H):
@@ -669,37 +672,42 @@ def goddess_blessing():
             cv.set(x, y, c, "ped")
     cv.outline_outside({"ped"}, OUT)
     # 横になった猫（香箱座り気味、頭は左、尾は手前に巻く）
-    cv.ellipse(28, 38.5, 9.5, 4.2, shade((CAT[3], CAT[2], CAT[1], CAT[0])), "cat")
-    cv.ellipse(18, 35.5, 4.2, 3.8, shade((CAT[3], CAT[2], CAT[1], CAT[0])), "cat")
-    for ex, ey in ((15, 31), (20, 31)):     # 耳
+    cv.ellipse(28, 38, 11, 4.8, shade((CAT[3], CAT[2], CAT[1], CAT[0])), "cat")
+    cv.ellipse(17, 34.5, 4.8, 4.3, shade((CAT[3], CAT[2], CAT[1], CAT[0])), "cat")
+    for ex, ey in ((14, 29.5), (20, 29.5)):     # 耳
         cv.poly([(ex - 1.5, ey + 2), (ex, ey - 1.5), (ex + 1.5, ey + 2)], lambda x, y: CAT[1], "cat")
     for i in range(12):                      # 尾
         dot(cv, 37 - i * 1.2, 42 - 0.8 * math.sin(i * 0.5), CAT[1], "cat")
     cv.outline_outside({"cat"}, OUT)
-    dot(cv, 16.5, 35, EYE)
-    dot(cv, 19.5, 35, EYE)
-    # 猫の輪郭を包む淡い光
-    cv.glow({"cat"}, [None, None, None], 0)
-    # バステトの腕：左右上から弧を描いて降り、手のひらで猫を包み込む
+    dot(cv, 15.5, 34, EYE)
+    dot(cv, 18.5, 34, EYE)
+    # 猫を包む淡い光
+    # バステトの腕：画面の上の左右から降りてきて、猫の両脇で手のひらを内へ向け、包み込む
     def arm(side):
+        p0 = (26 + side * 30, -4)          # 画面外（上の角）
+        p1 = (26 + side * 25, 26)          # 外へふくらむ
+        p2 = (26 + side * 15, 39)          # 猫の脇
         pts = []
-        for i in range(40):
-            t = i / 39
-            a = math.pi * (0.95 - 0.75 * t)
-            x = 26 + side * (21 * math.cos(a) * -1 if side < 0 else 21 * -math.cos(a))
-            y = 36 - 26 * math.sin(a) * (1 - 0.15 * t)
-            pts.append((x, y, 2.6 - 0.7 * t))
+        n = 60
+        for i in range(n + 1):
+            t = i / n
+            x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0]
+            y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]
+            pts.append((x, y, 3.2 - 1.2 * t))
         for (x, y, r) in pts:
-            cv.ellipse(x, y, r, r, lambda xx, yy, u, v, rr: ARM[3] if u * side < -0.3 else (ARM[2] if rr < 0.5 else ARM[1]), "arm")
-        # 腕輪
-        for (x, y, r) in pts[12:15] + pts[24:26]:
-            cv.ellipse(x, y, r + 0.3, r + 0.3, lambda xx, yy, u, v, rr: GOLD[2] if v < 0 else GOLD[1], "arm")
-        # 手：先端でひらき、指先を猫へ向ける
+            cv.ellipse(x, y, r, r, lambda xx, yy, u, v, rr, s=side: ARM[3] if u * s < -0.4 else (ARM[2] if u * s < 0.3 else ARM[1]), "arm")
+        for (x, y, r) in pts[22:25] + pts[44:46]:          # 金の腕輪
+            cv.ellipse(x, y, r + 0.4, r + 0.4, lambda xx, yy, u, v, rr: GOLD[2] if v < -0.2 else GOLD[1], "arm")
+        # 手のひら：猫の脇で内側へ向け、指先は猫の背を覆うように上へ
         hx, hy, _ = pts[-1]
+        cv.ellipse(hx - side * 1.0, hy - 0.5, 2.4, 2.8, lambda xx, yy, u, v, rr, s=side: ARM[2] if u * s > 0 else ARM[1], "arm")
         for k in range(4):
-            fx = hx - side * (1.5 + k * 0.2)
-            fy = hy + k * 1.3 - 1.5
-            seg(cv, hx, hy, fx - side * 2.5, fy + 1.5, ARM[2] if k < 2 else ARM[1], "arm")
+            fy = hy - 3 + k * 1.4
+            for i in range(5 - (k % 3)):
+                dot(cv, hx - side * (2.5 + i * 0.9), fy - i * 0.35, ARM[3] if i < 2 else ARM[2], "arm")
+        # 親指は下から猫を支える
+        for i in range(4):
+            dot(cv, hx - side * (1 + i), hy + 2.5, ARM[2], "arm")
     arm(-1)
     arm(1)
     cv.outline_outside({"arm"}, OUT)
@@ -834,7 +842,6 @@ def chant():
 # ================================================================ 12. 適応の鱗
 def adapted_scales():
     BG = [(6, 20, 26), (10, 32, 40), (16, 46, 54)]
-    SKIN = [(90, 70, 70), (140, 110, 100), (184, 150, 132), (216, 186, 164)]
     SCALE = [(12, 60, 60), (24, 100, 96), (48, 150, 136), (110, 206, 184), (190, 246, 226)]
     CLAW = [(60, 70, 70), (170, 190, 184)]
     OUT = (2, 10, 14)
@@ -844,56 +851,67 @@ def adapted_scales():
     T = rot(24, 34, -math.radians(52))
     # 局所座標：u=腕の長さ方向（手首は u=0、指先は +）、v=幅方向（上が -）
     # 形状：前腕（太さ 5.5→4.5）、手首で少し細く、手の甲（幅 5.5）
-    def forearm_w(u):
-        return 5.2 - 0.02 * (u + 30) if u < -2 else 4.4
-    def hand_w(u):
-        return 4.4 + 1.2 * math.sin(max(0.0, min(1.0, (u) / 9)) * math.pi * 0.6)
+    def arm_w(u):
+        if u < -3:
+            return 4.9 - 0.012 * (u + 34)          # 前腕：肘側がわずかに太い
+        if u < 0:
+            return 4.2                              # 手首で少しくびれる
+        return 4.2 + 1.3 * min(1.0, u / 7.0)        # 手の甲：指の付け根へ向けて広がる
 
-    for u in [x * 0.35 for x in range(int(-34 / 0.35), int(10 / 0.35))]:
-        half = forearm_w(u) if u < 0 else hand_w(u)
+    def scale_tone(u, v, half, size):
+        """円柱の陰影（上が明）に、ずらし積みの鱗の縁を重ねる。"""
+        shade_t = 0.5 - 0.5 * (v / half)
+        su = (u / size) % 1.0
+        row = int(math.floor(u / size))
+        sv = (v / size + (0.5 if row % 2 else 0.0)) % 1.0
+        edge = su < 0.22 or abs(sv - 0.5) > 0.4
+        if edge:
+            return SCALE[0] if shade_t < 0.45 else SCALE[1]
+        return SCALE[min(4, 1 + int(shade_t * 3.2))] if su > 0.55 else SCALE[min(3, 1 + int(shade_t * 2.6))]
+
+    for u in [i * 0.3 for i in range(int(-34 / 0.3), int(8 / 0.3) + 1)]:
+        half = arm_w(u)
         v = -half
         while v <= half:
-            s = v / half
-            x, y = T(u, v)
-            # 陰影：上側が明るく下側が暗い円柱
-            shade_t = 0.5 - 0.5 * s
-            # 鱗：腕の長さ方向に並ぶ半円。手首から先は鱗が小さくなり、手の甲は肌が少し見える
-            size = 3.0 if u < -4 else 2.2
-            su = (u / size) % 1.0
-            sv = (v / size + (0.5 if int(math.floor(u / size)) % 2 else 0.0)) % 1.0
-            edge = su < 0.2 or (abs(sv - 0.5) > 0.42)
-            if u > 4 and prand(int(u), int(v), 3) < 0.35:
-                c = ramp(int(x), int(y), shade_t, SKIN)
-            else:
-                t = max(0.0, min(1.0, shade_t * 0.85 + (0.15 if not edge else -0.1)))
-                c = ramp(int(x), int(y), t, SCALE[:4]) if not edge else SCALE[0 if shade_t < 0.5 else 1]
-            dot(cv, x, y, c, "arm")
+            size = 3.0 if u < -3 else 2.0            # 手の甲の鱗は細かく
+            c = scale_tone(u, v, half, size)
+            dot(cv, *T(u, v), c, "arm")
             v += 0.3
-    # 指：手の甲の先から4本、わずかに扇状にひらく。先に爪
+    # 指の付け根の関節（ナックル）：4つの盛り上がりを明るく
     for k in range(4):
-        spread = (k - 1.5) * 0.14
-        base_v = (k - 1.5) * 2.4
-        length = 8.5 if k in (1, 2) else 7.0
-        for i in range(int(length / 0.3)):
-            t = i * 0.3
-            u = 9 + t * math.cos(spread)
-            v = base_v + t * math.sin(spread) * 3
-            half = 1.1 - 0.25 * (t / length)
+        dot(cv, *T(7.6, (k - 1.5) * 2.5 - 0.6), SCALE[4], "arm")
+        dot(cv, *T(7.9, (k - 1.5) * 2.5 - 0.2), SCALE[3], "arm")
+    # 指：手の甲から4本、わずかに扇状。関節2つ、先に爪
+    for k in range(4):
+        spread = (k - 1.5) * 0.12
+        base_v = (k - 1.5) * 2.5
+        length = 8.5 if k in (1, 2) else (7.0 if k == 0 else 6.2)
+        t = 0.0
+        while t <= length:
+            u = 8 + t * math.cos(spread)
+            v = base_v + t * math.sin(spread) * 4
+            half = 1.25 - 0.35 * (t / length)
             w = -half
             while w <= half:
                 s = w / half
-                c = SCALE[3] if s < -0.3 else (SCALE[2] if s < 0.5 else SCALE[1])
-                if int(t) in (3, 6):
-                    c = SCALE[0]          # 関節のしわ
+                c = SCALE[3] if s < -0.35 else (SCALE[2] if s < 0.45 else SCALE[1])
+                if abs(t - length * 0.38) < 0.3 or abs(t - length * 0.7) < 0.3:
+                    c = SCALE[0]
                 dot(cv, *T(u, v + w), c, "arm")
                 w += 0.3
-        x, y = T(9 + length + 0.6, base_v + length * math.sin(spread) * 3)
-        dot(cv, x, y, CLAW[1], "claw")
-    # 親指：手首寄りの下側から斜めに
-    for i in range(20):
-        t = i * 0.3
-        dot(cv, *T(3 + t * 0.8, 4.6 + t * 0.55), SCALE[1], "arm")
-        dot(cv, *T(3 + t * 0.8, 5.4 + t * 0.55), SCALE[0], "arm")
+            t += 0.3
+        ux = 8 + (length + 0.5) * math.cos(spread)
+        vx = base_v + (length + 0.5) * math.sin(spread) * 4
+        dot(cv, *T(ux, vx), CLAW[1], "claw")
+        dot(cv, *T(ux + 0.6, vx), CLAW[0], "claw")
+    # 親指：手の甲の下側（小指と反対側）から前へ
+    t = 0.0
+    while t <= 6.0:
+        u, v = 1.5 + t * 0.85, 4.8 + t * 0.35
+        for w in (-0.9, -0.3, 0.3, 0.9):
+            dot(cv, *T(u, v + w), SCALE[2] if w < 0 else SCALE[1], "arm")
+        t += 0.3
+    dot(cv, *T(1.5 + 6.6 * 0.85, 4.8 + 6.6 * 0.35), CLAW[1], "claw")
     cv.outline_outside({"arm", "claw"}, OUT)
     return cv
 
