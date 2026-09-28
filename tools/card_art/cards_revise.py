@@ -562,29 +562,30 @@ def sea_pact():
     for k in range(8):
         a = k * math.pi / 4
         dot(cv, CX + 15.5 * math.cos(a), CY + 4.5 * math.sin(a), RUNE[2])
-    # 三叉の矛：太い柄（3px）と、根元が太い三つの穂先
-    SX = 25
-    for y in range(10, 43):
+    # 三叉の矛：太い柄（3px）と、根元が太い三つの穂先。
+    # 絵の上端はタイトル欄の下で数px切れるので、穂先は y>=5 に収める
+    SX, CB = 25, 17            # 柄の中心、横木の行
+    for y in range(CB, 43):
         cv.set(SX - 1, y, PRONG[1], "spear")
         cv.set(SX, y, PRONG[2], "spear")
         cv.set(SX + 1, y, PRONG[0], "spear")
-    for y in (24, 25, 32, 33):
+    for y in (28, 29, 35, 36):
         for x in range(SX - 1, SX + 2):
             cv.set(x, y, GOLD[1] if y % 2 == 0 else GOLD[0], "spear")
     # 横木
     for x in range(SX - 9, SX + 10):
-        cv.set(x, 11, PRONG[2], "spear")
-        cv.set(x, 12, PRONG[1], "spear")
-    for px_, h in ((SX - 9, 9), (SX + 9, 9), (SX, 12)):
+        cv.set(x, CB, PRONG[2], "spear")
+        cv.set(x, CB + 1, PRONG[1], "spear")
+    for px_, h in ((SX - 9, 8), (SX + 9, 8), (SX, 11)):
         for k in range(h):
-            y = 10 - k
+            y = CB - 1 - k
             w = 1 if k < h - 3 else 0
             for dx in range(-1, 2):
                 if abs(dx) <= w or dx == 0:
                     cv.set(px_ + dx, y, PRONG[2] if dx < 0 else (PRONG[3] if dx == 0 else PRONG[1]), "spear")
-        cv.set(px_, 10 - h, PRONG[3], "spear")
+        cv.set(px_, CB - 1 - h, PRONG[3], "spear")
         # 返し
-        cv.set(px_ + (1 if px_ >= SX else -1) * 2, 10 - h + 3, PRONG[2], "spear")
+        cv.set(px_ + (1 if px_ >= SX else -1) * 2, CB - 1 - h + 3, PRONG[2], "spear")
     cv.outline_outside({"spear"}, OUT)
     # 刺さった根元のひび
     for dx, dy in ((-3, 1), (-5, 2), (3, 1), (5, 1), (6, 2)):
