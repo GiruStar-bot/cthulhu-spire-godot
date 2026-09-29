@@ -1,18 +1,16 @@
 class_name CthughaEventModal
 extends CanvasLayer
 
-## 戦闘で使うドット敵を神殿の足場に立たせ、話者の横で共通の吹き出しを一行ずつ再生する。
+## 戦闘で使うドット敵を神殿の足場に立たせ、下部の会話パネルで一行ずつ再生する。
 ## 自由入力の本文は保存・送信しない。
 signal choice_selected(choice_id: String)
 
 const SHRINE_BG := "res://art/pixel/bg/shrine.jpg"
 const TYPE_MS := 45
 const LINE_HOLD_SEC := 0.65
-const BUBBLE_FADE_SEC := 0.18
 const ACTOR_SCALE_SINGLE := 2.15
 const ACTOR_SCALE_GROUP := 1.95
 const ACTOR_FEET_RATIO := 0.76
-const BUBBLE_MARGIN := 18.0
 
 const PEOPLE_WORDS: Array[String] = ["上司", "同僚", "彼女", "彼氏", "友達", "家族", "親", "あいつ", "人間関係", "ぼっち", "孤独", "嫌われ", "いじめ", "職場"]
 const LIFE_WORDS: Array[String] = ["お金", "金が", "金欠", "貧乏", "生活", "仕事", "働き", "給料", "家賃", "欲しい", "足りない", "無い", "ない"]
@@ -21,9 +19,10 @@ const ANGER_WORDS: Array[String] = ["殺したい", "ころしたい", "死ん�
 var _stage: int = 1
 var _root: Control
 var _actors: Dictionary = {}
-var _heads: Dictionary = {}
 var _idle_frames: Dictionary = {}
-var _bubble: SpeechBubble
+var _dialogue_panel: Panel
+var _speaker_label: Label
+var _dialogue_label: Label
 var _choices: HBoxContainer
 var _input: LineEdit
 var _typing: bool = false
@@ -92,11 +91,43 @@ func _build() -> void:
 		_add_actor(actor_id)
 	_layout_actors()
 
-	_bubble = SpeechBubble.new()
-	_bubble.name = "SpeechBubble"
-	_bubble.accent = Color(0.90, 0.40, 0.24)
-	_bubble.visible = false
-	_root.add_child(_bubble)
+	_dialogue_panel = Panel.new()
+	_dialogue_panel.name = "DialoguePanel"
+	_dialogue_panel.anchor_left = 0.0
+	_dialogue_panel.anchor_top = 2.0 / 3.0
+	_dialogue_panel.anchor_right = 1.0
+	_dialogue_panel.anchor_bottom = 1.0
+	_dialogue_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.025, 0.020, 0.035, 0.86)
+	panel_style.border_color = Color(0.85, 0.38, 0.25, 0.85)
+	panel_style.border_width_top = 2
+	_dialogue_panel.add_theme_stylebox_override("panel", panel_style)
+	_root.add_child(_dialogue_panel)
+
+	_speaker_label = Label.new()
+	_speaker_label.name = "SpeakerName"
+	_speaker_label.anchor_right = 1.0
+	_speaker_label.offset_left = 68.0
+	_speaker_label.offset_top = 14.0
+	_speaker_label.offset_right = -68.0
+	_speaker_label.offset_bottom = 46.0
+	_speaker_label.add_theme_font_size_override("font_size", 25)
+	_speaker_label.add_theme_color_override("font_color", Color(1.0, 0.70, 0.52))
+	_dialogue_panel.add_child(_speaker_label)
+
+	_dialogue_label = Label.new()
+	_dialogue_label.name = "DialogueText"
+	_dialogue_label.anchor_right = 1.0
+	_dialogue_label.anchor_bottom = 1.0
+	_dialogue_label.offset_left = 68.0
+	_dialogue_label.offset_top = 57.0
+	_dialogue_label.offset_right = -68.0
+	_dialogue_label.offset_bottom = -88.0
+	_dialogue_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+	_dialogue_label.add_theme_font_size_override("font_size", 26)
+	_dialogue_label.add_theme_color_override("font_color", Color(0.98, 0.95, 0.91))
+	_dialogue_panel.add_child(_dialogue_label)
 
 	_choices = HBoxContainer.new()
 	_choices.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -158,7 +189,6 @@ func _layout_actors() -> void:
 		var feet_y: float = view.y * ACTOR_FEET_RATIO
 		actor.position = Vector2(center_x - drawn.x * 0.5, feet_y - drawn.y)
 		actor.size = drawn
-		_heads[actor_id] = Vector2(center_x, actor.position.y + drawn.y * 0.18)
 
 
 func _start() -> void:
@@ -195,44 +225,24 @@ func _play_lines(lines: Array[Dictionary], done: Callable) -> void:
 
 func _say(speaker: String, full_text: String) -> void:
 	for actor_id in _actors.keys():
-		(_actors[actor_id] as TextureRect).modulate.a = 1.0 if actor_id == speaker else 0.62
-	_bubble.scale = Vector2.ONE
-	_bubble.fit_to_text(full_text)
-	_bubble.set_text("")
-	var view: Vector2 = get_viewport().get_visible_rect().size
-	var bounds := Rect2(Vector2(BUBBLE_MARGIN, BUBBLE_MARGIN), Vector2(view.x - BUBBLE_MARGIN * 2.0, view.y * 0.58))
-	var head: Vector2 = _heads.get(speaker, view * 0.5)
-	_bubble.place_beside(head, 18.0, bounds)
-	## ③の左の狂信者は右側に置くと中央の大司祭を隠すため、吹き出しを外側へ出す。
-	if _stage == 3 and speaker == "fanatic":
-		_bubble.scale = Vector2(0.80, 0.80)
-		_bubble.tail_side = "right"
-		var left_x: float = 8.0
-		var top_y: float = clampf(head.y - _bubble.size.y * _bubble.scale.y * 0.5, BUBBLE_MARGIN, view.y * 0.58 - _bubble.size.y * _bubble.scale.y)
-		_bubble.tail_y_frac = 0.5
-		_bubble.set_anchor_position(Vector2(left_x, top_y))
-		_bubble.queue_redraw()
-	_bubble.modulate.a = 1.0
-	_bubble.visible = true
+		(_actors[actor_id] as TextureRect).modulate = Color.WHITE if actor_id == speaker else Color(0.42, 0.42, 0.46, 1.0)
+	_speaker_label.text = {"priest": "大司祭", "fanatic": "狂信者", "acolyte": "侍祭"}.get(speaker, speaker)
+	_dialogue_label.text = ""
 	_typing = true
 	_advance_requested = false
 	for index in full_text.length():
 		if _advance_requested or _finished:
 			break
-		_bubble.set_text(full_text.substr(0, index + 1))
+		_dialogue_label.text = full_text.substr(0, index + 1)
 		var audio_manager: Node = get_node_or_null("/root/AudioManager")
 		if audio_manager != null:
 			audio_manager.call("play_sfx", "gift_type")
 		await get_tree().create_timer(float(TYPE_MS) / 1000.0).timeout
 	_typing = false
-	_bubble.set_text(full_text)
+	_dialogue_label.text = full_text
 	if _finished:
 		return
 	await get_tree().create_timer(LINE_HOLD_SEC).timeout
-	var fade: Tween = create_tween()
-	fade.tween_property(_bubble, "modulate:a", 0.0, BUBBLE_FADE_SEC)
-	await fade.finished
-	_bubble.visible = false
 
 
 func _clear_choices() -> void:
@@ -275,6 +285,7 @@ func _second_choices() -> void:
 
 
 func _show_input() -> void:
+	_dialogue_label.text = ""
 	_input = LineEdit.new()
 	_input.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_input.offset_left = 145.0
@@ -380,7 +391,7 @@ func _third_choices_three() -> void:
 func _show_ending() -> void:
 	for actor in _actors.values():
 		(actor as TextureRect).visible = false
-	_bubble.visible = false
+	_dialogue_panel.visible = false
 	_clear_choices()
 	var sky := ColorRect.new()
 	sky.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

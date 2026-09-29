@@ -24,7 +24,11 @@ func _run() -> void:
 	var sequence := CthughaEventModal.new()
 	sequence.setup(1)
 	root.add_child(sequence)
+	var panel: Panel = sequence.get("_dialogue_panel") as Panel
+	assert(panel != null and is_equal_approx(panel.anchor_top, 2.0 / 3.0))
 	await create_timer(3.0).timeout
+	assert((sequence.get("_speaker_label") as Label).text == "大司祭")
+	assert((sequence.get("_dialogue_label") as Label).text == "あなたは世の中に不満がお有りですか？")
 	var choices: HBoxContainer = sequence.get("_choices") as HBoxContainer
 	assert(choices.get_child_count() == 2)
 	var picked: Array[String] = []
