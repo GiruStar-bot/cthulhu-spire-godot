@@ -140,30 +140,49 @@ def trident(im: Image.Image, frame: int) -> None:
     # Three tips converge toward a vanishing point. The wide near end of the
     # haft is closest to the player: this is a throw straight into the scene.
     if frame <= 5:
-        poly(im, [(51, 74), (61, 74), (73, 111), (39, 111)], INK)
-        poly(im, [(53, 76), (58, 76), (65, 109), (44, 109)], GOLD_DARK)
-        poly(im, [(54, 77), (55, 77), (49, 108), (44, 108)], IVORY)
-        poly(im, [(59, 78), (61, 78), (72, 109), (67, 109)], SHADOW)
-        for y in (91, 102):
-            line(im, (47 - (y - 91) // 2, y), (66 + (y - 91) // 2, y), 3, GOLD)
-            line(im, (49 - (y - 91) // 2, y - 1), (62 + (y - 91) // 2, y - 1), 1, GOLD_LIGHT)
-        # The fork is a broad metal collar with dark side planes.
-        poly(im, [(49, 77), (63, 77), (80, 68), (77, 63), (59, 72), (53, 72), (35, 63), (32, 68)], INK)
-        poly(im, [(52, 75), (61, 75), (76, 67), (60, 72), (53, 72), (36, 67)], GOLD)
-        line(im, (39, 67), (73, 67), 2, IVORY)
-        # Side tines lean inward toward the same impact point; the middle
-        # prong is the longest. Their lit and shadow faces imply metal depth.
+        # Four faces of the tapering cylindrical haft. The lit left edge and
+        # dark right plane make the near end read as volume, not a flat wedge.
+        poly(im, [(51, 73), (62, 73), (72, 110), (40, 110)], INK)
+        poly(im, [(52, 75), (61, 75), (69, 108), (43, 108)], GOLD_DARK)
+        poly(im, [(52, 75), (55, 75), (48, 108), (43, 108)], IVORY)
+        poly(im, [(55, 75), (59, 75), (63, 108), (48, 108)], GOLD)
+        poly(im, [(59, 75), (62, 75), (69, 108), (63, 108)], SHADOW)
+        line(im, (53, 77), (46, 104), 2, WHITE)
+        for y, radius in ((89, 10), (99, 13)):
+            ellipse_ring(im, 56, y, radius, 4, 2, INK)
+            line(im, (56 - radius + 2, y + 1), (56 + radius - 3, y + 1), 2, GOLD)
+            line(im, (56 - radius + 4, y), (56 - radius + 8, y), 1, WHITE)
+        ellipse(im, 56, 106, 16, 5, INK)
+        ellipse(im, 56, 105, 14, 3, GOLD_DARK)
+        ellipse(im, 53, 104, 8, 2, GOLD_LIGHT)
+        # Each prong has an offset dark extrusion, a broad front plane and a
+        # copper side facet. Their tips point into the enemy along one axis.
         for side in (-1, 0, 1):
-            base_x = 56 + side * 21
-            tip_x = 56 + side * 8
-            tip_y = 43 if side == 0 else 48
-            poly(im, [(base_x - 5, 70), (base_x + 5, 70), (tip_x + 3, tip_y + 7),
-                      (tip_x, tip_y), (tip_x - 3, tip_y + 7)], INK)
-            poly(im, [(base_x - 3, 68), (base_x + 1, 68), (tip_x, tip_y + 5),
-                      (tip_x - 1, tip_y + 2)], IVORY)
-            line(im, (base_x + 3, 67), (tip_x + 2, tip_y + 7), 2, GOLD_DARK)
-        box(im, 52, 72, 61, 78, GOLD_DARK)
-        box(im, 54, 72, 58, 76, GOLD_LIGHT)
+            base_x = 56 + side * 25
+            tip_x = 56 + side * 13
+            tip_y = 40 if side == 0 else 46
+            blade = [(base_x - 7, 72), (base_x + 7, 72),
+                     (tip_x + 4, tip_y + 9), (tip_x, tip_y),
+                     (tip_x - 4, tip_y + 9)]
+            poly(im, [(x + 4, y + 4) for x, y in blade], SHADOW)
+            poly(im, blade, INK)
+            poly(im, [(base_x - 5, 70), (base_x + 1, 70),
+                      (tip_x + 1, tip_y + 8), (tip_x, tip_y + 2),
+                      (tip_x - 2, tip_y + 8)], IVORY)
+            poly(im, [(base_x + 1, 70), (base_x + 5, 70),
+                      (tip_x + 3, tip_y + 9), (tip_x + 1, tip_y + 8)], GOLD_DARK)
+            line(im, (base_x - 4, 68), (tip_x - 1, tip_y + 7), 2, WHITE)
+            line(im, (base_x + 6, 71), (tip_x + 3, tip_y + 9), 2, GOLD)
+            put(im, tip_x, tip_y, WHITE)
+        # Extruded crossbar: light top, deep front face, dark lower bevel.
+        poly(im, [(27, 65), (85, 65), (82, 78), (30, 78)], INK)
+        poly(im, [(30, 66), (82, 66), (77, 71), (35, 71)], GOLD_LIGHT)
+        poly(im, [(35, 71), (77, 71), (80, 75), (32, 75)], GOLD_DARK)
+        line(im, (33, 67), (79, 67), 2, IVORY)
+        line(im, (34, 76), (78, 76), 1, SHADOW)
+        ellipse(im, 56, 73, 12, 5, INK)
+        ellipse(im, 55, 71, 10, 3, GOLD)
+        ellipse(im, 53, 70, 5, 2, IVORY)
     if frame >= 4:
         radius = (12, 24, 35, 47)[frame - 4]
         ellipse_ring(im, 56, 51, radius, max(6, radius * 3 // 4), 3, TEAL)
