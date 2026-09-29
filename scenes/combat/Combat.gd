@@ -29,19 +29,8 @@ const FIREBALL_SCALE := 3.0
 const FIREBALL_START_SCALE := 12.0
 const FIREBALL_FLIGHT := 0.32
 const CARD_VFX := preload("res://scenes/combat/CardVfx.gd")
-const SHEET_STRIKE := preload("res://scenes/combat/SheetStrike.gd")
-const SKY_PILLAR_SHEET := preload("res://art/pixel/fx/sky_pillar.png")
-const SKY_PILLAR_FRAME := Vector2i(32, 128)
-const SKY_PILLAR_HOLDS: Array = [0.07, 0.06, 0.05, 0.06, 0.08, 0.08]
-const SKY_PILLAR_STAGGER := 0.06
-const TRIDENT_SHEET := preload("res://art/pixel/fx/trident_thrust.png")
-const TRIDENT_FRAME := Vector2i(72, 72)
-const TRIDENT_HOLDS: Array = [0.06, 0.06, 0.05, 0.05, 0.08, 0.08]
-const CAT_STAMP_SHEET := preload("res://art/pixel/fx/cat_stamp.png")
-const CAT_STAMP_FRAME := Vector2i(64, 64)
-const CAT_STAMP_HOLDS: Array = [0.06, 0.07, 0.05, 0.08, 0.12, 0.10]
-## ドットは原寸。戦場では整数倍の nearest。
-const VFX_PX_SCALE := 3.0
+const CARD_STRIKE_VFX := preload("res://scenes/combat/CardStrikeVfx.gd")
+const SKY_PILLAR_STAGGER := 0.11
 ## とどめの数字を見せてから、溶解と勝敗メッセージを出すまでの間。
 const HELD_DEATH_REVEAL := 0.32
 const RESULT_WIN_DELAY := 0.92
@@ -2414,14 +2403,14 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 	if family == "sky_fall":
 		if VideoSettings.is_reduce_motion():
 			for uid3 in uids:
-				_fx_sheet_still(SKY_PILLAR_SHEET, SKY_PILLAR_FRAME, VFX_PX_SCALE, _vfx_feet_of(str(uid3)), 3, true)
+				_spawn_card_still("pillar", _vfx_feet_of(str(uid3)), str(uid3))
 			return
 		_fx_sky_fall(uids)
 		return
 	if family == "thrust":
 		if VideoSettings.is_reduce_motion():
 			for uid4 in uids:
-				_fx_sheet_still(TRIDENT_SHEET, TRIDENT_FRAME, VFX_PX_SCALE, _vfx_center_of(str(uid4)), 3, false)
+				_spawn_card_still("trident", _vfx_center_of(str(uid4)), str(uid4))
 			return
 		for uid5 in uids:
 			_fx_trident_thrust(str(uid5))
@@ -2429,7 +2418,7 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 	if family == "stamp":
 		if VideoSettings.is_reduce_motion():
 			for uid6 in uids:
-				_fx_sheet_still(CAT_STAMP_SHEET, CAT_STAMP_FRAME, VFX_PX_SCALE, _vfx_head_of(str(uid6)), 2, false)
+				_spawn_card_still("paw", _vfx_head_of(str(uid6)), str(uid6))
 			return
 		for uid7 in uids:
 			_fx_cat_stamp(str(uid7))
@@ -2735,38 +2724,26 @@ func _sort_uids_by_x(a, b) -> bool:
 	return _vfx_feet_of(str(a)).x < _vfx_feet_of(str(b)).x
 
 
-func _fx_sheet_still(sheet: Texture2D, frame_size: Vector2i, scale_px: float, pos: Vector2, frame_i: int, anchor_bottom: bool) -> void:
+func _spawn_card_still(kind_name: String, pos: Vector2, uid: String) -> void:
 	_ensure_vfx_layer()
-	var spr := Sprite2D.new()
-	var cols: int = maxi(1, int(sheet.get_width() / frame_size.x))
-	var image: Image = sheet.get_image()
-	if image != null and not image.is_empty():
-		var cell: Image = image.get_region(Rect2i(frame_i * frame_size.x, 0, frame_size.x, frame_size.y))
-		spr.texture = ImageTexture.create_from_image(cell)
-	else:
-		spr.texture = sheet
-		spr.hframes = cols
-		spr.vframes = 1
-		spr.frame = clampi(frame_i, 0, cols - 1)
-	spr.centered = true
-	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	spr.scale = Vector2(scale_px, scale_px)
-	if anchor_bottom:
-		spr.offset = Vector2(0.0, -float(frame_size.y) * 0.5)
-	spr.position = pos
-	spr.z_index = -2
-	_vfx_layer.add_child(spr)
-	var tw: Tween = spr.create_tween()
-	tw.tween_interval(0.2)
-	tw.tween_callback(spr.queue_free)
-
-
-func _spawn_sheet_strike(sheet: Texture2D, frame_size: Vector2i, strike_at: int, holds: Array, anchor_bottom: bool, pos: Vector2, uid: String, per_target: bool) -> void:
-	_ensure_vfx_layer()
-	var strike = SHEET_STRIKE.new()
+	var strike = CARD_STRIKE_VFX.new()
 	strike.z_index = -2
 	_vfx_layer.add_child(strike)
-	strike.setup(sheet, frame_size, VFX_PX_SCALE, strike_at, holds, anchor_bottom)
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	var body_width: float = art.size.x if art != null and is_instance_valid(art) else 120.0
+	strike.setup(kind_name, body_width)
+	strike.position = pos
+	strike.show_still()
+
+
+func _spawn_card_strike(kind_name: String, pos: Vector2, uid: String, per_target: bool) -> void:
+	_ensure_vfx_layer()
+	var strike = CARD_STRIKE_VFX.new()
+	strike.z_index = -2
+	_vfx_layer.add_child(strike)
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	var body_width: float = art.size.x if art != null and is_instance_valid(art) else 120.0
+	strike.setup(kind_name, body_width)
 	strike.position = pos
 	if per_target:
 		strike.struck.connect(_on_vfx_struck_at.bind(uid))
@@ -2794,17 +2771,15 @@ func _fx_sky_fall(uids: Array) -> void:
 func _spawn_sky_pillar(uid: String) -> void:
 	if not is_inside_tree():
 		return
-	## 輪はシート下端から 8px 上。足元に乗せる。
-	var pos: Vector2 = _vfx_feet_of(uid) + Vector2(0.0, 8.0 * VFX_PX_SCALE)
-	_spawn_sheet_strike(SKY_PILLAR_SHEET, SKY_PILLAR_FRAME, 3, SKY_PILLAR_HOLDS, true, pos, uid, true)
+	_spawn_card_strike("pillar", _vfx_feet_of(uid), uid, true)
 
 
 func _fx_trident_thrust(uid: String) -> void:
-	_spawn_sheet_strike(TRIDENT_SHEET, TRIDENT_FRAME, 3, TRIDENT_HOLDS, false, _vfx_center_of(uid), uid, false)
+	_spawn_card_strike("trident", _vfx_center_of(uid), uid, false)
 
 
 func _fx_cat_stamp(uid: String) -> void:
-	_spawn_sheet_strike(CAT_STAMP_SHEET, CAT_STAMP_FRAME, 2, CAT_STAMP_HOLDS, false, _vfx_head_of(uid), uid, false)
+	_spawn_card_strike("paw", _vfx_head_of(uid), uid, false)
 
 
 func _vfx_fit(uid: String) -> float:

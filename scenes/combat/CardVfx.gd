@@ -42,19 +42,19 @@ const PROFILES := {
 	"light_pillar": {
 		"family": "sky_fall",
 		"delay": true,
-		"timeout": 0.9,
+		"timeout": 1.1,
 		"hit_sfx": "vfx_impact",
 	},
 	"trident": {
 		"family": "thrust",
 		"delay": true,
-		"timeout": 0.9,
+		"timeout": 1.0,
 		"hit_sfx": "vfx_impact",
 	},
 	"cats_paw": {
 		"family": "stamp",
 		"delay": true,
-		"timeout": 0.9,
+		"timeout": 0.8,
 		"hit_sfx": "cat_hiss",
 	},
 }
