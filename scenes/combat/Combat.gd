@@ -28,6 +28,7 @@ const FIREBALL_FRAME := Vector2i(40, 40)
 const FIREBALL_SCALE := 3.0
 const FIREBALL_START_SCALE := 12.0
 const FIREBALL_FLIGHT := 0.32
+const CARD_VFX := preload("res://scenes/combat/CardVfx.gd")
 ## とどめの数字を見せてから、溶解と勝敗メッセージを出すまでの間。
 const HELD_DEATH_REVEAL := 0.32
 const RESULT_WIN_DELAY := 0.92
@@ -159,10 +160,10 @@ var _shield_tween: Tween
 var _hurt_flash: ColorRect
 var _hurt_tween: Tween
 var _vfx_layer: Node2D
-## 触手・火球は、当たる瞬間まで敵へのダメージ数字を保留する。
+## 当たる瞬間まで、敵へのダメージ数字を保留する（触手・火球、および今後 delay の付く型）。
 var _held_floater_ids: Dictionary = {}
-var _tentacle_hit_timeout: Tween = null
-var _fireball_hit_timeout: Tween = null
+var _hit_hold_timeout: Tween = null
+var _hit_hold_sfx: String = ""
 ## 保留中の被弾だけ、バーに出すHP。真の hp は即時のまま。
 var _shown_enemy_hp: Dictionary = {}
 var _shown_player_hp: int = -1
@@ -191,8 +192,7 @@ func _exit_tree() -> void:
 	_px_acting = false
 	_px_committed = true
 	_cancel_px_reveal_hold()
-	_cancel_tentacle_hit_timeout()
-	_cancel_fireball_hit_timeout()
+	_cancel_struck_hold_timeout()
 	_cancel_held_reveal()
 	var settings: VideoSettings = VideoSettings.get_instance()
 	if settings.changed.is_connected(_on_px_reduce_motion):
@@ -296,19 +296,17 @@ func _play_card(card_uid: String, target_id, from_global: Vector2 = Vector2(-1.0
 		def_id = str(selected_card.get("defId", ""))
 	var hp_before: int = int(player.hp)
 	var definition: Dictionary = Cards.get_card(def_id) if def_id != "" else {}
-	var vfx_kind: String = str(definition.get("vfx", "impact"))
-	## 触手と火球は当たる瞬間まで効果音とダメージ数字を遅らせる。計算自体は上の play_card で済んでいる。
-	var delay_tentacle: bool = vfx_kind == "tentacle_ground" and not VideoSettings.is_reduce_motion()
-	var delay_fireball: bool = vfx_kind == "fireball" and not VideoSettings.is_reduce_motion()
-	if delay_tentacle:
-		_arm_tentacle_hit_hold(target_id)
-		_arm_tentacle_hit_timeout()
-	elif delay_fireball:
-		_arm_tentacle_hit_hold(target_id)
-		_arm_fireball_hit_timeout()
+	var vfx_key: String = str(definition.get("vfx", ""))
+	## キーが無い攻撃は、これまで通り着弾音だけ impact。見た目は出さない（_fx_card_vfx 側）。
+	var vfx_for_sfx: String = vfx_key if vfx_key != "" else "impact"
+	## delay の付いた型は、当たる瞬間まで効果音とダメージ数字を遅らせる。計算自体は上の play_card で済んでいる。
+	## スキルも同じ表を見る。揺れを減らす設定では待たせず、すぐ数字と音を出す。
+	var delay_hit: bool = CARD_VFX.delays_hit(vfx_key) and not VideoSettings.is_reduce_motion()
+	if delay_hit:
+		_arm_struck_hold(definition, target_id, CARD_VFX.timeout_sec(vfx_key), CARD_VFX.hit_sfx(vfx_key))
 	else:
 		# カード固有 SFX（ねこの手・電撃銃など）を優先。なければ vfx / skill
-		AudioManager.play_sfx(AudioManager.resolve_card_sfx(def_id, card_type, vfx_kind))
+		AudioManager.play_sfx(AudioManager.resolve_card_sfx(def_id, card_type, vfx_for_sfx))
 	_apply_hit_hold_display(hp_snap, player_hp_snap)
 	targeting_uid = ""
 	var hand_before: int = int(state.hand.size()) if state.get("hand") else 0
@@ -2369,28 +2367,32 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 	var kind: String = str(definition.get("vfx", ""))
 	if kind == "":
 		return
+	var family: String = str(CARD_VFX.family(kind))
+	## 未定義、および自分側の型は敵の中心に出さない。自分側の描画は後の段階。
+	if family == "" or CARD_VFX.is_self_family(family):
+		return
 	var uids: Array = _vfx_target_uids(definition, target_id)
 	if uids.is_empty():
 		return
-	if kind == "arrow":
+	if family == "arrow":
 		for uid in uids:
 			_fx_arrow_to(str(uid))
 		return
-	if kind == "slash":
+	if family == "slash":
 		for uid in uids:
 			_fx_slash_on(str(uid))
 		return
-	if kind == "impact":
+	if family == "impact":
 		for uid in uids:
 			_fx_impact_on(str(uid))
 		return
-	if kind == "tentacle_ground":
+	if family == "ground_rise":
 		if VideoSettings.is_reduce_motion():
 			return
 		for uid in uids:
 			_fx_tentacle_ground(str(uid))
 		return
-	if kind == "fireball":
+	if family == "projectile":
 		if VideoSettings.is_reduce_motion():
 			return
 		for uid2 in uids:
@@ -2447,56 +2449,65 @@ func _tentacle_px_scale(uid: String) -> float:
 	return float(clampi(raw, 3, 6))
 
 
-func _arm_tentacle_hit_hold(target_id) -> void:
+func _arm_struck_hold(definition: Dictionary, target_id, timeout_sec: float, hit_sfx: String) -> void:
 	_held_floater_ids = {}
-	var who: String = ""
-	if target_id != null:
-		who = str(target_id)
+	_hit_hold_sfx = hit_sfx
+	var whos: Dictionary = {}
+	if str(definition.get("target", "")) == "all":
+		for e in state.get("enemies", []):
+			var uid: String = str(e.get("uid", ""))
+			if uid != "":
+				whos[uid] = true
 	else:
-		var living: Array = CombatLogic.living(state)
-		if not living.is_empty():
-			who = str(living[0].get("uid", ""))
-	if who == "":
-		return
+		var who: String = ""
+		if target_id != null:
+			who = str(target_id)
+		else:
+			var living: Array = CombatLogic.living(state)
+			if not living.is_empty():
+				who = str(living[0].get("uid", ""))
+		if who != "":
+			whos[who] = true
 	for floater in state.get("floaters", []):
 		var id: String = str(floater.get("id", ""))
 		if id == "" or _shown_floaters.has(id):
 			continue
-		if str(floater.get("who", "")) != who:
+		if not whos.has(str(floater.get("who", ""))):
 			continue
 		if str(floater.get("kind", "")) != "dmg":
 			continue
 		_held_floater_ids[id] = true
+	_arm_struck_timeout(timeout_sec)
 
 
-func _arm_tentacle_hit_timeout() -> void:
-	_cancel_tentacle_hit_timeout()
+func _arm_struck_timeout(timeout_sec: float) -> void:
+	_cancel_struck_hold_timeout()
 	var tw: Tween = create_tween()
-	tw.tween_interval(1.2)
-	tw.tween_callback(_on_tentacle_hit_timeout)
-	_tentacle_hit_timeout = tw
+	tw.tween_interval(maxf(0.05, timeout_sec))
+	tw.tween_callback(_on_struck_hold_timeout)
+	_hit_hold_timeout = tw
 
 
-func _cancel_tentacle_hit_timeout() -> void:
-	if _tentacle_hit_timeout != null and is_instance_valid(_tentacle_hit_timeout) and _tentacle_hit_timeout.is_valid():
-		_tentacle_hit_timeout.kill()
-	_tentacle_hit_timeout = null
+func _cancel_struck_hold_timeout() -> void:
+	if _hit_hold_timeout != null and is_instance_valid(_hit_hold_timeout) and _hit_hold_timeout.is_valid():
+		_hit_hold_timeout.kill()
+	_hit_hold_timeout = null
 
 
-func _on_tentacle_struck() -> void:
+## struck が来たとき。保険のタイムアウトでは音を足さない（数字だけ出す）。
+func _on_vfx_struck() -> void:
 	if not is_inside_tree():
 		return
-	AudioManager.play_sfx("vfx_impact")
-	_release_tentacle_hit()
-
-
-func _on_tentacle_hit_timeout() -> void:
-	_tentacle_hit_timeout = null
+	if _hit_hold_sfx != "":
+		AudioManager.play_sfx(_hit_hold_sfx)
+	_hit_hold_sfx = ""
+	_cancel_struck_hold_timeout()
 	_flush_held_floaters()
 
 
-func _release_tentacle_hit() -> void:
-	_cancel_tentacle_hit_timeout()
+func _on_struck_hold_timeout() -> void:
+	_hit_hold_timeout = null
+	_hit_hold_sfx = ""
 	_flush_held_floaters()
 
 
@@ -2632,7 +2643,7 @@ func _fx_tentacle_ground(uid: String) -> void:
 	strike.setup(TENTACLE_SHEET, TENTACLE_FRAME, scale_px)
 	## 素材の接地線は下端から 2px。足元に乗せる。
 	strike.position = _vfx_feet_of(uid) + Vector2(0.0, 2.0 * scale_px)
-	strike.struck.connect(_on_tentacle_struck)
+	strike.struck.connect(_on_vfx_struck)
 	strike.play()
 
 
@@ -2705,33 +2716,6 @@ func _fx_arrow_land(spr: Sprite2D, dest: Vector2, fit: float) -> void:
 	_fx_impact_at(dest, fit)
 
 
-func _arm_fireball_hit_timeout() -> void:
-	_cancel_fireball_hit_timeout()
-	var tw: Tween = create_tween()
-	tw.tween_interval(0.7)
-	tw.tween_callback(_on_fireball_hit_timeout)
-	_fireball_hit_timeout = tw
-
-
-func _cancel_fireball_hit_timeout() -> void:
-	if _fireball_hit_timeout != null and is_instance_valid(_fireball_hit_timeout) and _fireball_hit_timeout.is_valid():
-		_fireball_hit_timeout.kill()
-	_fireball_hit_timeout = null
-
-
-func _on_fireball_hit() -> void:
-	if not is_inside_tree():
-		return
-	AudioManager.play_sfx("vfx_impact")
-	_cancel_fireball_hit_timeout()
-	_flush_held_floaters()
-
-
-func _on_fireball_hit_timeout() -> void:
-	_fireball_hit_timeout = null
-	_flush_held_floaters()
-
-
 func _fx_fireball_from() -> Vector2:
 	_ensure_vfx_layer()
 	if _fireball_from.x >= 0.0 and _fireball_from.y >= 0.0:
@@ -2746,5 +2730,5 @@ func _fx_fireball_to(uid: String) -> void:
 	shot.z_index = -2
 	_vfx_layer.add_child(shot)
 	shot.setup(FIREBALL_SHEET, FIREBALL_FRAME, FIREBALL_START_SCALE)
-	shot.struck.connect(_on_fireball_hit)
+	shot.struck.connect(_on_vfx_struck)
 	shot.launch(_fx_fireball_from(), _vfx_center_of(uid), FIREBALL_FLIGHT, FIREBALL_START_SCALE, FIREBALL_SCALE)
