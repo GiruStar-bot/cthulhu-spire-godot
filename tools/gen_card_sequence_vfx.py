@@ -43,33 +43,80 @@ GREEN = (102, 169, 87, 255)
 
 
 def whirlwind(im: Image.Image, frame: int) -> None:
-    height = (34, 55, 82, 95, 100, 96, 75, 42)[frame]
+    height = (45, 68, 88, 100, 101, 95, 72, 43)[frame]
     bottom = 104
-    ellipse(im, 40, 103, 31, 4, (25, 37, 40, 170))
+    phase = frame * .82
+    ellipse(im, 40, 104, 24, 3, (26, 29, 34, 135))
+
+    def section(y: int) -> tuple[float, float, float, float]:
+        t = (bottom - y) / height
+        center = 40 + math.sin(t * 10 + phase * .45) * (2 + 3 * t)
+        radius = 6 + 24 * (t ** .87)
+        angle = t * math.tau * 2.35 + phase
+        return t, center, radius, angle
+
+    crown_y = bottom - height
+    ellipse(im, 40, crown_y + 6, 23, 7, (118, 125, 127, 140))
+    for x, dy, radius in ((19, 9, 9), (30, 4, 11), (47, 5, 12), (62, 10, 9)):
+        ellipse(im, x, crown_y + dy, radius, 5, (169, 172, 167, 155))
+
+    # The rear half of one continuous helix is dim and partly hidden by wind.
     for y in range(bottom - height, bottom):
-        t = (bottom - y) / max(1, height)
-        radius = 24 - int(t * 15)
-        center = 40 + round(math.sin(y * .16 + frame * .65) * 3)
-        for x in range(center - radius, center + radius + 1):
-            nx = abs(x - center) / max(1, radius)
-            if nx > 1:
+        _, center, radius, angle = section(y)
+        if math.sin(angle) < .05:
+            x = round(center + radius * .88 * math.cos(angle))
+            box(im, x - 1, y, x + 1, y + 1, (111, 89, 52, 180))
+
+    # A ragged shaded volume, lit from the upper right. Small holes read as air,
+    # unlike the old uniform white lattice that covered the full silhouette.
+    for y in range(bottom - height, bottom):
+        t, center, radius, angle = section(y)
+        for x in range(math.floor(center - radius - 1), math.ceil(center + radius + 2)):
+            side = (x - center) / radius
+            edge = .92 + .065 * math.sin(y * .51 + x * .37 + phase)
+            if (abs(side) > edge or y < crown_y + 8 * abs(side) ** 1.3
+                    or (x * 7 + y * 11 + frame * 13) % 37 < 3):
                 continue
-            twist = (x * 3 + y * 2 + frame * 11) % 23
-            if 7 <= twist <= 11 and nx < .82:
-                continue  # transparent channel through the spinning body
-            color = WIND_DARK if nx > .82 else WIND if nx > .48 else WIND_LIGHT
-            if twist < 4:
-                color = PALE
+            sweep = math.sin(side * 4.1 - angle * 1.15)
+            if side < -.56:
+                color = (57, 67, 73, 147)
+            elif side < .12:
+                color = (102, 113, 118, 157) if sweep < .2 else (137, 145, 147, 161)
+            elif side < .65:
+                color = (172, 179, 177, 169) if sweep < .4 else (213, 213, 201, 177)
+            else:
+                color = (109, 123, 128, 151)
             put(im, x, y, color)
-    for ring_y in range(bottom - 8, bottom - height, -17):
-        t = (bottom - ring_y) / max(1, height)
-        radius = max(8, 27 - int(t * 15))
-        x = 40 + round(math.sin(ring_y * .16 + frame * .65) * 3)
-        ellipse_ring(im, x, ring_y, radius, max(3, radius // 4), 2, PALE if ring_y % 2 else WIND_LIGHT)
+        # A curved interior fold gives the cone a turning surface.
+        fold = round(center + radius * (.16 + .18 * math.sin(angle + .8)))
+        put(im, fold, y, (231, 230, 212, 224) if y % 5 < 3 else (131, 143, 145, 206))
+
+    # The near half of the golden ribbon moves across the cone as it rotates.
+    for y in range(bottom - height, bottom):
+        t, center, radius, angle = section(y)
+        if math.sin(angle) <= .05:
+            continue
+        x = round(center + radius * .88 * math.cos(angle))
+        width = 3 if t > .62 else 2
+        box(im, x - width, y - 1, x + width, y + 1, (103, 75, 37, 245))
+        box(im, x - width + 1, y, x + width - 1, y, (217, 174, 86, 255))
+        put(im, x - 1, y - 1, (250, 222, 137, 255))
+
+    # Wind torn off the base and the narrowing crown stays separate from the
+    # solid body, so the vortex keeps its silhouette over dark backgrounds.
+    for i in range(18):
+        direction = -1 if i % 2 else 1
+        distance = 8 + (i * 13 + frame * 7) % 28
+        x = 40 + direction * distance
+        y = 105 - (i * 17 + frame * 9) % max(12, height)
+        color = (203, 207, 193, 220) if i % 4 else (229, 189, 103, 240)
+        put(im, x, y, color)
+        if i % 3 == 0:
+            put(im, x - direction, y + 1, (91, 105, 108, 210))
     for i in range(7):
-        x = 9 + (i * 13 + frame * 7) % 63
-        y = 106 - (i * 19 + frame * 9) % max(1, height)
-        box(im, x, y, x + 2, y + 2, GOLD if i % 3 == 0 else PALE)
+        x = 20 + i * 6 + round(math.sin(phase + i) * 2)
+        y = 103 - (i % 3) * 3
+        box(im, x, y, x + 3, y + 1, (91, 105, 108, 185))
 
 
 def wind_arrow(im: Image.Image, frame: int) -> None:
