@@ -8,6 +8,10 @@ const PIXEL_SCALE := 3.0
 const PILLAR_SHEET: Texture2D = preload("res://art/pixel/fx/nodens_pillar_px.png")
 const TRIDENT_SHEET: Texture2D = preload("res://art/pixel/fx/trident_px.png")
 const PAW_SHEET: Texture2D = preload("res://art/pixel/fx/cats_paw_px.png")
+const TRIDENT_APPROACH := [155.0, 115.0, 75.0, 35.0, 0.0, 0.0, 0.0, 0.0]
+const TRIDENT_DEPTH := [1.6, 1.45, 1.28, 1.13, 1.0, 1.0, 1.0, 1.0]
+const PAW_DESCENT := [-82.0, -54.0, -23.0, 0.0, -7.0, -18.0, -28.0]
+const PAW_STAMP_SCALE := [0.78, 0.87, 0.98, 1.14, 1.0, 0.9, 0.82]
 
 static var _cache: Dictionary = {}
 
@@ -33,16 +37,16 @@ func setup(kind_name: String, _body_width: float) -> void:
 			offset = Vector2(0.0, -108.0)
 		"trident":
 			sheet = TRIDENT_SHEET
-			cell_size = Vector2i(76, 112)
+			cell_size = Vector2i(112, 112)
 			_holds = [0.07, 0.07, 0.07, 0.08, 0.10, 0.09, 0.09, 0.10]
 			_hit_frame = 4
-			offset = Vector2(0.0, -6.0)
+			offset = Vector2(0.0, 6.0)
 		"paw":
 			sheet = PAW_SHEET
-			cell_size = Vector2i(64, 72)
+			cell_size = Vector2i(96, 96)
 			_holds = [0.09, 0.08, 0.08, 0.10, 0.09, 0.09, 0.08]
 			_hit_frame = 3
-			offset = Vector2(0.0, 22.0)
+			offset = Vector2.ZERO
 		_:
 			push_error("Unknown card strike: " + kind_name)
 			return
@@ -95,16 +99,14 @@ func _process(delta: float) -> void:
 func _show_frame(i: int) -> void:
 	texture = _cells[i]
 	if _kind == "trident":
-		# Weapon flies up and toward the enemy, then withdraws.
-		var travel: float = float(mini(i, 3)) / 3.0
-		position = _base_position + Vector2(-86.0 * (1.0 - travel), 75.0 * (1.0 - travel))
-		rotation = -0.50 + travel * 0.25
-		if i > 4:
-			position += Vector2(-float(i - 4) * 9.0, float(i - 4) * 6.0)
+		# From the player's near field, straight into the target. Perspective
+		# shrinks the weapon as it recedes; the tip meets the shockwave center.
+		position = _base_position + Vector2(0.0, TRIDENT_APPROACH[i])
+		scale = Vector2.ONE * PIXEL_SCALE * TRIDENT_DEPTH[i]
+		rotation = 0.0
 	elif _kind == "paw":
-		position = _base_position + Vector2(0.0, -float(maxi(0, 3 - i)) * 12.0)
-		if i > 3:
-			position.y -= float(i - 3) * 8.0
+		position = _base_position + Vector2(0.0, PAW_DESCENT[i])
+		scale = Vector2.ONE * PIXEL_SCALE * PAW_STAMP_SCALE[i]
 	else:
 		position = _base_position
 

@@ -70,6 +70,15 @@ def poly(im: Image.Image, points: list[tuple[int, int]], c: RGBA) -> None:
             box(im, math.ceil(hits[j]), y, math.ceil(hits[j + 1]), y + 1, c)
 
 
+def ellipse_ring(im: Image.Image, cx: int, cy: int, rx: int, ry: int, width: int, c: RGBA) -> None:
+    for y in range(max(0, cy - ry), min(im.height, cy + ry + 1)):
+        for x in range(max(0, cx - rx), min(im.width, cx + rx + 1)):
+            outer = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+            inner = ((x - cx) / max(1, rx - width)) ** 2 + ((y - cy) / max(1, ry - width)) ** 2
+            if outer <= 1 and inner >= 1:
+                put(im, x, y, c)
+
+
 def sheet(name: str, width: int, height: int, count: int, draw) -> None:
     result = Image.new("RGBA", (width * count, height))
     for i in range(count):
@@ -128,76 +137,81 @@ def pillar(im: Image.Image, frame: int) -> None:
 
 
 def trident(im: Image.Image, frame: int) -> None:
-    # The three *separate* tapered tines and broad neck match the card icon.
-    # Shaft shading is asymmetric: dark far side, ivory near face.
-    dy = (12, 8, 4, 0, -1, 2, 5, 7)[frame]
-    def sh(points: list[tuple[int, int]]) -> list[tuple[int, int]]:
-        return [(x, y + dy) for x, y in points]
-    poly(im, sh([(32, 107), (44, 107), (42, 47), (37, 38), (34, 47)]), INK)
-    poly(im, sh([(35, 105), (40, 105), (39, 48), (36, 44)]), GOLD_DARK)
-    line(im, (36, 103 + dy), (35, 47 + dy), 2, GOLD_LIGHT)
-    line(im, (40, 100 + dy), (39, 49 + dy), 1, SHADOW)
-    for y in (84, 93):
-        box(im, 33, y + dy, 43, y + 2 + dy, GOLD)
-        box(im, 34, y + dy, 36, y + 2 + dy, IVORY)
-    # Fork collar and curved side arms; crossbar is visibly in front of haft.
-    poly(im, sh([(30, 50), (45, 50), (49, 42), (50, 39), (43, 44), (32, 44), (25, 39), (26, 43)]), INK)
-    poly(im, sh([(31, 48), (44, 48), (46, 44), (39, 45), (34, 45), (28, 43)]), GOLD)
-    line(im, (29, 44 + dy), (45, 45 + dy), 2, IVORY)
-    # Three tines are pointed and long enough to read as a weapon at 3x.
-    for side in (-1, 0, 1):
-        mid = 38 + side * 16
-        tip_y = 4 if side == 0 else 12
-        base_y = 44 if side == 0 else 43
-        tip_x = mid + side * 3
-        poly(im, sh([(mid - 5, base_y), (mid + 5, base_y), (mid + 3, tip_y + 11), (tip_x, tip_y), (mid - 3, tip_y + 11)]), INK)
-        poly(im, sh([(mid - 3, base_y - 2), (mid + 1, base_y - 2), (mid, tip_y + 6), (tip_x, tip_y + 2)]), GOLD_DARK)
-        line(im, (mid - 2, base_y - 5 + dy), (tip_x - 1, tip_y + 6 + dy), 2, IVORY)
-        line(im, (mid + 3, base_y - 8 + dy), (mid + 2, tip_y + 13 + dy), 1, GOLD)
-    box(im, 35, 42 + dy, 41, 48 + dy, GOLD_DARK)
-    box(im, 36, 42 + dy, 39, 47 + dy, GOLD_LIGHT)
+    # Three tips converge toward a vanishing point. The wide near end of the
+    # haft is closest to the player: this is a throw straight into the scene.
+    if frame <= 5:
+        poly(im, [(51, 74), (61, 74), (73, 111), (39, 111)], INK)
+        poly(im, [(53, 76), (58, 76), (65, 109), (44, 109)], GOLD_DARK)
+        poly(im, [(54, 77), (55, 77), (49, 108), (44, 108)], IVORY)
+        poly(im, [(59, 78), (61, 78), (72, 109), (67, 109)], SHADOW)
+        for y in (91, 102):
+            line(im, (47 - (y - 91) // 2, y), (66 + (y - 91) // 2, y), 3, GOLD)
+            line(im, (49 - (y - 91) // 2, y - 1), (62 + (y - 91) // 2, y - 1), 1, GOLD_LIGHT)
+        # The fork is a broad metal collar with dark side planes.
+        poly(im, [(49, 77), (63, 77), (80, 68), (77, 63), (59, 72), (53, 72), (35, 63), (32, 68)], INK)
+        poly(im, [(52, 75), (61, 75), (76, 67), (60, 72), (53, 72), (36, 67)], GOLD)
+        line(im, (39, 67), (73, 67), 2, IVORY)
+        # Side tines lean inward toward the same impact point; the middle
+        # prong is the longest. Their lit and shadow faces imply metal depth.
+        for side in (-1, 0, 1):
+            base_x = 56 + side * 21
+            tip_x = 56 + side * 8
+            tip_y = 43 if side == 0 else 48
+            poly(im, [(base_x - 5, 70), (base_x + 5, 70), (tip_x + 3, tip_y + 7),
+                      (tip_x, tip_y), (tip_x - 3, tip_y + 7)], INK)
+            poly(im, [(base_x - 3, 68), (base_x + 1, 68), (tip_x, tip_y + 5),
+                      (tip_x - 1, tip_y + 2)], IVORY)
+            line(im, (base_x + 3, 67), (tip_x + 2, tip_y + 7), 2, GOLD_DARK)
+        box(im, 52, 72, 61, 78, GOLD_DARK)
+        box(im, 54, 72, 58, 76, GOLD_LIGHT)
     if frame >= 4:
-        for i in range(10):
-            ang = i * math.tau / 10
-            r = 12 + (frame - 4) * 6 + i % 3
-            x = round(38 + math.cos(ang) * r)
-            y = round(28 + math.sin(ang) * r * .65)
-            box(im, x, y, x + 2, y + 2, TEAL_LIGHT if i % 2 else WHITE)
+        radius = (12, 24, 35, 47)[frame - 4]
+        ellipse_ring(im, 56, 51, radius, max(6, radius * 3 // 4), 3, TEAL)
+        ellipse_ring(im, 56, 51, radius - 3, max(4, radius * 3 // 4 - 3), 1, WHITE)
+        if frame == 4:
+            ellipse(im, 56, 51, 6, 5, WHITE)
+        for i in range(12):
+            angle = (i + .5) * math.tau / 12
+            r = radius + 3 + i % 5
+            x = round(56 + math.cos(angle) * r)
+            y = round(51 + math.sin(angle) * r * .75)
+            box(im, x, y, x + 2, y + 2, TEAL_LIGHT if i % 2 else IVORY)
 
 
 def paw(im: Image.Image, frame: int) -> None:
-    dy = (12, 7, 3, 0, -2, -7, -12)[frame]
-    # Brown fur limb behind the cream paw, as seen on cats_paw card art.
-    poly(im, [(21, 0), (44, 0), (49, 20 + dy), (42, 36 + dy), (20, 35 + dy), (15, 21 + dy)], FUR_DARK)
-    poly(im, [(23, 0), (40, 0), (44, 22 + dy), (38, 33 + dy), (23, 30 + dy), (19, 17 + dy)], FUR)
-    line(im, (23, 3), (25, 25 + dy), 3, FUR_LIGHT)
-    for x, y in ((22, 12), (35, 16), (29, 24), (40, 9)):
-        box(im, x, y + dy // 2, x + 2, y + 3 + dy // 2, FUR_DARK)
-    ellipse(im, 32, 39 + dy, 24, 20, INK)
-    ellipse(im, 32, 37 + dy, 22, 18, FUR_DARK)
-    ellipse(im, 32, 39 + dy, 20, 17, CREAM)
-    ellipse(im, 27, 34 + dy, 12, 8, IVORY)
-    ellipse(im, 43, 44 + dy, 5, 9, FUR_LIGHT)
+    dy = (10, 6, 3, 0, -1, -4, -7)[frame]
+    stamp = Image.new("RGBA", (64, 72))
+    # A self-contained paw print: no forearm or straight wrist cut-off.
+    ellipse(stamp, 32, 39 + dy, 24, 20, INK)
+    ellipse(stamp, 32, 37 + dy, 22, 18, FUR_DARK)
+    ellipse(stamp, 32, 39 + dy, 20, 17, CREAM)
+    ellipse(stamp, 27, 34 + dy, 12, 8, IVORY)
+    ellipse(stamp, 43, 44 + dy, 5, 9, FUR_LIGHT)
     # Four separate toe beans and a central heart-like pad.
     for x, y, rx, ry in ((17, 33, 4, 5), (27, 27, 5, 5), (39, 28, 5, 5), (49, 35, 4, 5)):
-        ellipse(im, x, y + dy, rx + 1, ry + 1, PINK_DARK)
-        ellipse(im, x - 1, y - 1 + dy, rx - 1, ry - 1, PINK)
-        put(im, x - 1, y - 2 + dy, PINK_LIGHT)
-    ellipse(im, 32, 47 + dy, 11, 8, PINK_DARK)
-    ellipse(im, 31, 45 + dy, 9, 6, PINK)
-    ellipse(im, 27, 43 + dy, 3, 2, PINK_LIGHT)
+        ellipse(stamp, x, y + dy, rx + 1, ry + 1, PINK_DARK)
+        ellipse(stamp, x - 1, y - 1 + dy, rx - 1, ry - 1, PINK)
+        put(stamp, x - 1, y - 2 + dy, PINK_LIGHT)
+    ellipse(stamp, 32, 47 + dy, 11, 8, PINK_DARK)
+    ellipse(stamp, 31, 45 + dy, 9, 6, PINK)
+    ellipse(stamp, 27, 43 + dy, 3, 2, PINK_LIGHT)
+    im.paste(stamp, (16, 12))
     if frame >= 3:
-        for i in range(3):
-            x = 15 + i * 17
-            line(im, (x, 54 + dy), (x - 5 - (frame - 3) * 2, 59 + dy), 2, IVORY)
-            put(im, x - 6 - (frame - 3) * 2, 60 + dy, WHITE)
+        radius = (29, 35, 41, 46)[frame - 3]
+        ellipse_ring(im, 48, 51 + dy, radius, max(6, radius * 3 // 4), 3, PINK_LIGHT)
+        ellipse_ring(im, 48, 51 + dy, radius - 3, max(4, radius * 3 // 4 - 3), 1, WHITE)
+        for i in range(12):
+            angle = (i + .3) * math.tau / 12
+            x = round(48 + math.cos(angle) * (radius + 3))
+            y = round(51 + dy + math.sin(angle) * (radius * .75 + 3))
+            box(im, x, y, x + 2, y + 2, WHITE if i % 3 == 0 else PINK)
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     sheet("nodens_pillar_px.png", 112, 216, 8, pillar)
-    sheet("trident_px.png", 76, 112, 8, trident)
-    sheet("cats_paw_px.png", 64, 72, 7, paw)
+    sheet("trident_px.png", 112, 112, 8, trident)
+    sheet("cats_paw_px.png", 96, 96, 7, paw)
 
 
 if __name__ == "__main__":
