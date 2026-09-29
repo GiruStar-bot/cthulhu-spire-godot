@@ -194,6 +194,7 @@ func _set_frame(index: int) -> void:
 	frame_index = index
 	if _atlas != null:
 		_atlas.region = Rect2(float(index * _frame_size.x), 0.0, float(_frame_size.x), float(_frame_size.y))
+		texture = _atlas
 	if _eye != null and _eye_pos.size() >= IDLE_FRAMES and index >= _grow:
 		_eye.position = Vector2(_eye_pos[index - _grow]) * art_scale
 

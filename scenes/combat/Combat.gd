@@ -29,6 +29,19 @@ const FIREBALL_SCALE := 3.0
 const FIREBALL_START_SCALE := 12.0
 const FIREBALL_FLIGHT := 0.32
 const CARD_VFX := preload("res://scenes/combat/CardVfx.gd")
+const SHEET_STRIKE := preload("res://scenes/combat/SheetStrike.gd")
+const SKY_PILLAR_SHEET := preload("res://art/pixel/fx/sky_pillar.png")
+const SKY_PILLAR_FRAME := Vector2i(32, 128)
+const SKY_PILLAR_HOLDS: Array = [0.07, 0.06, 0.05, 0.06, 0.08, 0.08]
+const SKY_PILLAR_STAGGER := 0.06
+const TRIDENT_SHEET := preload("res://art/pixel/fx/trident_thrust.png")
+const TRIDENT_FRAME := Vector2i(72, 72)
+const TRIDENT_HOLDS: Array = [0.06, 0.06, 0.05, 0.05, 0.08, 0.08]
+const CAT_STAMP_SHEET := preload("res://art/pixel/fx/cat_stamp.png")
+const CAT_STAMP_FRAME := Vector2i(64, 64)
+const CAT_STAMP_HOLDS: Array = [0.06, 0.07, 0.05, 0.08, 0.12, 0.10]
+## ドットは原寸。戦場では整数倍の nearest。
+const VFX_PX_SCALE := 3.0
 ## とどめの数字を見せてから、溶解と勝敗メッセージを出すまでの間。
 const HELD_DEATH_REVEAL := 0.32
 const RESULT_WIN_DELAY := 0.92
@@ -2398,6 +2411,29 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 		for uid2 in uids:
 			_fx_fireball_to(str(uid2))
 		return
+	if family == "sky_fall":
+		if VideoSettings.is_reduce_motion():
+			for uid3 in uids:
+				_fx_sheet_still(SKY_PILLAR_SHEET, SKY_PILLAR_FRAME, VFX_PX_SCALE, _vfx_feet_of(str(uid3)), 3, true)
+			return
+		_fx_sky_fall(uids)
+		return
+	if family == "thrust":
+		if VideoSettings.is_reduce_motion():
+			for uid4 in uids:
+				_fx_sheet_still(TRIDENT_SHEET, TRIDENT_FRAME, VFX_PX_SCALE, _vfx_center_of(str(uid4)), 3, false)
+			return
+		for uid5 in uids:
+			_fx_trident_thrust(str(uid5))
+		return
+	if family == "stamp":
+		if VideoSettings.is_reduce_motion():
+			for uid6 in uids:
+				_fx_sheet_still(CAT_STAMP_SHEET, CAT_STAMP_FRAME, VFX_PX_SCALE, _vfx_head_of(str(uid6)), 2, false)
+			return
+		for uid7 in uids:
+			_fx_cat_stamp(str(uid7))
+		return
 
 
 func _vfx_target_uids(definition: Dictionary, target_id) -> Array:
@@ -2505,6 +2541,18 @@ func _on_vfx_struck() -> void:
 	_flush_held_floaters()
 
 
+## 全体攻撃で、届いた1体ぶんだけ数字を出す。最後の1体で勝敗を開ける。
+func _on_vfx_struck_at(uid: String) -> void:
+	if not is_inside_tree():
+		return
+	if _hit_hold_sfx != "":
+		AudioManager.play_sfx(_hit_hold_sfx)
+		_hit_hold_sfx = ""
+	_release_held(uid)
+	if _held_floater_ids.is_empty():
+		_cancel_struck_hold_timeout()
+
+
 func _on_struck_hold_timeout() -> void:
 	_hit_hold_timeout = null
 	_hit_hold_sfx = ""
@@ -2512,10 +2560,30 @@ func _on_struck_hold_timeout() -> void:
 
 
 func _flush_held_floaters() -> void:
+	_release_held("")
+
+
+func _floater_who(id: String) -> String:
+	for floater in state.get("floaters", []):
+		if str(floater.get("id", "")) == id:
+			return str(floater.get("who", ""))
+	return ""
+
+
+func _release_held(only_uid: String) -> void:
 	if _held_floater_ids.is_empty():
 		return
-	var pending: Dictionary = _held_floater_ids
-	_held_floater_ids = {}
+	var pending: Dictionary = {}
+	var remain: Dictionary = {}
+	for key in _held_floater_ids.keys():
+		var id: String = str(key)
+		if only_uid == "" or _floater_who(id) == only_uid:
+			pending[id] = true
+		else:
+			remain[id] = true
+	if pending.is_empty():
+		return
+	_held_floater_ids = remain
 	for floater in state.get("floaters", []):
 		var id: String = str(floater.get("id", ""))
 		if id == "" or not pending.has(id) or _shown_floaters.has(id):
@@ -2523,18 +2591,25 @@ func _flush_held_floaters() -> void:
 		_shown_floaters[id] = true
 		_spawn_floater(floater)
 	var any_lethal: bool = false
-	var held_uids: Array = _shown_enemy_hp.keys()
-	for uid_v in held_uids:
-		var uid: String = str(uid_v)
-		if _true_enemy_hp(uid) <= 0:
-			_shown_enemy_hp[uid] = 0
+	if only_uid == "":
+		var held_uids: Array = _shown_enemy_hp.keys()
+		for uid_v in held_uids:
+			var uid: String = str(uid_v)
+			if _true_enemy_hp(uid) <= 0:
+				_shown_enemy_hp[uid] = 0
+				any_lethal = true
+			else:
+				_shown_enemy_hp.erase(uid)
+		_shown_player_hp = -1
+	elif _shown_enemy_hp.has(only_uid):
+		if _true_enemy_hp(only_uid) <= 0:
+			_shown_enemy_hp[only_uid] = 0
 			any_lethal = true
 		else:
-			_shown_enemy_hp.erase(uid)
-	_shown_player_hp = -1
+			_shown_enemy_hp.erase(only_uid)
 	_refresh_hud()
 	_refresh_enemies()
-	if any_lethal or _result_wait_hit:
+	if _held_floater_ids.is_empty() and (any_lethal or _result_wait_hit):
 		_arm_held_reveal()
 
 
@@ -2645,6 +2720,91 @@ func _fx_tentacle_ground(uid: String) -> void:
 	strike.position = _vfx_feet_of(uid) + Vector2(0.0, 2.0 * scale_px)
 	strike.struck.connect(_on_vfx_struck)
 	strike.play()
+
+
+func _vfx_head_of(uid: String) -> Vector2:
+	_ensure_vfx_layer()
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	if art != null and is_instance_valid(art):
+		var rect: Rect2 = art.get_global_rect()
+		return _vfx_layer.to_local(rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.22))
+	return Vector2(size.x * 0.5, size.y * 0.28)
+
+
+func _sort_uids_by_x(a, b) -> bool:
+	return _vfx_feet_of(str(a)).x < _vfx_feet_of(str(b)).x
+
+
+func _fx_sheet_still(sheet: Texture2D, frame_size: Vector2i, scale_px: float, pos: Vector2, frame_i: int, anchor_bottom: bool) -> void:
+	_ensure_vfx_layer()
+	var spr := Sprite2D.new()
+	var cols: int = maxi(1, int(sheet.get_width() / frame_size.x))
+	var image: Image = sheet.get_image()
+	if image != null and not image.is_empty():
+		var cell: Image = image.get_region(Rect2i(frame_i * frame_size.x, 0, frame_size.x, frame_size.y))
+		spr.texture = ImageTexture.create_from_image(cell)
+	else:
+		spr.texture = sheet
+		spr.hframes = cols
+		spr.vframes = 1
+		spr.frame = clampi(frame_i, 0, cols - 1)
+	spr.centered = true
+	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	spr.scale = Vector2(scale_px, scale_px)
+	if anchor_bottom:
+		spr.offset = Vector2(0.0, -float(frame_size.y) * 0.5)
+	spr.position = pos
+	spr.z_index = -2
+	_vfx_layer.add_child(spr)
+	var tw: Tween = spr.create_tween()
+	tw.tween_interval(0.2)
+	tw.tween_callback(spr.queue_free)
+
+
+func _spawn_sheet_strike(sheet: Texture2D, frame_size: Vector2i, strike_at: int, holds: Array, anchor_bottom: bool, pos: Vector2, uid: String, per_target: bool) -> void:
+	_ensure_vfx_layer()
+	var strike = SHEET_STRIKE.new()
+	strike.z_index = -2
+	_vfx_layer.add_child(strike)
+	strike.setup(sheet, frame_size, VFX_PX_SCALE, strike_at, holds, anchor_bottom)
+	strike.position = pos
+	if per_target:
+		strike.struck.connect(_on_vfx_struck_at.bind(uid))
+	else:
+		strike.struck.connect(_on_vfx_struck)
+	strike.play()
+
+
+func _fx_sky_fall(uids: Array) -> void:
+	var ordered: Array = uids.duplicate()
+	ordered.sort_custom(_sort_uids_by_x)
+	var i: int = 0
+	for uid_v in ordered:
+		var uid: String = str(uid_v)
+		var delay: float = SKY_PILLAR_STAGGER * float(i)
+		if delay <= 0.0:
+			_spawn_sky_pillar(uid)
+		else:
+			var tw: Tween = create_tween()
+			tw.tween_interval(delay)
+			tw.tween_callback(_spawn_sky_pillar.bind(uid))
+		i += 1
+
+
+func _spawn_sky_pillar(uid: String) -> void:
+	if not is_inside_tree():
+		return
+	## 輪はシート下端から 8px 上。足元に乗せる。
+	var pos: Vector2 = _vfx_feet_of(uid) + Vector2(0.0, 8.0 * VFX_PX_SCALE)
+	_spawn_sheet_strike(SKY_PILLAR_SHEET, SKY_PILLAR_FRAME, 3, SKY_PILLAR_HOLDS, true, pos, uid, true)
+
+
+func _fx_trident_thrust(uid: String) -> void:
+	_spawn_sheet_strike(TRIDENT_SHEET, TRIDENT_FRAME, 3, TRIDENT_HOLDS, false, _vfx_center_of(uid), uid, false)
+
+
+func _fx_cat_stamp(uid: String) -> void:
+	_spawn_sheet_strike(CAT_STAMP_SHEET, CAT_STAMP_FRAME, 2, CAT_STAMP_HOLDS, false, _vfx_head_of(uid), uid, false)
 
 
 func _vfx_fit(uid: String) -> float:
