@@ -2,7 +2,7 @@ class_name CthughaEventModal
 extends CanvasLayer
 
 ## 戦闘で使うドット敵を神殿の足場に立たせ、下部の会話パネルで一行ずつ再生する。
-## 自由入力の本文は保存・送信しない。
+## 合言葉の入力内容は保存・送信しない。
 signal choice_selected(choice_id: String)
 
 const SHRINE_BG := "res://art/pixel/bg/shrine.jpg"
@@ -12,9 +12,7 @@ const ACTOR_SCALE_SINGLE := 2.15
 const ACTOR_SCALE_GROUP := 1.95
 const ACTOR_FEET_RATIO := 0.76
 
-const PEOPLE_WORDS: Array[String] = ["上司", "同僚", "彼女", "彼氏", "友達", "家族", "親", "あいつ", "人間関係", "ぼっち", "孤独", "嫌われ", "いじめ", "職場"]
-const LIFE_WORDS: Array[String] = ["お金", "金が", "金欠", "貧乏", "生活", "仕事", "働き", "給料", "家賃", "欲しい", "足りない", "無い", "ない"]
-const ANGER_WORDS: Array[String] = ["殺したい", "ころしたい", "死んでほしい", "許せない", "憎い", "消えてほしい", "恨む"]
+const PASSPHRASE := "フォーマルハウト"
 
 var _stage: int = 1
 var _root: Control
@@ -200,7 +198,6 @@ func _start() -> void:
 		3: _play_lines([
 			_line("priest", "お、来ましたね。"),
 			_line("acolyte", "あなたが例の"),
-			_line("fanatic", "そう、こいつ。いろいろ苦労してるらしい"),
 			_line("priest", "あなたに問いたい"),
 			_line("priest", "苦しみはこの世から消え去って欲しいと思われますか"),
 		], _third_choices_one)
@@ -272,14 +269,17 @@ func _finish(choice_id: String) -> void:
 
 func _first_choices() -> void:
 	_set_choices([
-		{"label": "はい", "action": func() -> void: _play_lines([_line("priest", "ではこれを授けましょう")], func() -> void: _finish("accept_fireballs"))},
+		{"label": "はい", "action": func() -> void: _play_lines([
+			_line("priest", "ではこれを授けましょう"),
+			_line("priest", "フォーマルハウト。この星の名を覚えておいてください"),
+		], func() -> void: _finish("accept_fireballs"))},
 		{"label": "いいえ", "action": func() -> void: _finish("decline")},
 	])
 
 
 func _second_choices() -> void:
 	_set_choices([
-		{"label": "はい", "action": func() -> void: _play_lines([_line("fanatic", "やっぱお前か"), _line("fanatic", "で、どんな不満を抱いてんだ？")], _show_input)},
+		{"label": "はい", "action": func() -> void: _play_lines([_line("fanatic", "やっぱお前か"), _line("fanatic", "お前さんよ、合言葉しってっか？")], _show_input)},
 		{"label": "いいえ", "action": func() -> void: _play_lines([_line("fanatic", "そうか、お前じゃないのか")], func() -> void: _finish("deny"))},
 	])
 
@@ -292,12 +292,12 @@ func _show_input() -> void:
 	_input.offset_right = -145.0
 	_input.offset_top = -164.0
 	_input.offset_bottom = -108.0
-	_input.placeholder_text = "今抱いている不満をここに吐く"
-	_input.max_length = 500
+	_input.placeholder_text = "合言葉を入力"
+	_input.max_length = 32
 	_root.add_child(_input)
 	_set_choices([
-		{"label": "話す", "action": _submit_input},
-		{"label": "話したくない", "action": func() -> void: _finish("skip")},
+		{"label": "答える", "action": _submit_input},
+		{"label": "答えない", "action": func() -> void: _finish("skip")},
 	])
 	_input.grab_focus()
 	_input.text_submitted.connect(func(_unused: String) -> void: _submit_input())
@@ -306,46 +306,19 @@ func _show_input() -> void:
 func _submit_input() -> void:
 	if _input == null or _busy:
 		return
-	var category: String = classify_complaint(_input.text)
+	var correct: bool = is_correct_passphrase(_input.text)
 	_input.queue_free()
 	_input = null
-	match category:
-		"people": _play_lines([
-			_line("fanatic", "そうか、苦労してんだな。"),
-			_line("fanatic", "全部お前が背負いこむのだけはやめた方がいい。"),
-			_line("fanatic", "また、不満吐きたくなったら、話聞くぜ、じゃあな"),
-		], func() -> void: _finish("speak"))
-		"life": _play_lines([
-			_line("fanatic", "なるほど"),
-			_line("fanatic", "今って、欲しいものがどんどん遠くなってってるよな"),
-			_line("fanatic", "それに誰も助けてくれない"),
-			_line("fanatic", "まあしゃーないことだけどな"),
-			_line("fanatic", "またなんか不満があったら、話聞くぜ、じゃあな"),
-		], func() -> void: _finish("speak"))
-		"anger": _play_lines([
-			_line("fanatic", "まあ、落ち着けって"),
-			_line("fanatic", "俺も人を恨んだことはあるが"),
-			_line("fanatic", "どうせ、どうでもよくなると思うぜ"),
-			_line("fanatic", "また、なんかあれば話きくぜ、じゃあな"),
-		], func() -> void: _finish("speak"))
-		_: _play_lines([_line("fanatic", "何いってんだ？")], func() -> void: _finish("fight"))
+	if correct:
+		_play_lines([_line("fanatic", "ああ、それだ。大司祭様に会わせるぜ")], func() -> void: _finish("passphrase"))
+	else:
+		_play_lines([_line("fanatic", "何いってんだ？")], func() -> void: _finish("fight"))
 
 
-## 人物を含む「許せない」は人間関係、単独なら攻撃的な回答。
-static func classify_complaint(raw: String) -> String:
+## 日本語表記と原語表記を受け付け、前後の空白と英字の大小を無視する。
+static func is_correct_passphrase(raw: String) -> bool:
 	var value: String = raw.strip_edges().to_lower()
-	if value.is_empty():
-		return ""
-	for word in PEOPLE_WORDS:
-		if value.contains(word):
-			return "people"
-	for word in ANGER_WORDS:
-		if value.contains(word):
-			return "anger"
-	for word in LIFE_WORDS:
-		if value.contains(word):
-			return "life"
-	return ""
+	return value == PASSPHRASE or value == "ふぉーまるはうと" or value == "fomalhaut"
 
 
 func _third_choices_one() -> void:
