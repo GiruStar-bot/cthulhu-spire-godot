@@ -2,6 +2,8 @@ extends Sprite2D
 
 ## 横1列のシートを、コマごとの秒数で一度だけ再生して struck を出す。
 ## 光の柱・三叉の矛・ねこの手で共用。退くコマもシート側に描いてある。
+## AtlasTexture.region の書き換えは Forward+ で画面に乗らないことがあるので、
+## コマは最初に切り出して texture 自体を差し替える。
 
 signal struck
 
@@ -9,7 +11,7 @@ var _frame_size: Vector2i = Vector2i(32, 32)
 var _frames: int = 1
 var _strike_at: int = 0
 var _holds: Array = []
-var _atlas: AtlasTexture
+var _cells: Array[Texture2D] = []
 var _t: float = 0.0
 var _hit_sent: bool = false
 var _playing: bool = false
@@ -20,10 +22,7 @@ func setup(sheet: Texture2D, frame_size: Vector2i, scale_px: float, strike_at: i
 	_frames = maxi(1, int(sheet.get_width() / frame_size.x))
 	_strike_at = clampi(strike_at, 0, _frames - 1)
 	_holds = holds
-	_atlas = AtlasTexture.new()
-	_atlas.atlas = sheet
-	_atlas.filter_clip = true
-	texture = _atlas
+	_slice(sheet)
 	centered = true
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	scale = Vector2(scale_px, scale_px)
@@ -34,6 +33,7 @@ func setup(sheet: Texture2D, frame_size: Vector2i, scale_px: float, strike_at: i
 		offset = Vector2.ZERO
 	_set_frame(0)
 	visible = false
+	set_process(true)
 
 
 func play() -> void:
@@ -57,6 +57,21 @@ func _process(delta: float) -> void:
 		_playing = false
 		visible = false
 		queue_free()
+
+
+func _slice(sheet: Texture2D) -> void:
+	_cells.clear()
+	hframes = 1
+	vframes = 1
+	var image: Image = sheet.get_image()
+	if image == null or image.is_empty():
+		texture = sheet
+		hframes = _frames
+		return
+	for i in _frames:
+		var cell: Image = image.get_region(Rect2i(i * _frame_size.x, 0, _frame_size.x, _frame_size.y))
+		_cells.append(ImageTexture.create_from_image(cell))
+	texture = _cells[0]
 
 
 func _hold_at(i: int) -> float:
@@ -84,4 +99,11 @@ func _finished() -> bool:
 
 func _set_frame(i: int) -> void:
 	var col: int = clampi(i, 0, _frames - 1)
-	_atlas.region = Rect2(col * _frame_size.x, 0, _frame_size.x, _frame_size.y)
+	if _cells.is_empty():
+		frame = col
+		return
+	var next: Texture2D = _cells[col]
+	if texture == next:
+		return
+	texture = next
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
