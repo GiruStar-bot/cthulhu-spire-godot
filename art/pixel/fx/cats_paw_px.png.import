@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://m6rijmbjjne5"
-path="res://.godot/imported/nodens_pillar_v2.png-1a972565f8cb4e0fa71aebbc14afc0f4.ctex"
+uid="uid://dkk0ljact53x2"
+path="res://.godot/imported/cats_paw_px.png-21e6c603a528c4eb9084cd06e59733ae.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/pixel/fx/nodens_pillar_v2.png"
-dest_files=["res://.godot/imported/nodens_pillar_v2.png-1a972565f8cb4e0fa71aebbc14afc0f4.ctex"]
+source_file="res://art/pixel/fx/cats_paw_px.png"
+dest_files=["res://.godot/imported/cats_paw_px.png-21e6c603a528c4eb9084cd06e59733ae.ctex"]
 
 [params]
 
