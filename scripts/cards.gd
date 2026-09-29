@@ -38,50 +38,12 @@ const ART_FALLBACK := {
 	"res://art/pixel/cards/venom_blade.jpg": "res://art/pixel/cards/corrosive_strike.jpg",
 	"res://art/pixel/cards/corroding_barrage.jpg": "res://art/pixel/cards/corrosive_strike.jpg",
 	"res://art/pixel/cards/toxic_mist.jpg": "res://art/pixel/cards/pus_mist.jpg",
-	"res://art/pixel/cards/pustule_armor.jpg": "res://art/pixel/cards/adapted_scales.png",
 	"res://art/pixel/cards/venom_potency.jpg": "res://art/pixel/cards/pus_mist.jpg",
 	"res://art/pixel/cards/self_poisoning.jpg": "res://art/pixel/cards/bloodpact.jpg",
 }
 
 const CARDS := {
-	"chant": {
-		"id": "chant",
-		"name": "詠唱",
-		"type": "skill",
-		"aiTag": "defense",
-		"archetype": "knight",
-		"cost": 1,
-		"sell_price": 5,
-		"drop_weight": 10,
-		"pack_weight": 26,
-		"enemy_tier": 1,
-		"owner": "cultist",
-		"text": "ブロック6を得る。筋力を2得る。",
-		"upgradedText": "ブロック8を得る。筋力を3得る。",
-		"flavor": "言葉が、自分を知っている。",
-		"art": "res://art/pixel/cards/chant.png",
-		"target": "none",
-		"effects": [
-			{
-				"t": "block",
-				"n": 6,
-			},
-			{
-				"t": "strength",
-				"n": 2,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "block",
-				"n": 8,
-			},
-			{
-				"t": "strength",
-				"n": 3,
-			},
-		],
-	},
+
 	"echo": {
 		"id": "echo",
 		"name": "残響",
@@ -402,7 +364,7 @@ const CARDS := {
 		"text": "敵全体に10ダメージ。弱体2。正気を6失う。破棄。",
 		"upgradedText": "敵全体に14ダメージ。弱体3。正気を5失う。破棄。",
 		"flavor": "母音を、待っていた。",
-		"art": "res://art/pixel/cards/thecall.jpg",
+		"art": "res://art/pixel/cards/thecall.png",
 		"target": "all",
 		"exhaust": true,
 		"effects": [
@@ -464,44 +426,7 @@ const CARDS := {
 			},
 		],
 	},
-	"adapted_scales": {
-		"id": "adapted_scales",
-		"name": "適応の鱗",
-		"type": "skill",
-		"aiTag": "defense",
-		"archetype": "water",
-		"cost": 1,
-		"sell_price": 5,
-		"drop_weight": 10,
-		"pack_weight": 10,
-		"enemy_tier": 1,
-		"owner": "cultist",
-		"text": "ブロック6を得る。1回復。",
-		"upgradedText": "ブロック8を得る。1回復。",
-		"flavor": "皮膚が、水を覚えている。",
-		"art": "res://art/pixel/cards/adapted_scales.png",
-		"target": "none",
-		"effects": [
-			{
-				"t": "block",
-				"n": 6,
-			},
-			{
-				"t": "heal",
-				"n": 1,
-			},
-		],
-		"upgradedEffects": [
-			{
-				"t": "block",
-				"n": 8,
-			},
-			{
-				"t": "heal",
-				"n": 1,
-			},
-		],
-	},
+
 	## アイホートくんの呪い（子を宿す）が発動した戦闘で、デッキ全体がこれに置き換わる。
 	"hundred_eyed_child": {
 		"id": "hundred_eyed_child",
@@ -532,7 +457,7 @@ const CARDS := {
 		"text": "敵単体に1ダメージ。命中した場合、この身に子を宿す。",
 		"upgradedText": "同上",
 		"flavor": "",
-		"art": "res://art/pixel/cards/child_bearing.jpg",
+		"art": "res://art/pixel/cards/child_bearing.png",
 		"target": "enemy",
 		"effects": [
 			{"t": "damage", "n": 1},
@@ -769,7 +694,7 @@ const CARDS := {
 		"text": "恐怖を5枚デッキに差し込む。",
 		"upgradedText": "恐怖を7枚デッキに差し込む。",
 		"flavor": "禁忌の言葉が、聞く者の正気を蝕む。",
-		"art": "res://art/pixel/cards/revelation.jpg",
+		"art": "res://art/pixel/cards/revelation.png",
 		"target": "none",
 		"effects": [
 			{
@@ -797,7 +722,7 @@ const CARDS := {
 		"text": "筋力3を得る。",
 		"upgradedText": "筋力4を得る。",
 		"flavor": "声が声を呼び、力となる。",
-		"art": "res://art/pixel/cards/chorusunity.jpg",
+		"art": "res://art/pixel/cards/chorusunity.png",
 		"target": "none",
 		"effects": [
 			{
@@ -825,7 +750,7 @@ const CARDS := {
 		"text": "ブロック20を得る。",
 		"upgradedText": "ブロック26を得る。",
 		"flavor": "歪んだ母性が、その身を包み込む。",
-		"art": "res://art/pixel/cards/embrace.jpg",
+		"art": "res://art/pixel/cards/embrace.png",
 		"target": "none",
 		"effects": [
 			{
@@ -854,7 +779,7 @@ const CARDS := {
 		"text": "13ダメージ。",
 		"upgradedText": "17ダメージ。",
 		"flavor": "無数の翼が、一斉に牙を立てる。",
-		"art": "res://art/pixel/cards/flockrush.jpg",
+		"art": "res://art/pixel/cards/flockrush.png",
 		"target": "enemy",
 		"effects": [
 			{
@@ -882,7 +807,7 @@ const CARDS := {
 		"text": "ブロック22を得る。弱体2を与える。",
 		"upgradedText": "ブロック28を得る。弱体3を与える。",
 		"flavor": "角度が、あるべきでない形に曲がる。",
-		"art": "res://art/pixel/cards/noneuclid.jpg",
+		"art": "res://art/pixel/cards/noneuclid.png",
 		"target": "enemy",
 		"effects": [
 			{
@@ -918,7 +843,7 @@ const CARDS := {
 		"text": "弱体3を与える。",
 		"upgradedText": "弱体4を与える。",
 		"flavor": "沈んだ街に、今も鐘は鳴り続ける。",
-		"art": "res://art/pixel/cards/tollbell.jpg",
+		"art": "res://art/pixel/cards/tollbell.png",
 		"target": "enemy",
 		"effects": [
 			{
@@ -949,7 +874,7 @@ const CARDS := {
 		"text": "22ダメージ。満潮のときにだけ放たれる。",
 		"upgradedText": "22ダメージ。満潮のときにだけ放たれる。",
 		"flavor": "海が、街ごと呑みに来る。",
-		"art": "res://art/pixel/cards/great_surge.jpg",
+		"art": "res://art/pixel/cards/great_surge.png",
 		"target": "enemy",
 		"effects": [
 			{"t": "damage", "n": 22},
@@ -972,7 +897,7 @@ const CARDS := {
 		"text": "9ダメージ。脆弱2を与える。",
 		"upgradedText": "9ダメージ。脆弱2を与える。",
 		"flavor": "底から伸びる手は、決して離さない。",
-		"art": "res://art/pixel/cards/abyss_grasp.jpg",
+		"art": "res://art/pixel/cards/abyss_grasp.png",
 		"target": "enemy",
 		"effects": [
 			{"t": "damage", "n": 9},
@@ -997,7 +922,7 @@ const CARDS := {
 		"text": "ブロック18を得る。",
 		"upgradedText": "ブロック18を得る。",
 		"flavor": "千年の塩が、鱗の上で固まっている。",
-		"art": "res://art/pixel/cards/brine_hide.jpg",
+		"art": "res://art/pixel/cards/brine_hide.png",
 		"target": "enemy",
 		"effects": [
 			{"t": "block", "n": 18},
@@ -1021,7 +946,7 @@ const CARDS := {
 		"text": "8ダメージ。手札からランダムに1枚を、この戦闘のあいだ奪い去る。",
 		"upgradedText": "8ダメージ。手札からランダムに1枚を、この戦闘のあいだ奪い去る。",
 		"flavor": "風が、手の中のものを連れていく。",
-		"art": "res://art/pixel/cards/sky_snatch.jpg",
+		"art": "res://art/pixel/cards/sky_snatch.png",
 		"target": "enemy",
 		"effects": [
 			{"t": "damage", "n": 8},
@@ -1046,7 +971,7 @@ const CARDS := {
 		"text": "寒気2を与える。山札に凍傷を1枚混ぜる。",
 		"upgradedText": "寒気2を与える。山札に凍傷を1枚混ぜる。",
 		"flavor": "吐息ひとつで、肺の奥まで凍りつく。",
-		"art": "res://art/pixel/cards/frost_breath.jpg",
+		"art": "res://art/pixel/cards/frost_breath.png",
 		"target": "enemy",
 		"effects": [
 			{"t": "inflictCold", "n": 2},
@@ -1071,7 +996,7 @@ const CARDS := {
 		"text": "6ダメージを2回。",
 		"upgradedText": "6ダメージを2回。",
 		"flavor": "見えたときには、もう二度裂かれている。",
-		"art": "res://art/pixel/cards/gale_claw.jpg",
+		"art": "res://art/pixel/cards/gale_claw.png",
 		"target": "enemy",
 		"effects": [
 			{"t": "damage", "n": 6, "hits": 2},
@@ -1093,7 +1018,7 @@ const CARDS := {
 		"text": "相手の正気を8失わせ、弱体2を与える。",
 		"upgradedText": "相手の正気を11失わせ、弱体3を与える。",
 		"flavor": "知ることは、失うことと同義である。",
-		"art": "res://art/pixel/cards/pricewisdom.jpg",
+		"art": "res://art/pixel/cards/pricewisdom.png",
 		"target": "enemy",
 		"effects": [
 			{
@@ -1130,7 +1055,7 @@ const CARDS := {
 		"text": "17ダメージ。",
 		"upgradedText": "22ダメージ。",
 		"flavor": "腐肉が形を失い、押し寄せる。",
-		"art": "res://art/pixel/cards/protosurge.jpg",
+		"art": "res://art/pixel/cards/protosurge.png",
 		"target": "enemy",
 		"effects": [
 			{
@@ -1159,7 +1084,7 @@ const CARDS := {
 		"text": "25ダメージ。脆弱2を与える。",
 		"upgradedText": "32ダメージ。脆弱3を与える。",
 		"flavor": "それは、ただ喰らうために在る。",
-		"art": "res://art/pixel/cards/devourmaw.jpg",
+		"art": "res://art/pixel/cards/devourmaw.png",
 		"target": "enemy",
 		"effects": [
 			{
@@ -1196,7 +1121,7 @@ const CARDS := {
 		"text": "相手の攻撃を封じる。弱体1を与える。",
 		"upgradedText": "相手の攻撃を封じる。弱体2を与える。",
 		"flavor": "千の仮面が見つめる先で、剣は震え、動けなくなる。",
-		"art": "res://art/pixel/cards/evil_eye_bind.jpg",
+		"art": "res://art/pixel/cards/evil_eye_bind.png",
 		"target": "enemy",
 		"effects": [
 			{
@@ -1233,7 +1158,7 @@ const CARDS := {
 		"text": "相手の技能を封じる。",
 		"upgradedText": "相手の技能を封じる。ブロック5を得る。",
 		"flavor": "言葉は喉の奥で、形を失う。",
-		"art": "res://art/pixel/cards/silent_bind.jpg",
+		"art": "res://art/pixel/cards/silent_bind.png",
 		"target": "enemy",
 		"effects": [
 			{
@@ -1687,7 +1612,7 @@ const CARDS := {
 		"unobtainable": true, "token": true, "vanishOnUse": true,
 		"text": "防御6を得る。",
 		"upgradedText": "防御6を得る。",
-		"flavor": "", "art": "", "target": "none",
+		"flavor": "", "art": "res://art/pixel/cards/sea.png", "target": "none",
 		"effects": [{"t": "block", "n": 6}],
 		"upgradedEffects": [{"t": "block", "n": 6}],
 	},
@@ -1774,7 +1699,7 @@ const CARDS := {
 		"unobtainable": true, "token": true, "vanishOnUse": true,
 		"text": "敵全体に6ダメージ。",
 		"upgradedText": "敵全体に6ダメージ。",
-		"flavor": "", "art": "", "target": "all",
+		"flavor": "", "art": "res://art/pixel/cards/whirlwind.png", "target": "all",
 		"effects": [{"t": "damageAll", "n": 6}],
 		"upgradedEffects": [{"t": "damageAll", "n": 6}],
 	},
@@ -2056,7 +1981,7 @@ const CARDS := {
 		"vanishOnUse": true,
 		"text": "（テスト）使用後に完全に消滅する。",
 		"upgradedText": "（テスト）使用後に完全に消滅する。",
-		"art": "",
+		"art": "res://art/pixel/cards/black_sheep.png",
 		"target": "none",
 		"effects": [],
 		"upgradedEffects": [],
@@ -2093,11 +2018,6 @@ const _AI_TRANSLATABLE := [
 	"addStatusToDraw",
 	"snatchHand",
 ]
-
-const _AI_EXCLUDED_IDS := [
-	"adapted_scales",
-]
-
 
 ## cards.ts getCard()
 static func get_card(id: String) -> Dictionary:
@@ -2183,8 +2103,6 @@ static func ai_card_pool(tag: String, max_enemy_tier = null, archetype = null) -
 		if c.get("aiTag") != tag:
 			continue
 		if not _has_translatable_effect(c):
-			continue
-		if str(c.get("id", "")) in _AI_EXCLUDED_IDS:
 			continue
 		if max_enemy_tier != null:
 			var tier: int = int(c.get("enemy_tier", 0))
