@@ -7,12 +7,12 @@ extends RefCounted
 ##
 ## 段階:
 ##  1. この表と、Combat の着弾待ちを1つの入口にする（今ここ）
-##  2. sky_fall / thrust / stamp / sweep / ring_wave のシート＋ struck
-##  3. 優先度Aの攻撃素材
+##  2. sky_fall / thrust / stamp は光の柱・三叉の矛・ねこの手で接続済み
+##  3. sweep / ring_wave と、残りの優先度A
 ##  4. 自分側（self_*）。手札とHUDに出す
 ##  5. 敵カードは同じ型を反転
 ##  6. 優先度B・C
-## 全体攻撃の「届いた敵から数字」は段階3（sweep）で、この保留リストを敵ごとに外す。
+## 光の柱は届いた敵から数字を外す。sweep も同じ入口を使う。
 
 const PROFILES := {
 	"impact": {
@@ -38,6 +38,24 @@ const PROFILES := {
 		"delay": true,
 		"timeout": 0.7,
 		"hit_sfx": "vfx_impact",
+	},
+	"light_pillar": {
+		"family": "sky_fall",
+		"delay": true,
+		"timeout": 0.9,
+		"hit_sfx": "vfx_impact",
+	},
+	"trident": {
+		"family": "thrust",
+		"delay": true,
+		"timeout": 0.9,
+		"hit_sfx": "vfx_impact",
+	},
+	"cats_paw": {
+		"family": "stamp",
+		"delay": true,
+		"timeout": 0.9,
+		"hit_sfx": "cat_hiss",
 	},
 }
 
