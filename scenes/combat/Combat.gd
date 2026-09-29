@@ -30,6 +30,7 @@ const FIREBALL_START_SCALE := 12.0
 const FIREBALL_FLIGHT := 0.32
 const CARD_VFX := preload("res://scenes/combat/CardVfx.gd")
 const CARD_STRIKE_VFX := preload("res://scenes/combat/CardStrikeVfx.gd")
+const CARD_SEQUENCE_VFX := preload("res://scenes/combat/CardSequenceVfx.gd")
 const SKY_PILLAR_STAGGER := 0.11
 ## とどめの数字を見せてから、溶解と勝敗メッセージを出すまでの間。
 const HELD_DEATH_REVEAL := 0.32
@@ -298,7 +299,7 @@ func _play_card(card_uid: String, target_id, from_global: Vector2 = Vector2(-1.0
 		def_id = str(selected_card.get("defId", ""))
 	var hp_before: int = int(player.hp)
 	var definition: Dictionary = Cards.get_card(def_id) if def_id != "" else {}
-	var vfx_key: String = str(definition.get("vfx", ""))
+	var vfx_key: String = CARD_VFX.key_for_card(def_id, str(definition.get("vfx", "")))
 	## キーが無い攻撃は、これまで通り着弾音だけ impact。見た目は出さない（_fx_card_vfx 側）。
 	var vfx_for_sfx: String = vfx_key if vfx_key != "" else "impact"
 	## delay の付いた型は、当たる瞬間まで効果音とダメージ数字を遅らせる。計算自体は上の play_card で済んでいる。
@@ -2366,7 +2367,7 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 	if def_id == "":
 		return
 	var definition: Dictionary = Cards.get_card(def_id)
-	var kind: String = str(definition.get("vfx", ""))
+	var kind: String = CARD_VFX.key_for_card(def_id, str(definition.get("vfx", "")))
 	if kind == "":
 		return
 	var family: String = str(CARD_VFX.family(kind))
@@ -2375,6 +2376,9 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 		return
 	var uids: Array = _vfx_target_uids(definition, target_id)
 	if uids.is_empty():
+		return
+	if CARD_VFX.is_sequence_family(family):
+		_fx_sequence_card(family, uids)
 		return
 	if family == "arrow":
 		for uid in uids:
@@ -2780,6 +2784,46 @@ func _fx_trident_thrust(uid: String) -> void:
 
 func _fx_cat_stamp(uid: String) -> void:
 	_spawn_card_strike("paw", _vfx_head_of(uid), uid, false)
+
+
+func _fx_sequence_card(kind_name: String, uids: Array) -> void:
+	_ensure_vfx_layer()
+	var points: Array[Vector2] = []
+	var ids: Array[String] = []
+	for value in uids:
+		var uid: String = str(value)
+		ids.append(uid)
+		if kind_name == "whirlwind_px" or kind_name == "cold_flame_px" or kind_name == "earthquake_px":
+			points.append(_vfx_feet_of(uid))
+		else:
+			points.append(_vfx_center_of(uid))
+	var together: bool = kind_name == "whirlwind_px" or kind_name == "wind_arrow_px" or kind_name == "thecall_px" or kind_name == "collapse_px" or kind_name == "ultimate_px"
+	if together:
+		_spawn_sequence_card(kind_name, points, ids, "" if kind_name == "whirlwind_px" or kind_name == "wind_arrow_px" else "all")
+		return
+	for i in ids.size():
+		var one_point: Array[Vector2] = []
+		one_point.append(points[i])
+		var one_uid: Array[String] = []
+		one_uid.append(ids[i])
+		_spawn_sequence_card(kind_name, one_point, one_uid, ids[i])
+
+
+func _spawn_sequence_card(kind_name: String, points: Array[Vector2], ids: Array[String], release_uid: String) -> void:
+	var effect: CardSequenceVfx = CARD_SEQUENCE_VFX.new()
+	effect.z_index = -2
+	_vfx_layer.add_child(effect)
+	effect.setup(kind_name, points, ids, size)
+	if kind_name == "whirlwind_px" or kind_name == "wind_arrow_px":
+		effect.struck_at.connect(_on_vfx_struck_at)
+	elif release_uid == "all":
+		effect.struck.connect(_on_vfx_struck)
+	else:
+		effect.struck.connect(_on_vfx_struck_at.bind(release_uid))
+	if VideoSettings.is_reduce_motion():
+		effect.show_still()
+		return
+	effect.play()
 
 
 func _vfx_fit(uid: String) -> float:
