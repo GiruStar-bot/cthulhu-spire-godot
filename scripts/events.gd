@@ -29,7 +29,15 @@ static func get_event(event_id: String) -> Dictionary:
 	return {}
 
 
-static func pick_event(rand: Callable) -> Dictionary:
-	if EVENTS.is_empty():
+## 0 はこの世界周期で抽選停止。1〜3 はクトゥグァの次の場面。
+static func pick_event(rand: Callable, cthugha_stage: int = 0) -> Dictionary:
+	var pool: Array = EVENTS.duplicate()
+	if cthugha_stage >= 1 and cthugha_stage <= 3:
+		pool.append({
+			"id": "cthugha",
+			"presentation": "cthugha",
+			"stage": cthugha_stage,
+		})
+	if pool.is_empty():
 		return {}
-	return Mulberry32.pick_rand(EVENTS, rand)
+	return Mulberry32.pick_rand(pool, rand)

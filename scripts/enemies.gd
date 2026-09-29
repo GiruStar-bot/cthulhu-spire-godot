@@ -28,6 +28,7 @@ const ENEMIES := {
 		"spawn_biomes": ["reef", "street"],
 		"maxHp": 32,
 		"archetype": "fanatic",
+		"bonus_cards": ["fireball", "flame_drain"],
 	},
 	"fanatic": {
 		"id": "fanatic",
@@ -45,6 +46,7 @@ const ENEMIES := {
 		"maxHp": 42,
 		"tier": "elite",
 		"archetype": "fanatic",
+		"bonus_cards": ["fireball", "flame_drain"],
 	},
 	"drowned": {
 		"id": "drowned",
@@ -233,7 +235,7 @@ const ENEMIES := {
 		"archetype": "fanatic",
 		"signatureCardId": "revelation",
 		"cardsPerTurn": 2,
-		"deck": ["revelation", "lash", "bash", "ward", "chorusunity"],
+		"deck": ["revelation", "lash", "bash", "ward", "chorusunity", "fireball", "flame_drain"],
 	},
 	"choir": {
 		"id": "choir",

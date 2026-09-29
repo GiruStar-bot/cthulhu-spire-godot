@@ -36,6 +36,8 @@ static func empty_profile() -> Dictionary:
 		"shells": 0,
 		"starter_chosen": false,
 		"collection_saved": false,
+		"cthugha_stage": 1,
+		"cthugha_dream_visit": false,
 	}
 
 
@@ -140,6 +142,8 @@ static func load_profile() -> Dictionary:
 	var shells_raw = parsed.get("shells", 0)
 	profile.shells = max(0, int(shells_raw)) if (typeof(shells_raw) == TYPE_FLOAT or typeof(shells_raw) == TYPE_INT) else 0
 	profile.starter_chosen = (not not parsed.get("starter_chosen", true)) if typeof(parsed.get("starter_chosen")) == TYPE_BOOL else true
+	profile.cthugha_stage = clampi(int(parsed.get("cthugha_stage", 1)), 0, 3)
+	profile.cthugha_dream_visit = parsed.get("cthugha_dream_visit", false) == true
 	return profile
 
 
