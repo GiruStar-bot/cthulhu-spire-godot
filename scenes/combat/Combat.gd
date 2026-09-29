@@ -2738,11 +2738,16 @@ func _sort_uids_by_x(a, b) -> bool:
 func _fx_sheet_still(sheet: Texture2D, frame_size: Vector2i, scale_px: float, pos: Vector2, frame_i: int, anchor_bottom: bool) -> void:
 	_ensure_vfx_layer()
 	var spr := Sprite2D.new()
-	var atlas := AtlasTexture.new()
-	atlas.atlas = sheet
-	atlas.filter_clip = true
-	atlas.region = Rect2(frame_i * frame_size.x, 0, frame_size.x, frame_size.y)
-	spr.texture = atlas
+	var cols: int = maxi(1, int(sheet.get_width() / frame_size.x))
+	var image: Image = sheet.get_image()
+	if image != null and not image.is_empty():
+		var cell: Image = image.get_region(Rect2i(frame_i * frame_size.x, 0, frame_size.x, frame_size.y))
+		spr.texture = ImageTexture.create_from_image(cell)
+	else:
+		spr.texture = sheet
+		spr.hframes = cols
+		spr.vframes = 1
+		spr.frame = clampi(frame_i, 0, cols - 1)
 	spr.centered = true
 	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	spr.scale = Vector2(scale_px, scale_px)

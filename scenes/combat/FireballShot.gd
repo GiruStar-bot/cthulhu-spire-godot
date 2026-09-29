@@ -116,6 +116,7 @@ func _show_spark_frame(index: int) -> void:
 		return
 	var x: float = float((_loop + index) * _frame_size.x)
 	_spark_atlas.region = Rect2(x, 0.0, float(_frame_size.x), float(_frame_size.y))
+	_spark.texture = _spark_atlas
 
 
 func _set_frame(index: int) -> void:
@@ -123,3 +124,4 @@ func _set_frame(index: int) -> void:
 		return
 	var i: int = clampi(index, 0, _loop - 1)
 	_atlas.region = Rect2(float(i * _frame_size.x), 0.0, float(_frame_size.x), float(_frame_size.y))
+	texture = _atlas

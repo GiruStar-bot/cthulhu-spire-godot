@@ -138,6 +138,7 @@ func _show_splash_frame(index: int) -> void:
 		return
 	var x: float = float((_grow + index) * _frame_size.x)
 	_splash_atlas.region = Rect2(x, 0.0, float(_frame_size.x), float(_frame_size.y))
+	_splash.texture = _splash_atlas
 
 
 func _set_frame(index: int) -> void:
@@ -145,3 +146,5 @@ func _set_frame(index: int) -> void:
 		return
 	var i: int = clampi(index, 0, _grow - 1)
 	_atlas.region = Rect2(float(i * _frame_size.x), 0.0, float(_frame_size.x), float(_frame_size.y))
+	## Forward+ は region だけ変えても描き直さないことがある。
+	texture = _atlas
