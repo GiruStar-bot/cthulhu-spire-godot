@@ -15,7 +15,7 @@ var _choice_ids: Array = ["a", "b"]
 func _ready() -> void:
 	var ev: Dictionary = GameState.event if GameState.event is Dictionary else {}
 	if ev.is_empty():
-		ev = Events.pick_event(Callable(GameState, "_rand"), GameState.cthugha_stage)
+		ev = Events.pick_event(Callable(GameState, "_rand"), GameState.cthugha_pick_stage())
 		GameState.event = ev
 	if GameState.toast != "":
 		GameState.toast = ""

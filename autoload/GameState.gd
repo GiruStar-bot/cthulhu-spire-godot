@@ -61,6 +61,8 @@ var starter_chosen: bool = false
 var cthugha_stage: int = 1
 ## Dream Islandを経て場面1へ戻ったときに周期を更新するための印。
 var cthugha_dream_visit: bool = false
+## ②で狂信者と戦った後、その潜航中だけクトゥグァを抽選から外す。
+var cthugha_suspended_run: bool = false
 
 ## "waking" | "dream"。DreamTitle 外宇宙贈り物フローで "dream" をセットする。
 var realm: String = "waking"
@@ -429,6 +431,7 @@ func start_run(tree: SceneTree) -> void:
 	if deck_err != "":
 		toast = deck_err
 		return
+	cthugha_suspended_run = false
 	runs += 1
 	_persist_profile()
 
@@ -531,7 +534,7 @@ func enter_floor(tree: SceneTree, next_floor: int) -> void:
 		village = {}
 		goto_scene(tree, "rest")
 	else:
-		var ev: Dictionary = Events.pick_event(Callable(self, "_rand"), cthugha_stage)
+		var ev: Dictionary = Events.pick_event(Callable(self, "_rand"), cthugha_pick_stage())
 		event = ev
 		goto_scene(tree, "event")
 
@@ -764,7 +767,12 @@ func resolve_event(tree: SceneTree, choice_id: String) -> void:
 	finish_advance(tree)
 
 
-## クトゥグァの会話結果。自由入力そのものは保存しない。
+## 進行段階はプロフィールに残し、戦闘後の抽選停止だけは次の潜航で解除する。
+func cthugha_pick_stage() -> int:
+	return 0 if cthugha_suspended_run else cthugha_stage
+
+
+## クトゥグァの会話結果。合言葉の入力内容は保存しない。
 func resolve_cthugha_event(tree: SceneTree, choice_id: String) -> void:
 	var ev: Dictionary = event if event is Dictionary else {}
 	if str(ev.get("id", "")) != "cthugha":
@@ -781,11 +789,12 @@ func resolve_cthugha_event(tree: SceneTree, choice_id: String) -> void:
 			cthugha_stage = 0
 	elif stage == 2:
 		match choice_id:
-			"speak": cthugha_stage = 3
+			"passphrase": cthugha_stage = 3
 			"skip": cthugha_stage = 1
 			"deny": cthugha_stage = 0
 			"fight":
 				cthugha_stage = 1
+				cthugha_suspended_run = true
 				_persist_profile()
 				event = null
 				combat = {"floor": floor, "kind": "combat", "enemy_ids": ["fanatic"]}
