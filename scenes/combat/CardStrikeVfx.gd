@@ -4,8 +4,6 @@ extends Node2D
 signal struck
 
 const PIXEL_SCALE := 3.0
-const PILLAR_SHEET := preload("res://art/pixel/fx/sky_pillar.png")
-const PAW_SHEET := preload("res://art/pixel/fx/cat_stamp.png")
 const GOLD := Color(1.0, 0.78, 0.29)
 const WHITE := Color(1.0, 0.97, 0.79)
 const BLUE := Color(0.23, 0.73, 0.94)
@@ -98,14 +96,23 @@ func _draw_pillar() -> void:
 	var narrow: float = 1.0 if _elapsed < 0.57 else clampf((0.78 - _elapsed) / 0.21, 0.0, 1.0)
 	var beam_half: float = maxf(1.0, roundf(half_w * fall * narrow))
 	var beam_top: float = -154.0 * fall
-	var beam_h: float = -beam_top
-	_px(Rect2(-beam_half * 0.82, beam_top, 4, beam_h), Color(0.96, 0.57, 0.13, 0.24 * fade))
-	_px(Rect2(beam_half * 0.82 - 4, beam_top, 4, beam_h), Color(0.96, 0.57, 0.13, 0.24 * fade))
-	_px(Rect2(-beam_half * 0.53, beam_top, 3, beam_h), Color(1.0, 0.85, 0.38, 0.32 * fade))
-	_px(Rect2(beam_half * 0.53 - 3, beam_top, 3, beam_h), Color(1.0, 0.85, 0.38, 0.32 * fade))
-	if beam_h > 0.0:
-		draw_texture_rect_region(PILLAR_SHEET, Rect2(-15, beam_top, 30, beam_h), Rect2(96, 0, 32, 128), Color(1.0, 1.0, 1.0, fade))
-	_px(Rect2(-beam_half * 0.08, beam_top, beam_half * 0.16, beam_h), Color(1.0, 1.0, 0.84, 0.55 * fade))
+	_px(Rect2(-beam_half * 0.82, beam_top, 4, -beam_top), Color(0.96, 0.57, 0.13, 0.24 * fade))
+	_px(Rect2(beam_half * 0.82 - 4, beam_top, 4, -beam_top), Color(0.96, 0.57, 0.13, 0.24 * fade))
+	_px(Rect2(-beam_half * 0.53, beam_top, 3, -beam_top), Color(1.0, 0.85, 0.38, 0.32 * fade))
+	_px(Rect2(beam_half * 0.53 - 3, beam_top, 3, -beam_top), Color(1.0, 0.85, 0.38, 0.32 * fade))
+	# The shaft is assembled from uneven pixel bands, rather than a stretched sheet.
+	for segment in 13:
+		var y: float = -float(segment + 1) * 12.0
+		if y < beam_top:
+			continue
+		var band_w: float = 8.0 + float((segment * 7) % 4) * 2.0
+		_px(Rect2(-band_w, y, band_w * 2.0, 12.0), Color(0.96, 0.59 + float(segment % 3) * 0.05, 0.15, 0.80 * fade))
+		_px(Rect2(-band_w * 0.55, y, band_w * 1.1, 12.0), Color(1.0, 0.83, 0.38, 0.91 * fade))
+		if segment % 3 != 1:
+			_px(Rect2(-3, y + 2, 6, 8), Color(1.0, 0.98, 0.72, 0.95 * fade))
+		var shard_x: float = band_w + 4.0 + float((segment * 5) % 7)
+		_px(Rect2(-shard_x - 2, y + 3, 2, 5), Color(1.0, 0.84, 0.37, 0.45 * fade))
+		_px(Rect2(shard_x, y + 7, 2, 3), Color(1.0, 0.84, 0.37, 0.45 * fade))
 	if _elapsed >= 0.34:
 		var shock: float = clampf((_elapsed - 0.34) / 0.22, 0.0, 1.0)
 		_draw_ring(Vector2(0, 1), half_w * (0.8 + shock * 1.0), 5.0 - shock * 3.0, Color(1.0, 0.86, 0.43, (1.0 - shock) * 0.85))
@@ -168,8 +175,25 @@ func _draw_paw() -> void:
 	if _elapsed < 0.11:
 		for i in 3:
 			_px(Rect2(float(i - 1) * 8.0, -44 - float(i % 2) * 4.0, 3, 3), Color(1.0, 0.72, 0.84, _elapsed / 0.11 * 0.7))
-	# Use the illustrated paw silhouette; the contact claws are drawn separately.
-	draw_texture_rect_region(PAW_SHEET, Rect2(-30, paw_y - 7, 60, 60), Rect2(0, 0, 64, 64), Color(1.0, 1.0, 1.0, alpha))
+	# Uneven stepped rows give the pad a rounded pixel silhouette.
+	var shadow: Color = Color(0.19, 0.07, 0.19, alpha)
+	var fur: Color = Color(0.91, 0.48, 0.64, alpha)
+	var light: Color = Color(1.0, 0.75, 0.82, alpha)
+	_px(Rect2(-12, paw_y + 1, 24, 4), shadow)
+	_px(Rect2(-16, paw_y + 5, 32, 8), shadow)
+	_px(Rect2(-14, paw_y + 13, 28, 5), shadow)
+	_px(Rect2(-10, paw_y + 18, 20, 3), shadow)
+	_px(Rect2(-11, paw_y + 2, 22, 4), fur)
+	_px(Rect2(-14, paw_y + 6, 28, 7), fur)
+	_px(Rect2(-12, paw_y + 13, 24, 4), light)
+	_px(Rect2(-8, paw_y + 17, 16, 2), fur)
+	_px(Rect2(-6, paw_y + 7, 12, 7), Color(1.0, 0.87, 0.86, alpha))
+	for i in 4:
+		var toe_x: float = -16.0 + float(i) * 9.0
+		var toe_y: float = paw_y - 7.0 - (3.0 if i == 1 or i == 2 else 0.0)
+		_px(Rect2(toe_x - 1, toe_y + 2, 9, 11), shadow)
+		_px(Rect2(toe_x, toe_y, 7, 11), fur)
+		_px(Rect2(toe_x + 1, toe_y + 1, 5, 5), light)
 	if _elapsed >= 0.25:
 		var slash: float = clampf((_elapsed - 0.25) / 0.27, 0.0, 1.0)
 		for i in 3:
