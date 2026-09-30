@@ -42,21 +42,56 @@ const PROFILES := {
 	"light_pillar": {
 		"family": "sky_fall",
 		"delay": true,
-		"timeout": 0.9,
+		"timeout": 1.1,
 		"hit_sfx": "vfx_impact",
 	},
 	"trident": {
 		"family": "thrust",
 		"delay": true,
-		"timeout": 0.9,
+		"timeout": 1.0,
 		"hit_sfx": "vfx_impact",
 	},
 	"cats_paw": {
 		"family": "stamp",
 		"delay": true,
-		"timeout": 0.9,
+		"timeout": 0.8,
 		"hit_sfx": "cat_hiss",
 	},
+	"whirlwind_px": {"family": "whirlwind_px", "delay": true, "timeout": 1.2, "hit_sfx": "vfx_impact"},
+	"wind_arrow_px": {"family": "wind_arrow_px", "delay": true, "timeout": 1.8, "hit_sfx": "vfx_arrow"},
+	"muramasa_px": {"family": "muramasa_px", "delay": true, "timeout": 1.0, "hit_sfx": "vfx_slash"},
+	"cold_flame_px": {"family": "cold_flame_px", "delay": true, "timeout": 1.0, "hit_sfx": "vfx_impact"},
+	"earthquake_px": {"family": "earthquake_px", "delay": true, "timeout": 1.2, "hit_sfx": "vfx_impact"},
+	"charge_px": {"family": "charge_px", "delay": true, "timeout": 1.0, "hit_sfx": "vfx_impact"},
+	"thecall_px": {"family": "thecall_px", "delay": true, "timeout": 1.2, "hit_sfx": "vfx_impact"},
+	"collapse_px": {"family": "collapse_px", "delay": true, "timeout": 1.0, "hit_sfx": "vfx_impact"},
+	"ultimate_px": {"family": "ultimate_px", "delay": true, "timeout": 1.2, "hit_sfx": "vfx_impact"},
+}
+
+## cards.gd の汎用キーを変えず、戦闘演出だけカード固有のシートへ差し替える。
+const CARD_KEYS := {
+	"whirlwind": "whirlwind_px",
+	"whirlwind_free": "whirlwind_px",
+	"wind_gods_bow": "wind_arrow_px",
+	"muramasa": "muramasa_px",
+	"cold_flame": "cold_flame_px",
+	"earthquake": "earthquake_px",
+	"charge": "charge_px",
+	"thecall": "thecall_px",
+	"collapse": "collapse_px",
+	"ultimate_arcane": "ultimate_px",
+}
+
+const SEQUENCE_FAMILIES := {
+	"whirlwind_px": true,
+	"wind_arrow_px": true,
+	"muramasa_px": true,
+	"cold_flame_px": true,
+	"earthquake_px": true,
+	"charge_px": true,
+	"thecall_px": true,
+	"collapse_px": true,
+	"ultimate_px": true,
 }
 
 ## 自分に向かう型。敵座標は要らない。描画は段階4。
@@ -78,6 +113,14 @@ static func profile(vfx_key: String) -> Dictionary:
 	if raw is Dictionary:
 		return raw
 	return {}
+
+
+static func key_for_card(def_id: String, declared_key: String) -> String:
+	return str(CARD_KEYS.get(def_id, declared_key))
+
+
+static func is_sequence_family(family_name: String) -> bool:
+	return SEQUENCE_FAMILIES.has(family_name)
 
 
 static func family(vfx_key: String) -> String:

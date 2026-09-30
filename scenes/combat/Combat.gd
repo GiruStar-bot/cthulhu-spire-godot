@@ -29,19 +29,9 @@ const FIREBALL_SCALE := 3.0
 const FIREBALL_START_SCALE := 12.0
 const FIREBALL_FLIGHT := 0.32
 const CARD_VFX := preload("res://scenes/combat/CardVfx.gd")
-const SHEET_STRIKE := preload("res://scenes/combat/SheetStrike.gd")
-const SKY_PILLAR_SHEET := preload("res://art/pixel/fx/sky_pillar.png")
-const SKY_PILLAR_FRAME := Vector2i(32, 128)
-const SKY_PILLAR_HOLDS: Array = [0.07, 0.06, 0.05, 0.06, 0.08, 0.08]
-const SKY_PILLAR_STAGGER := 0.06
-const TRIDENT_SHEET := preload("res://art/pixel/fx/trident_thrust.png")
-const TRIDENT_FRAME := Vector2i(72, 72)
-const TRIDENT_HOLDS: Array = [0.06, 0.06, 0.05, 0.05, 0.08, 0.08]
-const CAT_STAMP_SHEET := preload("res://art/pixel/fx/cat_stamp.png")
-const CAT_STAMP_FRAME := Vector2i(64, 64)
-const CAT_STAMP_HOLDS: Array = [0.06, 0.07, 0.05, 0.08, 0.12, 0.10]
-## ドットは原寸。戦場では整数倍の nearest。
-const VFX_PX_SCALE := 3.0
+const CARD_STRIKE_VFX := preload("res://scenes/combat/CardStrikeVfx.gd")
+const CARD_SEQUENCE_VFX := preload("res://scenes/combat/CardSequenceVfx.gd")
+const SKY_PILLAR_STAGGER := 0.11
 ## とどめの数字を見せてから、溶解と勝敗メッセージを出すまでの間。
 const HELD_DEATH_REVEAL := 0.32
 const RESULT_WIN_DELAY := 0.92
@@ -309,7 +299,7 @@ func _play_card(card_uid: String, target_id, from_global: Vector2 = Vector2(-1.0
 		def_id = str(selected_card.get("defId", ""))
 	var hp_before: int = int(player.hp)
 	var definition: Dictionary = Cards.get_card(def_id) if def_id != "" else {}
-	var vfx_key: String = str(definition.get("vfx", ""))
+	var vfx_key: String = CARD_VFX.key_for_card(def_id, str(definition.get("vfx", "")))
 	## キーが無い攻撃は、これまで通り着弾音だけ impact。見た目は出さない（_fx_card_vfx 側）。
 	var vfx_for_sfx: String = vfx_key if vfx_key != "" else "impact"
 	## delay の付いた型は、当たる瞬間まで効果音とダメージ数字を遅らせる。計算自体は上の play_card で済んでいる。
@@ -1348,6 +1338,9 @@ func _spawn_floater(floater: Dictionary) -> void:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.z_index = 100
 	var start: Vector2 = _floater_position(str(floater.get("who", "player")))
+	var override_pos: Variant = floater.get("position_override", null)
+	if override_pos is Vector2:
+		start = override_pos
 	label.position = start - label.size * 0.5
 	label.pivot_offset = label.size * 0.5
 	label.scale = Vector2(0.72, 0.72)
@@ -1362,7 +1355,7 @@ func _spawn_floater(floater: Dictionary) -> void:
 	fade.tween_interval(0.126)
 	fade.tween_property(label, "modulate:a", 0.0, 0.574)
 	fade.tween_callback(label.queue_free)
-	if kind == "dmg" and str(floater.get("who", "")) != "player":
+	if kind == "dmg" and str(floater.get("who", "")) != "player" and floater.get("skip_hit_flash", false) != true:
 		_animate_enemy_hit(str(floater.get("who", "")))
 
 
@@ -2377,7 +2370,7 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 	if def_id == "":
 		return
 	var definition: Dictionary = Cards.get_card(def_id)
-	var kind: String = str(definition.get("vfx", ""))
+	var kind: String = CARD_VFX.key_for_card(def_id, str(definition.get("vfx", "")))
 	if kind == "":
 		return
 	var family: String = str(CARD_VFX.family(kind))
@@ -2386,6 +2379,9 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 		return
 	var uids: Array = _vfx_target_uids(definition, target_id)
 	if uids.is_empty():
+		return
+	if CARD_VFX.is_sequence_family(family):
+		_fx_sequence_card(family, uids)
 		return
 	if family == "arrow":
 		for uid in uids:
@@ -2414,14 +2410,14 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 	if family == "sky_fall":
 		if VideoSettings.is_reduce_motion():
 			for uid3 in uids:
-				_fx_sheet_still(SKY_PILLAR_SHEET, SKY_PILLAR_FRAME, VFX_PX_SCALE, _vfx_feet_of(str(uid3)), 3, true)
+				_spawn_card_still("pillar", _vfx_feet_of(str(uid3)), str(uid3))
 			return
 		_fx_sky_fall(uids)
 		return
 	if family == "thrust":
 		if VideoSettings.is_reduce_motion():
 			for uid4 in uids:
-				_fx_sheet_still(TRIDENT_SHEET, TRIDENT_FRAME, VFX_PX_SCALE, _vfx_center_of(str(uid4)), 3, false)
+				_spawn_card_still("trident", _vfx_center_of(str(uid4)), str(uid4))
 			return
 		for uid5 in uids:
 			_fx_trident_thrust(str(uid5))
@@ -2429,7 +2425,7 @@ func _fx_card_vfx(def_id: String, target_id) -> void:
 	if family == "stamp":
 		if VideoSettings.is_reduce_motion():
 			for uid6 in uids:
-				_fx_sheet_still(CAT_STAMP_SHEET, CAT_STAMP_FRAME, VFX_PX_SCALE, _vfx_head_of(str(uid6)), 2, false)
+				_spawn_card_still("paw", _vfx_head_of(str(uid6)), str(uid6))
 			return
 		for uid7 in uids:
 			_fx_cat_stamp(str(uid7))
@@ -2551,6 +2547,52 @@ func _on_vfx_struck_at(uid: String) -> void:
 	_release_held(uid)
 	if _held_floater_ids.is_empty():
 		_cancel_struck_hold_timeout()
+
+
+## 風神の弓は内部の１回のダメージを変えず、表示だけ３段階に分ける。
+func _on_wind_arrow_arrive(uid: String) -> void:
+	if not is_inside_tree():
+		return
+	if VideoSettings.is_reduce_motion() or not _shown_enemy_hp.has(uid):
+		_on_vfx_struck_at(uid)
+		return
+	var start_hp: int = int(_shown_enemy_hp[uid])
+	var final_hp: int = _true_enemy_hp(uid)
+	if start_hp <= final_hp:
+		_on_vfx_struck_at(uid)
+		return
+	if _hit_hold_sfx != "":
+		AudioManager.play_sfx(_hit_hold_sfx)
+		_hit_hold_sfx = ""
+	for key in _held_floater_ids.keys():
+		var id: String = str(key)
+		if _floater_who(id) == uid:
+			_shown_floaters[id] = true
+	var pulse: Tween = create_tween()
+	for step in range(1, 4):
+		if step > 1:
+			pulse.tween_interval(0.30)
+		var goal_hp: int = maxi(final_hp, start_hp - roundi(float(start_hp - final_hp) * float(step) / 3.0))
+		pulse.tween_callback(_wind_arrow_hp_tick.bind(uid, goal_hp, step))
+
+
+func _wind_arrow_hp_tick(uid: String, goal_hp: int, step: int) -> void:
+	if not is_inside_tree() or not _shown_enemy_hp.has(uid):
+		return
+	var shown_hp: int = int(_shown_enemy_hp[uid])
+	var next_hp: int = clampi(goal_hp, _true_enemy_hp(uid), shown_hp)
+	_shown_enemy_hp[uid] = next_hp
+	if next_hp < shown_hp:
+		var center: Vector2 = _vfx_center_of(uid)
+		var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+		var side_distance: float = art.size.x * 0.55 + 30.0 if art != null and is_instance_valid(art) else 140.0
+		var side: float = -1.0 if center.x > size.x * 0.5 else 1.0
+		var number_pos: Vector2 = center + Vector2(side * side_distance, -145.0 + float(step - 1) * 40.0)
+		_spawn_floater({"kind": "dmg", "text": "-%d" % (shown_hp - next_hp), "who": uid,
+			"skip_hit_flash": true, "position_override": number_pos})
+	_refresh_enemies()
+	if step == 3:
+		_release_held(uid)
 
 
 func _on_struck_hold_timeout() -> void:
@@ -2735,38 +2777,26 @@ func _sort_uids_by_x(a, b) -> bool:
 	return _vfx_feet_of(str(a)).x < _vfx_feet_of(str(b)).x
 
 
-func _fx_sheet_still(sheet: Texture2D, frame_size: Vector2i, scale_px: float, pos: Vector2, frame_i: int, anchor_bottom: bool) -> void:
+func _spawn_card_still(kind_name: String, pos: Vector2, uid: String) -> void:
 	_ensure_vfx_layer()
-	var spr := Sprite2D.new()
-	var cols: int = maxi(1, int(sheet.get_width() / frame_size.x))
-	var image: Image = sheet.get_image()
-	if image != null and not image.is_empty():
-		var cell: Image = image.get_region(Rect2i(frame_i * frame_size.x, 0, frame_size.x, frame_size.y))
-		spr.texture = ImageTexture.create_from_image(cell)
-	else:
-		spr.texture = sheet
-		spr.hframes = cols
-		spr.vframes = 1
-		spr.frame = clampi(frame_i, 0, cols - 1)
-	spr.centered = true
-	spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	spr.scale = Vector2(scale_px, scale_px)
-	if anchor_bottom:
-		spr.offset = Vector2(0.0, -float(frame_size.y) * 0.5)
-	spr.position = pos
-	spr.z_index = -2
-	_vfx_layer.add_child(spr)
-	var tw: Tween = spr.create_tween()
-	tw.tween_interval(0.2)
-	tw.tween_callback(spr.queue_free)
-
-
-func _spawn_sheet_strike(sheet: Texture2D, frame_size: Vector2i, strike_at: int, holds: Array, anchor_bottom: bool, pos: Vector2, uid: String, per_target: bool) -> void:
-	_ensure_vfx_layer()
-	var strike = SHEET_STRIKE.new()
+	var strike = CARD_STRIKE_VFX.new()
 	strike.z_index = -2
 	_vfx_layer.add_child(strike)
-	strike.setup(sheet, frame_size, VFX_PX_SCALE, strike_at, holds, anchor_bottom)
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	var body_width: float = art.size.x if art != null and is_instance_valid(art) else 120.0
+	strike.setup(kind_name, body_width)
+	strike.position = pos
+	strike.show_still()
+
+
+func _spawn_card_strike(kind_name: String, pos: Vector2, uid: String, per_target: bool) -> void:
+	_ensure_vfx_layer()
+	var strike = CARD_STRIKE_VFX.new()
+	strike.z_index = -2
+	_vfx_layer.add_child(strike)
+	var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+	var body_width: float = art.size.x if art != null and is_instance_valid(art) else 120.0
+	strike.setup(kind_name, body_width)
 	strike.position = pos
 	if per_target:
 		strike.struck.connect(_on_vfx_struck_at.bind(uid))
@@ -2794,17 +2824,57 @@ func _fx_sky_fall(uids: Array) -> void:
 func _spawn_sky_pillar(uid: String) -> void:
 	if not is_inside_tree():
 		return
-	## 輪はシート下端から 8px 上。足元に乗せる。
-	var pos: Vector2 = _vfx_feet_of(uid) + Vector2(0.0, 8.0 * VFX_PX_SCALE)
-	_spawn_sheet_strike(SKY_PILLAR_SHEET, SKY_PILLAR_FRAME, 3, SKY_PILLAR_HOLDS, true, pos, uid, true)
+	_spawn_card_strike("pillar", _vfx_feet_of(uid), uid, true)
 
 
 func _fx_trident_thrust(uid: String) -> void:
-	_spawn_sheet_strike(TRIDENT_SHEET, TRIDENT_FRAME, 3, TRIDENT_HOLDS, false, _vfx_center_of(uid), uid, false)
+	_spawn_card_strike("trident", _vfx_center_of(uid), uid, false)
 
 
 func _fx_cat_stamp(uid: String) -> void:
-	_spawn_sheet_strike(CAT_STAMP_SHEET, CAT_STAMP_FRAME, 2, CAT_STAMP_HOLDS, false, _vfx_head_of(uid), uid, false)
+	_spawn_card_strike("paw", _vfx_head_of(uid), uid, false)
+
+
+func _fx_sequence_card(kind_name: String, uids: Array) -> void:
+	_ensure_vfx_layer()
+	var points: Array[Vector2] = []
+	var ids: Array[String] = []
+	for value in uids:
+		var uid: String = str(value)
+		ids.append(uid)
+		if kind_name == "whirlwind_px" or kind_name == "cold_flame_px" or kind_name == "earthquake_px":
+			points.append(_vfx_feet_of(uid))
+		else:
+			points.append(_vfx_center_of(uid))
+	var together: bool = kind_name == "whirlwind_px" or kind_name == "thecall_px" or kind_name == "collapse_px" or kind_name == "ultimate_px"
+	if together:
+		_spawn_sequence_card(kind_name, points, ids, "" if kind_name == "whirlwind_px" else "all")
+		return
+	for i in ids.size():
+		var one_point: Array[Vector2] = []
+		one_point.append(points[i])
+		var one_uid: Array[String] = []
+		one_uid.append(ids[i])
+		_spawn_sequence_card(kind_name, one_point, one_uid, ids[i])
+
+
+func _spawn_sequence_card(kind_name: String, points: Array[Vector2], ids: Array[String], release_uid: String) -> void:
+	var effect: CardSequenceVfx = CARD_SEQUENCE_VFX.new()
+	effect.z_index = -2
+	_vfx_layer.add_child(effect)
+	effect.setup(kind_name, points, ids, size)
+	if kind_name == "wind_arrow_px":
+		effect.struck_at.connect(_on_wind_arrow_arrive)
+	elif kind_name == "whirlwind_px":
+		effect.struck_at.connect(_on_vfx_struck_at)
+	elif release_uid == "all":
+		effect.struck.connect(_on_vfx_struck)
+	else:
+		effect.struck.connect(_on_vfx_struck_at.bind(release_uid))
+	if VideoSettings.is_reduce_motion():
+		effect.show_still()
+		return
+	effect.play()
 
 
 func _vfx_fit(uid: String) -> float:
