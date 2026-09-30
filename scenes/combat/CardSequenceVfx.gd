@@ -30,6 +30,7 @@ var _crossed: Dictionary = {}
 var _base_position: Vector2 = Vector2.ZERO
 var _start_x: float = 0.0
 var _end_x: float = 0.0
+var _arrow_origin: Vector2 = Vector2.ZERO
 
 
 func setup(kind_name: String, points: Array[Vector2], uids: Array[String], view_size: Vector2) -> void:
@@ -46,8 +47,9 @@ func setup(kind_name: String, points: Array[Vector2], uids: Array[String], view_
 			offset = Vector2(0, -56)
 		"wind_arrow_px":
 			source = WIND_ARROW
-			cell_size = Vector2i(80, 40)
-			_holds = [0.11, 0.11, 0.11, 0.11, 0.11, 0.11]
+			cell_size = Vector2i(96, 80)
+			_holds = [0.08, 0.08, 0.08, 0.08, 0.10, 0.10, 0.10, 0.10, 0.10, 0.12]
+			_hit_frame = 4
 		"muramasa_px":
 			source = MURAMASA
 			cell_size = Vector2i(112, 112)
@@ -95,8 +97,10 @@ func setup(kind_name: String, points: Array[Vector2], uids: Array[String], view_
 		scale = Vector2(view_size.x / 320.0, view_size.y / 180.0)
 		_base_position = view_size * 0.5
 	else:
-		scale = Vector2.ONE * 3.0
+		scale = Vector2.ONE * (2.4 if _kind == "wind_arrow_px" else 3.0)
 		_base_position = _points[0] if not _points.is_empty() else view_size * 0.5
+	if _kind == "wind_arrow_px":
+		_arrow_origin = Vector2(view_size.x * 0.15, view_size.y * 0.78)
 	if _is_traversal():
 		var min_x: float = _base_position.x
 		var max_x: float = _base_position.x
@@ -124,7 +128,7 @@ func show_still() -> void:
 	visible = true
 	_show_frame(_hit_frame)
 	set_process(false)
-	if _is_traversal():
+	if _is_traversal() or _kind == "wind_arrow_px":
 		for uid in _uids:
 			struck_at.emit(uid)
 	else:
@@ -138,7 +142,12 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	var index: int = _frame_index()
 	_show_frame(index)
-	if _is_traversal():
+	if _kind == "wind_arrow_px":
+		if index >= _hit_frame and not _hit_sent:
+			_hit_sent = true
+			if not _uids.is_empty():
+				struck_at.emit(_uids[0])
+	elif _is_traversal():
 		for i in _uids.size():
 			var uid: String = _uids[i]
 			if not _crossed.has(uid) and position.x >= _points[i].x:
@@ -148,7 +157,10 @@ func _process(delta: float) -> void:
 		_hit_sent = true
 		struck.emit()
 	if _elapsed >= _duration():
-		if _is_traversal():
+		if _kind == "wind_arrow_px":
+			if not _hit_sent and not _uids.is_empty():
+				struck_at.emit(_uids[0])
+		elif _is_traversal():
 			for uid in _uids:
 				if not _crossed.has(uid):
 					struck_at.emit(uid)
@@ -161,7 +173,14 @@ func _process(delta: float) -> void:
 func _show_frame(i: int) -> void:
 	texture = _cells[i]
 	position = _base_position
-	if _is_traversal():
+	if _kind == "wind_arrow_px":
+		if i < _hit_frame:
+			var travel: float = clampf(_elapsed / _elapsed_at_frame(_hit_frame), 0.0, 1.0)
+			position = _arrow_origin.lerp(_base_position, travel)
+			rotation = (_base_position - _arrow_origin).angle()
+		else:
+			rotation = 0.0
+	elif _is_traversal():
 		var reach: float = clampf(_elapsed / (_duration() * 0.85), 0.0, 1.0)
 		position.x = lerpf(_start_x, _end_x, reach)
 	elif _kind == "charge_px":
@@ -199,7 +218,7 @@ func _is_screen() -> bool:
 
 
 func _is_traversal() -> bool:
-	return _kind == "whirlwind_px" or _kind == "wind_arrow_px"
+	return _kind == "whirlwind_px"
 
 
 static func _slice(kind_name: String, source: Texture2D, cell_size: Vector2i) -> Array[Texture2D]:

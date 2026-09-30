@@ -58,7 +58,7 @@ const PROFILES := {
 		"hit_sfx": "cat_hiss",
 	},
 	"whirlwind_px": {"family": "whirlwind_px", "delay": true, "timeout": 1.2, "hit_sfx": "vfx_impact"},
-	"wind_arrow_px": {"family": "wind_arrow_px", "delay": true, "timeout": 1.0, "hit_sfx": "vfx_arrow"},
+	"wind_arrow_px": {"family": "wind_arrow_px", "delay": true, "timeout": 1.8, "hit_sfx": "vfx_arrow"},
 	"muramasa_px": {"family": "muramasa_px", "delay": true, "timeout": 1.0, "hit_sfx": "vfx_slash"},
 	"cold_flame_px": {"family": "cold_flame_px", "delay": true, "timeout": 1.0, "hit_sfx": "vfx_impact"},
 	"earthquake_px": {"family": "earthquake_px", "delay": true, "timeout": 1.2, "hit_sfx": "vfx_impact"},

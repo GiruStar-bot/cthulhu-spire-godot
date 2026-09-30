@@ -120,24 +120,66 @@ def whirlwind(im: Image.Image, frame: int) -> None:
 
 
 def wind_arrow(im: Image.Image, frame: int) -> None:
-    wobble = (-1, 0, 1, 0, -1, 0)[frame]
-    cy = 21 + wobble
-    # The gold-cyan arrowhead has dark underside and lit top facets.
-    poly(im, [(54, cy - 7), (77, cy), (54, cy + 8), (59, cy + 2), (47, cy + 2)], INK)
-    poly(im, [(56, cy - 5), (74, cy), (56, cy), (47, cy)], WIND_LIGHT)
-    poly(im, [(56, cy), (73, cy + 1), (56, cy + 6), (47, cy + 2)], WIND_DARK)
-    line(im, (10, cy + 2), (56, cy + 2), 6, WIND_DARK)
-    line(im, (11, cy), (56, cy), 3, PALE)
-    line(im, (13, cy - 1), (51, cy - 1), 1, WHITE)
-    poly(im, [(12, cy), (5, cy - 10), (18, cy - 4), (23, cy)], WIND)
-    poly(im, [(12, cy + 2), (5, cy + 11), (18, cy + 6), (23, cy + 2)], WIND_DARK)
-    for i in range(9):
-        x = (i * 9 + frame * 7) % 53
-        y = cy + ((i * 5) % 17) - 8
-        if i % 2:
-            line(im, (x, y), (x - 5, y), 1, WIND_LIGHT)
-        else:
-            put(im, x, y, PALE)
+    cx, cy = 48, 40
+    if frame < 4:
+        wobble = (-1, 0, 1, 0)[frame]
+        y = cy + wobble
+        # A single faceted wind shaft. Its underside is dark, its upper edge
+        # catches light, and a hollow center keeps it from reading as a bar.
+        poly(im, [(17, y - 3), (72, y - 5), (80, y), (71, y + 7), (18, y + 5)], WIND_DARK)
+        poly(im, [(20, y - 3), (72, y - 5), (89, y), (71, y), (19, y + 1)], WIND_LIGHT)
+        poly(im, [(72, y - 12), (95, y), (72, y + 13), (78, y + 2)], WIND_DARK)
+        poly(im, [(74, y - 10), (93, y), (74, y + 1), (65, y - 2)], PALE)
+        poly(im, [(75, y + 1), (92, y + 1), (74, y + 10), (67, y + 3)], WIND)
+        line(im, (23, y - 2), (78, y - 3), 2, WHITE)
+        # Curved side vanes and wind torn from the tail give the projectile
+        # volume and a clear direction even when rotated toward its target.
+        poly(im, [(22, y), (5, y - 15), (27, y - 8), (38, y - 1)], WIND)
+        poly(im, [(22, y + 2), (6, y + 17), (28, y + 9), (38, y + 3)], WIND_DARK)
+        line(im, (9, y - 12), (26, y - 5), 2, PALE)
+        line(im, (10, y + 12), (26, y + 6), 2, WIND_LIGHT)
+        for i in range(12):
+            x = 4 + (i * 17 + frame * 9) % 65
+            yy = y + round(math.sin(x * .18 + frame * 1.1) * (8 + i % 3 * 2))
+            if abs(yy - y) > 5:
+                line(im, (x, yy), (x - 5, yy + (1 if yy < y else -1)),
+                     1, WIND_LIGHT if i % 3 else WHITE)
+        return
+
+    # Three pressure waves at frames 4, 6 and 8. Curved gusts peel away from
+    # the core; the gaps keep the enemy readable through the wind burst.
+    burst = frame - 4
+    outer = (15, 21, 29, 33, 39, 42)[burst]
+    pulse = burst % 2 == 0
+    core = 10 if pulse else 6
+    ellipse(im, cx, cy, core + 4, core + 4, WIND_DARK)
+    ellipse(im, cx, cy, core, core, PALE if pulse else WIND_LIGHT)
+    ellipse(im, cx - 2, cy - 2, max(2, core - 5), max(2, core - 5), WHITE)
+    for i in range(10):
+        angle = i * math.tau / 10 + burst * .18
+        previous: tuple[int, int] | None = None
+        for j in range(7):
+            t = j / 6
+            radius = core + 4 + (outer - core - 4) * t
+            turn = angle + .62 * (1 - t)
+            point = (round(cx + math.cos(turn) * radius),
+                     round(cy + math.sin(turn) * radius))
+            if previous is not None:
+                line(im, previous, point, 3 if pulse else 2, WIND_DARK)
+                if i % 3 != 0 and j >= 3:
+                    line(im, previous, point, 1, WHITE if pulse else PALE)
+            previous = point
+        if i % 2 == 0 and previous is not None:
+            px, py = previous
+            put(im, px + round(math.cos(angle + .8) * 3),
+                py + round(math.sin(angle + .8) * 3), WIND_LIGHT)
+    for i in range(48):
+        angle = i * math.tau / 48 + burst * .15
+        if (i + burst * 3) % 7 < 2:
+            continue
+        x = round(cx + math.cos(angle) * outer)
+        y = round(cy + math.sin(angle) * outer)
+        put(im, x, y, WIND_LIGHT if i % 3 else WHITE)
 
 
 def muramasa(im: Image.Image, frame: int) -> None:
@@ -343,7 +385,7 @@ def ultimate(im: Image.Image, frame: int) -> None:
 
 def main() -> None:
     sheet("whirlwind_px.png", 80, 112, 8, whirlwind)
-    sheet("wind_arrow_px.png", 80, 40, 6, wind_arrow)
+    sheet("wind_arrow_px.png", 96, 80, 10, wind_arrow)
     sheet("muramasa_px.png", 112, 112, 8, muramasa)
     sheet("cold_flame_px.png", 80, 112, 8, cold_flame)
     sheet("earthquake_px.png", 112, 72, 8, earthquake)

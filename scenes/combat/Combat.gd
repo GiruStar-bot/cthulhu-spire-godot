@@ -1338,6 +1338,9 @@ func _spawn_floater(floater: Dictionary) -> void:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.z_index = 100
 	var start: Vector2 = _floater_position(str(floater.get("who", "player")))
+	var override_pos: Variant = floater.get("position_override", null)
+	if override_pos is Vector2:
+		start = override_pos
 	label.position = start - label.size * 0.5
 	label.pivot_offset = label.size * 0.5
 	label.scale = Vector2(0.72, 0.72)
@@ -1352,7 +1355,7 @@ func _spawn_floater(floater: Dictionary) -> void:
 	fade.tween_interval(0.126)
 	fade.tween_property(label, "modulate:a", 0.0, 0.574)
 	fade.tween_callback(label.queue_free)
-	if kind == "dmg" and str(floater.get("who", "")) != "player":
+	if kind == "dmg" and str(floater.get("who", "")) != "player" and floater.get("skip_hit_flash", false) != true:
 		_animate_enemy_hit(str(floater.get("who", "")))
 
 
@@ -2546,6 +2549,52 @@ func _on_vfx_struck_at(uid: String) -> void:
 		_cancel_struck_hold_timeout()
 
 
+## 風神の弓は内部の１回のダメージを変えず、表示だけ３段階に分ける。
+func _on_wind_arrow_arrive(uid: String) -> void:
+	if not is_inside_tree():
+		return
+	if VideoSettings.is_reduce_motion() or not _shown_enemy_hp.has(uid):
+		_on_vfx_struck_at(uid)
+		return
+	var start_hp: int = int(_shown_enemy_hp[uid])
+	var final_hp: int = _true_enemy_hp(uid)
+	if start_hp <= final_hp:
+		_on_vfx_struck_at(uid)
+		return
+	if _hit_hold_sfx != "":
+		AudioManager.play_sfx(_hit_hold_sfx)
+		_hit_hold_sfx = ""
+	for key in _held_floater_ids.keys():
+		var id: String = str(key)
+		if _floater_who(id) == uid:
+			_shown_floaters[id] = true
+	var pulse: Tween = create_tween()
+	for step in range(1, 4):
+		if step > 1:
+			pulse.tween_interval(0.30)
+		var goal_hp: int = maxi(final_hp, start_hp - roundi(float(start_hp - final_hp) * float(step) / 3.0))
+		pulse.tween_callback(_wind_arrow_hp_tick.bind(uid, goal_hp, step))
+
+
+func _wind_arrow_hp_tick(uid: String, goal_hp: int, step: int) -> void:
+	if not is_inside_tree() or not _shown_enemy_hp.has(uid):
+		return
+	var shown_hp: int = int(_shown_enemy_hp[uid])
+	var next_hp: int = clampi(goal_hp, _true_enemy_hp(uid), shown_hp)
+	_shown_enemy_hp[uid] = next_hp
+	if next_hp < shown_hp:
+		var center: Vector2 = _vfx_center_of(uid)
+		var art: TextureRect = _enemy_art_by_uid.get(uid) as TextureRect
+		var side_distance: float = art.size.x * 0.55 + 30.0 if art != null and is_instance_valid(art) else 140.0
+		var side: float = -1.0 if center.x > size.x * 0.5 else 1.0
+		var number_pos: Vector2 = center + Vector2(side * side_distance, -145.0 + float(step - 1) * 40.0)
+		_spawn_floater({"kind": "dmg", "text": "-%d" % (shown_hp - next_hp), "who": uid,
+			"skip_hit_flash": true, "position_override": number_pos})
+	_refresh_enemies()
+	if step == 3:
+		_release_held(uid)
+
+
 func _on_struck_hold_timeout() -> void:
 	_hit_hold_timeout = null
 	_hit_hold_sfx = ""
@@ -2797,9 +2846,9 @@ func _fx_sequence_card(kind_name: String, uids: Array) -> void:
 			points.append(_vfx_feet_of(uid))
 		else:
 			points.append(_vfx_center_of(uid))
-	var together: bool = kind_name == "whirlwind_px" or kind_name == "wind_arrow_px" or kind_name == "thecall_px" or kind_name == "collapse_px" or kind_name == "ultimate_px"
+	var together: bool = kind_name == "whirlwind_px" or kind_name == "thecall_px" or kind_name == "collapse_px" or kind_name == "ultimate_px"
 	if together:
-		_spawn_sequence_card(kind_name, points, ids, "" if kind_name == "whirlwind_px" or kind_name == "wind_arrow_px" else "all")
+		_spawn_sequence_card(kind_name, points, ids, "" if kind_name == "whirlwind_px" else "all")
 		return
 	for i in ids.size():
 		var one_point: Array[Vector2] = []
@@ -2814,7 +2863,9 @@ func _spawn_sequence_card(kind_name: String, points: Array[Vector2], ids: Array[
 	effect.z_index = -2
 	_vfx_layer.add_child(effect)
 	effect.setup(kind_name, points, ids, size)
-	if kind_name == "whirlwind_px" or kind_name == "wind_arrow_px":
+	if kind_name == "wind_arrow_px":
+		effect.struck_at.connect(_on_wind_arrow_arrive)
+	elif kind_name == "whirlwind_px":
 		effect.struck_at.connect(_on_vfx_struck_at)
 	elif release_uid == "all":
 		effect.struck.connect(_on_vfx_struck)
